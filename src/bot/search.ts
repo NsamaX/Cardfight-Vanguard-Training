@@ -5,7 +5,7 @@ import { FRONT, type CardDB } from "../engine/rules";
 import type { Action, Circle, Deck, GameState, PlayerId } from "../engine/types";
 import { candidates, fallbacks, tryApply } from "./actions";
 import { evaluate } from "./eval";
-import { attackOptions, guardPlans, policy, rankedCalls, rideAction, strideDiscard, strideOptions } from "./policy";
+import { attackOptions, fastMode, guardPlans, policy, rankedCalls, rideAction, strideDiscard, strideOptions } from "./policy";
 import { determinize } from "./view";
 
 export interface SearchConfig {
@@ -99,7 +99,9 @@ export async function search(
   const se = (x: typeof stats[number]) => (x.n > 1 ? Math.sqrt(Math.max(0, x.sq / x.n - (x.sum / x.n) ** 2) / (x.n - 1)) : Infinity);
   const value = (det: GameState, a: Action) => {
     const r = tryApply(db, det, p, a);
-    return r ? evaluate(db, rollout(db, r.state, lastTurn), p) : undefined;
+    if (!r) return undefined;
+    fastMode.on = true;
+    try { return evaluate(db, rollout(db, r.state, lastTurn), p); } finally { fastMode.on = false; }
   };
   let rollouts = 0;
   for (let round = 0; rollouts < cfg.maxIter && now() - t0 < cfg.ms; round++) {

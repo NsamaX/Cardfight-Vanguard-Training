@@ -16,7 +16,9 @@ function side(db: CardDB, s: GameState, p: PlayerId): number {
   let v = -DAMAGE_COST[Math.min(5, ps.damage.length)];
   const vc = ps.circles.vc ? db[ps.circles.vc.key] : undefined;
   v += (vc?.type === "g-unit" && ps.heart ? db[ps.heart.key].grade : vc?.grade ?? 0) * GRADE_VALUE;
-  v += ps.damage.filter((d) => d.faceUp).length * CB_VALUE;
+  // CB 2 แต้มแรกมีค่ามาก (ต้องมีไว้ใช้คอมโบ/G การ์เดี้ยนนอกเทิร์น) ที่เกินจากนั้นค่าลดลง
+  const cb = ps.damage.filter((d) => d.faceUp).length;
+  v += Math.min(cb, 2) * 0.35 + Math.max(0, cb - 2) * CB_VALUE;
   for (const h of ps.hand) v += keepValue(db, s, p, h);
   // กันได้ด้วยพิทักษ์/G การ์เดี้ยนช่วยตอนดาเมจสูง
   if (ps.damage.length >= 4 && ps.hand.some((h) => !isHidden(h) && isSentinel(db[h.key]))) v += 0.4;

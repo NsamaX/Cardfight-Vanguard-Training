@@ -3,15 +3,16 @@
 import { gGuardianBlocked, usableActs } from "../engine/game";
 import { parseCode } from "../engine/code";
 import {
-  BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, strideCostGrade, criticalOf, driveOf, generationBreak, isG, isSentinel, other, powerOf, shieldOf, vcGrade,
+  BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, strideCostGrade, criticalOf, driveOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, shieldOf, vcGrade,
   type CardDB,
 } from "../engine/rules";
 import { circleOf, locate } from "../engine/state";
 import type { Action, CardInstance, Circle, GameState, PlayerId, PlayerState, QueueEntry } from "../engine/types";
-import { distinctByKey, ownQueue } from "./actions";
-import { CB_VALUE, DAMAGE_COST } from "./eval";
+import { distinctByKey, ownQueue, tryApply } from "./actions";
+import { CB_VALUE, DAMAGE_COST, evaluate } from "./eval";
 import { dropCallPayoff, handCallPayoff, hollowPayoff, keepValue, rideScore, shieldIn, strideScore, unitValue } from "./knowledge";
-import { isHidden } from "./view";
+import { estimateDefense, nextTurnNeed, unitThreat } from "./intel";
+import { deckOdds, isHidden } from "./view";
 
 export function policy(db: CardDB, s: GameState, p: PlayerId): Action {
   const d = s.awaiting!;
@@ -158,7 +159,10 @@ export function callScore(db: CardDB, s: GameState, p: PlayerId, inst: CardInsta
   if (card.grade <= 1 && FRONT.includes(to)) gain -= 0.6;
   // แรงกดดันที่หายไปของตัวเดิมคิดอยู่ใน gain แล้ว เหลือแค่ค่าอื่นของยูนิท (เป็นตัวอินเตอร์เซปต์ ฯลฯ)
   const loss = old && !old.hollowed && !old.retireAtTurnEnd ? 0.35 : 0;
-  const danger = ps.damage.length >= 4 ? 1.25 : 1;
+  // มือหลังคอลใบนี้ต้องยังพอกันการโจมตีเทิร์นหน้าที่โดนแล้วแพ้ (คู่แข่งสไตรด์ + แนวที่มี) ถ้าไม่พอ การ์ดใบนี้มีค่ามากขึ้น
+  const handShield = ps.hand.reduce((n, h) => n + (isSentinel(db[h.key]) ? 15000 : shieldIn(db, h)), 0);
+  const short = handShield - (isSentinel(card) ? 15000 : shieldIn(db, inst)) < nextTurnNeed(db, s, p);
+  const danger = short ? 1.6 : ps.damage.length >= 4 ? 1.25 : 1;
   return gain - loss + (handCallPayoff(card) ? 0.45 : 0) - keepValue(db, s, p, inst) * danger;
 }
 
@@ -225,24 +229,76 @@ export function attackOptions(db: CardDB, s: GameState, p: PlayerId): Extract<Ac
   return out;
 }
 
-function attackAction(db: CardDB, s: GameState, p: PlayerId): Action {
-  const ps = s.players[p], opp = s.players[other(p)];
-  const opts = attackOptions(db, s, p);
-  if (!opts.length) return { type: "next-phase" };
-  const oppVc = powerOf(db, opp, "vc");
-  const attackers = [...new Set(opts.map((o) => o.attacker))];
-  // แวนการ์ดโจมตีก่อน ทริกเกอร์จากไดรฟ์เช็คจะได้ลงยูนิทที่ยังไม่โจมตี
-  attackers.sort((a, b) => (a === "vc" ? -1 : b === "vc" ? 1 : attackPower(db, ps, b, BEHIND[b]) - attackPower(db, ps, a, BEHIND[a])));
-  const a = attackers[0];
-  const o = opts.find((x) => x.attacker === a)!;
-  const power = attackPower(db, ps, a, o.booster);
-  let target: Circle = "vc";
-  if (power < oppVc) {
-    const hittable = (["front_left", "front_right"] as Circle[]).filter((c) => opp.circles[c] && powerOf(db, opp, c) <= power)
-      .sort((x, y) => unitValue(db, opp.circles[y]!) - unitValue(db, opp.circles[x]!));
-    if (hittable[0]) target = hittable[0];
+interface Swing { attacker: Circle; booster?: Circle; power: number; crit: number }
+
+const ceil5k = (n: number) => (n > 0 ? Math.ceil(n / 5000) * 5000 : 0);
+
+// การโจมตีทั้งหมดที่เหลือในเทิร์นนี้ (ใส่แวนการ์ด) คู่แข่งกันจนไม่ถึงดาเมจ 6 ได้ไหม
+// คู่แข่งเลือกปล่อยการโจมตีที่ดาเมจรวมยังไม่ถึง 6 แล้วกันที่เหลือ ใช้ Shield ที่คาดว่ามี + G การ์เดี้ยน พิทักษ์กันได้ลูกละใบ
+// คืน Shield ที่ขาด (> 0 = น่าจะฆ่าได้)
+export function lethalGap(db: CardDB, s: GameState, p: PlayerId, list: Swing[]): number {
+  const q = other(p);
+  const opp = s.players[q];
+  const room = 5 - opp.damage.length;
+  const def = powerOf(db, opp, "vc");
+  const est = estimateDefense(db, s, q);
+  const sentinels = Math.round(est.sentinels);
+  const cap = est.shield + est.gGuard;
+  let best = Infinity;
+  for (let mask = 0; mask < 1 << list.length; mask++) {
+    let taken = 0;
+    const blocked: number[] = [];
+    list.forEach((w, i) => { if (mask & (1 << i)) taken += w.crit; else blocked.push(ceil5k(w.power - def + 1)); });
+    if (taken > room) continue;
+    blocked.sort((a, b) => b - a);
+    const cost = blocked.slice(sentinels).reduce((n, x) => n + x, 0);
+    best = Math.min(best, cost);
   }
-  return { type: "attack", attacker: a, target, booster: o.booster };
+  return best - cap;
+}
+
+function swingsOf(db: CardDB, s: GameState, p: PlayerId): Swing[] {
+  const ps = s.players[p];
+  const seen = new Set<Circle>();
+  return attackOptions(db, s, p).filter((o) => (seen.has(o.attacker) ? false : (seen.add(o.attacker), true)))
+    .map((o) => ({ attacker: o.attacker, booster: o.booster, power: attackPower(db, ps, o.attacker, o.booster), crit: criticalOf(ps.circles[o.attacker]!) }));
+}
+
+// โอกาสเปิดทริกเกอร์ชนิดนี้อย่างน้อย 1 ใบจากการเช็ค n ใบ
+function chanceOf(db: CardDB, s: GameState, p: PlayerId, kind: string, n: number) {
+  const d = deckOdds(db, s, p);
+  return 1 - (triggerDist(d.size, d.count((c) => c.trigger === kind), n)[0] ?? 1);
+}
+
+function attackAction(db: CardDB, s: GameState, p: PlayerId): Action {
+  const ps = s.players[p], q = other(p), opp = s.players[q];
+  const list = swingsOf(db, s, p);
+  if (!list.length) return { type: "next-phase" };
+  const oppVc = powerOf(db, opp, "vc");
+  const lethal = lethalGap(db, s, p, list) > 0;
+  // ลำดับ: ปกติแวนการ์ดก่อน (ทริกเกอร์ลงยูนิทที่ยังไม่ตี) แต่ถ้ากองเรามี Stand มากพอ ให้เรียร์การ์ดตีก่อน Stand จะได้ตีซ้ำ
+  const vcSwing = list.find((w) => w.attacker === "vc");
+  const drives = vcSwing ? driveOf(db, ps.circles.vc!) : 0;
+  const rcFirst = !lethal && !!vcSwing && list.length > 1 && chanceOf(db, s, p, "stand", drives) >= 0.35;
+  list.sort((a, b) => {
+    if (a.attacker === "vc" || b.attacker === "vc") return (a.attacker === "vc" ? -1 : 1) * (rcFirst ? -1 : 1);
+    return b.power - a.power;
+  });
+  const w = list[0];
+  // เป้า: แวนการ์ด (ดาเมจ/บังคับใช้การ์ด) หรือเรียร์การ์ดที่อันตราย (อ่านสกิลและทรัพยากรของคู่แข่ง)
+  let target: Circle = "vc";
+  if (!lethal) {
+    const d = opp.damage.length;
+    const vcValue = w.power >= oppVc ? Math.min(Math.ceil((w.power - oppVc + 1) / 5000) * 0.45, damageCost(d, w.crit)) : 0;
+    let best = vcValue + (w.attacker === "vc" ? 0.2 : 0);
+    for (const c of ["front_left", "front_right"] as Circle[]) {
+      const u = opp.circles[c];
+      if (!u || powerOf(db, opp, c) > w.power) continue;
+      const v = unitThreat(db, s, q, u.uid) * 0.85;
+      if (v > best) { best = v; target = c; }
+    }
+  }
+  return { type: "attack", attacker: w.attacker, target, booster: w.booster };
 }
 
 // ---------- การ์ด ----------
@@ -250,11 +306,26 @@ function attackAction(db: CardDB, s: GameState, p: PlayerId): Action {
 interface GuardItem { uid?: string; intercept?: Circle; shield: number; cost: number }
 
 // โอกาสเปิดทริกเกอร์ต่อการเช็ค 1 ใบ และสัดส่วนคริติคัลในทริกเกอร์
+// นับทริกเกอร์ที่เหลือในกองของ p (กองซ่อน: นับจากรายการเด็คลบการ์ดที่เปิดแล้ว)
 function triggerOdds(db: CardDB, s: GameState, p: PlayerId) {
-  const deck = s.players[p].deck;
-  if (!deck.length || deck.some(isHidden)) return { q: 0.3, crit: 0.5 };
-  const trig = deck.filter((c) => db[c.key].trigger);
-  return { q: trig.length / deck.length, crit: trig.length ? trig.filter((c) => db[c.key].trigger === "critical").length / trig.length : 0 };
+  const d = deckOdds(db, s, p);
+  const trig = d.count((c) => !!c.trigger);
+  return { N: d.size, T: trig, crit: trig ? d.count((c) => c.trigger === "critical") / trig : 0 };
+}
+
+// โอกาสเปิดทริกเกอร์ k ใบจากการเช็ค n ใบ (จั่วไม่คืนกอง: hypergeometric) dist[k]
+export function triggerDist(N: number, T: number, n: number): number[] {
+  let dist = [1];
+  for (let i = 0; i < Math.min(n, N); i++) {
+    const next = Array<number>(dist.length + 1).fill(0);
+    dist.forEach((pk, k) => {
+      const q = Math.max(0, Math.min(1, (T - k) / (N - i)));
+      next[k + 1] += pk * q;
+      next[k] += pk * (1 - q);
+    });
+    dist = next;
+  }
+  return dist;
 }
 
 const binom = (n: number, k: number, q: number) => {
@@ -264,9 +335,13 @@ const binom = (n: number, k: number, q: number) => {
 };
 
 // ราคาที่เสียเมื่อโดนดาเมจเพิ่ม n (รวม CB ที่ได้)
-export function damageCost(d: number, n: number): number {
-  if (d + n >= 6) return 25;
-  return DAMAGE_COST[d + n] - DAMAGE_COST[d] - CB_VALUE * n;
+// heal = โอกาสเปิด Heal ต่อดาเมจเช็ค 1 ใบ (ถ้า Heal ทำงานได้) ดาเมจที่ถึง 6 ยังรอดได้ถ้าเปิด Heal พอ
+export function damageCost(d: number, n: number, heal = 0): number {
+  if (d + n < 6) return DAMAGE_COST[d + n] - DAMAGE_COST[d] - CB_VALUE * n;
+  const need = d + n - 5;
+  let survive = 0;
+  for (let k = need; k <= n; k++) survive += binom(n, k, heal);
+  return 25 * (1 - survive) + survive * (DAMAGE_COST[5] - DAMAGE_COST[d]);
 }
 
 // ราคาคาดหวังเมื่อการโจมตีนี้โดน โดยทริกเกอร์อย่างน้อย kNeed ใบ (kNeed = จำนวนทริกเกอร์ที่ต้องเปิดจึงโดน)
@@ -277,20 +352,24 @@ function expectedHitCost(db: CardDB, s: GameState, p: PlayerId, kNeed: number): 
   if (!atk) return 0;
   const drives = b.attacker === "vc" ? driveOf(db, atk) : 0;
   if (kNeed > drives) return 0;
-  const { q, crit } = triggerOdds(db, s, atkSide);
+  const { N, T, crit } = triggerOdds(db, s, atkSide);
+  const dist = triggerDist(N, T, drives);
+  const pk = (k: number) => dist[k] ?? 0;
   const d = s.players[p].damage.length;
   let total = 0;
   if (b.target !== "vc") {
     const u = s.players[p].circles[b.target];
     const loss = u ? unitValue(db, u) : 0;
-    for (let k = Math.max(0, kNeed); k <= drives; k++) total += binom(drives, k, q) * loss;
+    for (let k = Math.max(0, kNeed); k <= drives; k++) total += pk(k) * loss;
     return total;
   }
   const c = criticalOf(atk);
+  const own = deckOdds(db, s, p);
+  const heal = d >= s.players[atkSide].damage.length && own.size ? own.count((x) => x.trigger === "heal") / own.size : 0;
   for (let k = Math.max(0, kNeed); k <= drives; k++) {
     let h = 0;
-    for (let j = 0; j <= k; j++) h += binom(k, j, crit) * damageCost(d, c + j);
-    total += binom(drives, k, q) * h;
+    for (let j = 0; j <= k; j++) h += binom(k, j, crit) * damageCost(d, c + j, heal);
+    total += pk(k) * h;
   }
   return total;
 }
@@ -335,7 +414,7 @@ function gGuardianShield(db: CardDB, s: GameState, p: PlayerId, g: CardInstance)
   for (const ab of card.abilities) {
     if (ab.kind !== "AUTO") continue;
     const gb = (ab.cond ?? []).map((c) => c.match(/GB\((\d+)\)/)).find(Boolean);
-    if (gb && generationBreak(db, ps) + 1 < +gb[1]) continue;
+    if (gb && generationBreak(db, ps) < +gb[1]) continue;   // G การ์เดี้ยนเพิ่ม GB ตอนกลับ G โซนหลังจบการต่อสู้ ไม่ใช่ตอนคอล
     const cost = ab.cost ?? [];
     if (cost.some((c) => c.startsWith("CB")) && !ps.damage.some((d) => d.faceUp)) continue;
     if (cost.some((c) => c.startsWith("retire-own")) && !RC.some((c) => ps.circles[c])) continue;
@@ -345,11 +424,49 @@ function gGuardianShield(db: CardDB, s: GameState, p: PlayerId, g: CardInstance)
     for (const e of ab.effect) {
       const m = e.match(/^shield\(\+(\d+), self/);
       if (m) v += +m[1];
-      if (/^call\(drop→GC, n=2/.test(e) && ps.drop.length >= 2) v += 10000;
+      if (/^call\(drop→GC, n=2/.test(e)) v += dropPairShield(db, ps);
     }
   }
   return v;
 }
+
+// Shield ที่ได้จากการคอลการ์ดในดรอปโซน 2 ใบเกรดต่างกันลง GC (ใบละเกรด เลือกใบ Shield สูงสุด)
+function dropPairShield(db: CardDB, ps: PlayerState): number {
+  const best = new Map<number, number>();
+  for (const d of ps.drop) {
+    const c = db[d.key];
+    if (!isG(c) && printedShield(c) > (best.get(c.grade) ?? 0)) best.set(c.grade, printedShield(c));
+  }
+  return [...best.values()].sort((a, b) => b - a).slice(0, 2).reduce((n, x) => n + x, 0);
+}
+
+// การโจมตีที่ยังเหลือในเทิร์นนี้ (ยูนิทแถวหน้าที่ยังไม่พัก) กับ Shield ที่ต้องใช้กันแต่ละครั้ง ถ้าตีแวนการ์ด (ไม่นับทริกเกอร์)
+function laterAttacks(db: CardDB, s: GameState, p: PlayerId): { need: number; crit: number }[] {
+  const atk = s.players[s.turnPlayer];
+  const def = powerOf(db, s.players[p], "vc");
+  const out: { need: number; crit: number }[] = [];
+  for (const c of FRONT) {
+    const u = atk.circles[c];
+    if (!u || u.rested || c === s.battle!.attacker) continue;
+    const back = BEHIND[c]!;
+    const bu = atk.circles[back];
+    const boost = bu && !bu.rested && db[bu.key].grade <= 1 ? powerOf(db, atk, back) : 0;
+    const need = powerOf(db, atk, c) + boost - def + 1;
+    if (need > 0) out.push({ need: Math.ceil(need / 5000) * 5000, crit: criticalOf(u) });
+  }
+  // แวนการ์ดคู่แข่งที่กำลังตีอยู่เปิด Stand ได้ เรียร์การ์ดที่ตีไปแล้วจะตีได้อีกครั้ง
+  const b = s.battle!;
+  const vc = atk.circles.vc;
+  if (b.attacker === "vc" && vc && chanceOf(db, s, s.turnPlayer, "stand", driveOf(db, vc)) >= 0.3) {
+    const again = (["front_left", "front_right"] as Circle[]).map((c) => atk.circles[c]).filter((u) => u?.rested)
+      .map((u) => powerOf(db, atk, circleOf(s, s.turnPlayer, u!.uid)!) + 5000 - def + 1).sort((x, y) => y - x)[0];
+    if (again && again > 0) out.push({ need: Math.ceil(again / 5000) * 5000, crit: 1 });
+  }
+  return out;
+}
+
+// ใช้การ์ดชุดนี้แล้วกันการโจมตีที่เหลือซึ่งโดนแล้วแพ้ไม่พอ: ราคาสูง (เก็บการ์ดไว้กันลูกที่ถึงตาย)
+const SHORT_PENALTY = 12;
 
 export interface GuardPlan { actions: Action[]; cost: number; label: string }
 
@@ -366,15 +483,31 @@ export function guardPlans(db: CardDB, s: GameState, p: PlayerId): GuardPlan[] {
   const drives = atk && b.attacker === "vc" ? driveOf(db, atk) : 0;
   // kNeed ของ Shield S: ต้องเปิดทริกเกอร์กี่ใบการโจมตีจึงโดน
   const kNeedOf = (S: number) => (D + S > A ? Math.ceil((D + S - A) / 5000) : 0);
-  plans.push({ actions: [{ type: "end-guard" }], cost: expectedHitCost(db, s, p, kNeedOf(0)), label: "take" });
   const items = guardItems(db, s, p);
+  const d = ps.damage.length;
+  const later = laterAttacks(db, s, p);
+  const sentinels = ps.hand.filter((h) => !isHidden(h) && isSentinel(db[h.key]));
+  // หลังใช้การ์ดชุดนี้ (used) และอยู่ที่ดาเมจ dAfter ยังกันการโจมตีที่เหลือซึ่งโดนแล้วแพ้ได้ไหม
+  const short = (used: Set<string>, usedG: boolean, dAfter: number) => {
+    const lethal = later.filter((x) => dAfter + x.crit >= 6).map((x) => x.need).sort((a, b) => b - a);
+    if (!lethal.length) return 0;
+    const left = items.filter((x) => !used.has(x.uid ?? x.intercept!));
+    const spare = ps.hand.filter((h) => !used.has(h.uid)).length;
+    if (sentinels.some((h) => !used.has(h.uid)) && spare >= 2) lethal.shift();
+    const healLeft = ps.hand.some((h) => !used.has(h.uid) && db[h.key].trigger === "heal");
+    const cap = left.reduce((n, x) => n + x.shield, 0) + (!usedG && healLeft && !gGuardianBlocked(db, s, p) ? 15000 : 0);
+    return lethal.reduce((n, x) => n + x, 0) > cap ? SHORT_PENALTY : 0;
+  };
+  const idsOf = (picks: GuardItem[], extra: string[] = []) => new Set([...picks.map((x) => x.uid ?? x.intercept!), ...extra]);
+  const takeHits = b.target === "vc" && kNeedOf(0) === 0 && atk ? criticalOf(atk) : 0;
+  plans.push({ actions: [{ type: "end-guard" }], cost: expectedHitCost(db, s, p, kNeedOf(0)) + short(new Set(), false, d + takeHits), label: "take" });
   const toAction = (picks: GuardItem[]): Action => ({
     type: "guard", uids: picks.filter((x) => x.uid).map((x) => x.uid!), intercept: picks.filter((x) => x.intercept).map((x) => x.intercept!),
   });
   for (let L = Math.max(1, kNeedOf(0) + 1); L <= drives + 1; L++) {
     const need = A + 5000 * (L - 1) - D + 1;
     const c = cheapest(items, need);
-    if (c && c.picks.length) plans.push({ actions: [toAction(c.picks)], cost: c.cost + expectedHitCost(db, s, p, L), label: `pass-${L - 1}` });
+    if (c && c.picks.length) plans.push({ actions: [toAction(c.picks)], cost: c.cost + expectedHitCost(db, s, p, L) + short(idsOf(c.picks), false, d), label: `pass-${L - 1}` });
   }
   // พิทักษ์: ไม่โดนแน่นอน ต้องมีการ์ดอีกใบให้ทิ้ง
   const others = ps.hand.filter((h) => !isG(db[h.key]));
@@ -387,9 +520,10 @@ export function guardPlans(db: CardDB, s: GameState, p: PlayerId): GuardPlan[] {
     const fl = (ab.cost ?? []).map((c) => parseCode(c).named.filter).find(Boolean);
     const target = ps.circles[b.target];
     if (fl && target && db[target.key].clan !== fl) continue;
-    const discards = others.filter((h) => h.uid !== sen.uid && (!fl || db[h.key].clan === fl)).map((h) => keepValue(db, s, p, h)).sort((x, y) => x - y);
+    const discards = others.filter((h) => h.uid !== sen.uid && (!fl || db[h.key].clan === fl)).sort((x, y) => keepValue(db, s, p, x) - keepValue(db, s, p, y));
     if (!discards.length) continue;
-    plans.push({ actions: [{ type: "guard", uids: [sen.uid] }], cost: keepValue(db, s, p, sen) + discards[0], label: "sentinel" });
+    const cost = keepValue(db, s, p, sen) + keepValue(db, s, p, discards[0]) + short(new Set([sen.uid, discards[0].uid]), false, d);
+    plans.push({ actions: [{ type: "guard", uids: [sen.uid] }], cost, label: "sentinel" });
   }
   // G การ์เดี้ยน
   if (!gGuardianBlocked(db, s, p)) {
@@ -401,7 +535,7 @@ export function guardPlans(db: CardDB, s: GameState, p: PlayerId): GuardPlan[] {
       for (let L = Math.max(1, kNeedOf(0) + 1); L <= drives + 1; L++) {
         const need = A + 5000 * (L - 1) - D + 1 - sh;
         const c = cheapest(rest, need);
-        if (c) plans.push({ actions: [{ type: "call-g-guardian", gUid: g.uid, discardUid: heal.uid }], cost: base + c.cost + expectedHitCost(db, s, p, L), label: `g-${L - 1}` });
+        if (c) plans.push({ actions: [{ type: "call-g-guardian", gUid: g.uid, discardUid: heal.uid }], cost: base + c.cost + expectedHitCost(db, s, p, L) + short(idsOf(c.picks, [heal.uid]), true, d), label: `g-${L - 1}` });
       }
     }
   }
@@ -439,7 +573,7 @@ export function wantUse(db: CardDB, s: GameState, entry: QueueEntry): boolean {
 }
 
 // ลำดับที่ควรทำ: ได้ CC/SC ก่อน (เอาไปจ่ายคอสต์ต่อ) ฮอลโล่ว์ก่อน (ผลที่ต้องติดฮอลโล่ว์จะได้ทำงาน) ที่ต้องจ่าย CB ทีหลัง
-function priority(entry: QueueEntry): number {
+function priority(db: CardDB, s: GameState, entry: QueueEntry): number {
   const eff = entry.ability.effect.join(" ");
   const cost = (entry.ability.cost ?? []).join(" ");
   let v = 0;
@@ -447,13 +581,104 @@ function priority(entry: QueueEntry): number {
   if (entry.ability.effect[0] === "hollow(self)") v += 2;
   if (!entry.optional) v += 1;
   if (/CB\(/.test(cost)) v -= 1;
+  if (/that-card/.test(eff)) v += recallValue(db, s, entry);
   return v;
+}
+
+// ความสามารถที่คอลการ์ดที่เพิ่งตกดรอปกลับ (ไนท์โรส หมอกยามค่ำคืน 1/Turn): เลือกใบที่คุ้มที่สุด
+// กรูนาชได้ CC2 อีกรอบเมื่อติดฮอลโล่ว์แล้วถูกรีไทร์ซ้ำ จึงคุ้มมากตอน CB เหลือน้อย
+function recallValue(db: CardDB, s: GameState, entry: QueueEntry): number {
+  const e = entry.event;
+  const inst = e && "uid" in e ? locate(s, e.uid)?.inst : undefined;
+  if (!inst) return 0;
+  const card = db[inst.key];
+  const ps = s.players[entry.owner];
+  const refund = card.abilities.some((ab) => /by=hollow/.test(ab.timing ?? "") && ab.effect.some((x) => x.startsWith("CC(")));
+  const cbLeft = ps.damage.filter((d) => d.faceUp).length;
+  return (refund && generationBreak(db, ps) >= 1 ? (cbLeft < 2 ? 3 : 1.5) : 0) + unitValue(db, { ...inst, hollowed: false });
+}
+
+// ผลหลักที่ต้องเกิดจึงคุ้มคอสต์ ตรวจจาก event ระหว่างความสามารถนี้ทำงาน (เกิดอย่างใดอย่างหนึ่งก็พอ)
+type Ev = { code: string; player: PlayerId; text: { key: string } };
+const MAIN_EFFECT: [RegExp, (e: Ev, p: PlayerId) => boolean][] = [
+  [/^call\((?!self|G→)/, (e, p) => e.code === "call" && e.player === p],
+  [/^search\(deck→hand/, (e, p) => e.text.key === "log.searchHand" && e.player === p],
+  [/^draw\(/, (e, p) => e.code === "draw" && e.player === p],
+  [/^retire\(opp-RC/, (e, p) => e.code === "retired" && e.player !== p],
+];
+// ผลที่คะแนนสนามมองไม่เห็น (ช่วยกันหรือช่วยตีในการต่อสู้นี้ รวมคอลลง GC) ไม่ใช้คะแนนตัดสิน
+const COMBAT_EFFECT = /^(shield|power|critical|no-hit)\(|→GC/;
+let simulating = false;
+
+// เดินต่อด้วย policy จนความสามารถที่กำลังทำงานและคิวของ p หมด
+function settleOwn(db: CardDB, r: ReturnType<typeof tryApply>, p: PlayerId, events: Ev[]) {
+  for (let i = 0; r && i < 40 && r.state.awaiting?.player === p && (r.state.resolving || r.state.queue.some((e) => e.owner === p)); i++) {
+    r = tryApply(db, r.state, p, policy(db, r.state, p));
+    events.push(...(r?.events ?? []));
+  }
+  return r;
+}
+
+// CB ที่ควรเหลือไว้ใช้นอกเทิร์น: G การ์เดี้ยนที่ความสามารถต้องจ่าย CB (ต้องมี Heal ไว้คอลด้วย)
+function cbReserve(db: CardDB, s: GameState, p: PlayerId): number {
+  const ps = s.players[p];
+  if (!ps.hand.some((h) => !isHidden(h) && db[h.key].trigger === "heal")) return 0;
+  return ps.gZone.some((g) => !g.faceUp && !isHidden(g) && db[g.key].type === "g-guardian"
+    && db[g.key].abilities.some((a) => (a.cost ?? []).some((c) => c.startsWith("CB(")))) ? 1 : 0;
+}
+
+function dipsBelowReserve(db: CardDB, s: GameState, p: PlayerId, cost: string[]): boolean {
+  const pay = cost.map((c) => c.match(/^CB\((\d+)\)/)).reduce((n, m) => n + (m ? +m[1] : 0), 0);
+  if (!pay) return false;
+  return s.players[p].damage.filter((d) => d.faceUp).length - pay < cbReserve(db, s, p);
+}
+
+// ลองใช้ความสามารถที่มีคอสต์ในหัว (ทำตาม policy จนจบ) ก่อนจ่ายจริง
+// ไม่ใช้ถ้า: ผลหลักไม่เกิด (เช่น ไม่มีการ์ดให้คอล) หรือ จ่าย CB/SB แล้วสนามแย่กว่าไม่ใช้
+// ตรวจเร็วโดยไม่จำลอง: ผลคอล/ค้นที่ไม่มีการ์ดต้นทางให้เลือกเลย
+function nothingToTake(db: CardDB, s: GameState, p: PlayerId, entry: QueueEntry): boolean {
+  const ps = s.players[p];
+  return entry.ability.effect.every((e) => {
+    const m = e.match(/^(call|search)\(([a-z+]+)→/);
+    if (!m) return false;
+    const src = m[2];
+    const pool = [...(src.includes("drop") ? ps.drop : []), ...(src.includes("hand") ? ps.hand : []), ...(src.includes("deck") ? ps.deck : [])];
+    return !pool.some((i) => i.uid !== entry.uid && !isG(db[i.key]));
+  });
+}
+
+// ระหว่างจำลองเกม (search) ใช้แค่การตรวจเร็ว เพื่อให้จำลองได้หลายรอบ
+export const fastMode = { on: false };
+
+function worthPaying(db: CardDB, s: GameState, p: PlayerId, index: number): boolean {
+  const entry = ownQueue(s, p)[index];
+  const cost = entry.ability.cost ?? [];
+  if (simulating || !cost.length) return true;
+  const checks = MAIN_EFFECT.filter(([re]) => entry.ability.effect.some((e) => re.test(e)));
+  const scarce = cost.some((c) => /^(CB|SB)\(/.test(c)) && !entry.ability.effect.some((e) => COMBAT_EFFECT.test(e));
+  if (!checks.length && !scarce) return true;
+  if (nothingToTake(db, s, p, entry)) return false;
+  if (fastMode.on) return true;
+  simulating = true;
+  try {
+    const events: Ev[] = [];
+    const used = settleOwn(db, tryApply(db, s, p, { type: "order-queue", index }), p, events);
+    if (!used) return false;
+    if (checks.length && !checks.some(([, hit]) => events.some((e) => hit(e, p)))) return false;
+    if (!scarce) return true;
+    const skipped = settleOwn(db, tryApply(db, s, p, { type: "decline-queue", index }), p, []);
+    if (!skipped) return true;
+    const gain = evaluate(db, used.state, p) - evaluate(db, skipped.state, p);
+    return gain > (s.turnPlayer === p && dipsBelowReserve(db, s, p, cost) ? 0.4 : 0);
+  } finally {
+    simulating = false;
+  }
 }
 
 function orderQueue(db: CardDB, s: GameState, p: PlayerId): Action {
   const q = ownQueue(s, p);
-  const order = q.map((e, i) => ({ e, i })).sort((a, b) => priority(b.e) - priority(a.e));
-  for (const { e, i } of order) if (wantUse(db, s, e)) return { type: "order-queue", index: i };
+  const order = q.map((e, i) => ({ e, i, v: priority(db, s, e) })).sort((a, b) => b.v - a.v);
+  for (const { e, i } of order) if (wantUse(db, s, e) && (!e.optional || worthPaying(db, s, p, i))) return { type: "order-queue", index: i };
   const skip = q.findIndex((e) => e.optional);
   return skip >= 0 ? { type: "decline-queue", index: skip } : { type: "order-queue", index: 0 };
 }
@@ -488,9 +713,11 @@ function fieldValue(db: CardDB, inst: CardInstance, fromDrop: boolean) {
 }
 
 // ค่าของการ์ดเมื่อส่งลงดรอปโซน (ค้นลงดรอป): ใบที่คอลจากดรอปได้ผลดี ไม่เอาทริกเกอร์ออกจากกอง
-function dropValue(db: CardDB, inst: CardInstance) {
+function dropValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance) {
   const card = db[inst.key];
-  return (dropCallPayoff(card) ? 2 : 0) + (card.abilities.some((a) => a.effect.includes("hollow(self)")) ? 1 : 0) + (card.type === "normal" && !card.trigger ? 0.5 : -1);
+  // ไนท์โรส (G ยูนิท) ได้ Power ตามจำนวนการ์ดชื่อ "ไนท์โรส" ในดรอปโซน
+  const named = s.players[p].gZone.some((g) => !isHidden(g) && db[g.key].abilities.some((a) => a.effect.some((e) => e.includes("count-in-drop(name(") && e.includes(card.name.split(", ").at(-1) ?? "\u0000"))));
+  return (dropCallPayoff(card) ? 2 : 0) + (card.abilities.some((a) => a.effect.includes("hollow(self)")) ? 1 : 0) + (card.type === "normal" && !card.trigger ? 0.5 : -1) + (named ? 0.8 : 0);
 }
 
 // ค่าของการ์ดที่ค้นขึ้นมือ: เกรดที่ยังไม่มีบนมือก่อน
@@ -503,8 +730,8 @@ function searchValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance) 
 
 function threat(db: CardDB, s: GameState, q: PlayerId, inst: CardInstance) {
   const c = circleOf(s, q, inst.uid);
-  const card = db[inst.key];
-  return unitValue(db, inst) + (c && FRONT.includes(c) && !inst.rested ? 0.6 : 0) + (card.grade <= 1 && !inst.rested ? 0.3 : 0);
+  // ตัวที่ยังไม่ได้ตีในเทิร์นคู่แข่ง (ตอนเรายิงนอกเทิร์น) อันตรายกว่า
+  return unitThreat(db, s, q, inst.uid) + (s.turnPlayer === q && c && !inst.rested ? 0.5 : 0);
 }
 
 function selectTarget(db: CardDB, s: GameState, p: PlayerId): Action {
@@ -524,12 +751,13 @@ function selectTarget(db: CardDB, s: GameState, p: PlayerId): Action {
     case "retire-own": uids = top((i) => -unitValue(db, i) + (hollowPayoff(db[i.key]) || dropCallPayoff(db[i.key]) ? 0.2 : 0), c.min); break;
     case "search":
       uids = dst === "hand" ? top((i) => searchValue(db, s, p, i), c.max)
-        : insts.filter((i) => dropValue(db, i) > 0).sort((a, b) => dropValue(db, b) - dropValue(db, a)).slice(0, c.max).map((i) => i.uid);
+        : insts.filter((i) => dropValue(db, s, p, i) > 0).sort((a, b) => dropValue(db, s, p, b) - dropValue(db, s, p, a))
+          .slice(0, Math.max(0, Math.min(c.max, ps.deck.length - 10))).map((i) => i.uid);   // กองเหลือน้อย ไม่ส่งลงดรอปเพิ่ม
       break;
     case "call":
       if (dst === "GC") {
         const byGrade = new Map<number, CardInstance>();
-        for (const i of [...insts].sort((a, b) => shieldOf(db, b) - shieldOf(db, a))) if (!byGrade.has(db[i.key].grade)) byGrade.set(db[i.key].grade, i);
+        for (const i of [...insts].sort((a, b) => shieldOf(db, b) - shieldOf(db, a))) if (shieldOf(db, i) > 0 && !byGrade.has(db[i.key].grade)) byGrade.set(db[i.key].grade, i);
         uids = [...byGrade.values()].sort((a, b) => shieldOf(db, b) - shieldOf(db, a)).slice(0, c.max).map((i) => i.uid);
       } else {
         const fromDrop = (op?.pos[0] ?? "").includes("drop");

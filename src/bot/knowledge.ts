@@ -69,7 +69,11 @@ export function strideScore(db: CardDB, s: GameState, p: PlayerId, g: CardInstan
     if (cbNeed && cb < +cbNeed[1]) continue;
     if (cost.some((c) => c.includes("same-name")) && copies < 2) continue;
     if (ab.kind === "ACT" && (ab.zone ?? "").includes("G")) continue;   // ACT จาก G โซน
-    v += /call\(/.test(json(ab)) ? 1.5 : 1;
+    // ดูดรอปโซน: คอลจากดรอปคุ้มเมื่อมียูนิทให้คอล ถ้ายังไม่มี ตัวที่ส่งการ์ดลงดรอปคุ้มกว่า
+    const callable = ps.drop.filter((d) => !isHidden(d) && db[d.key].type === "normal" && !db[d.key].trigger).length;
+    if (ab.effect.some((x) => x.startsWith("call(drop→RC"))) v += 1.5 * Math.min(1, callable / 2);
+    else if (ab.effect.some((x) => x.startsWith("search(deck→drop"))) v += callable < 2 ? 2 : 0.8;
+    else v += /call\(/.test(json(ab)) ? 1.5 : 1;
   }
   return v;
 }

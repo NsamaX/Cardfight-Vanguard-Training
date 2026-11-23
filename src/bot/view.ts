@@ -46,26 +46,64 @@ function ownedInstances(s: GameState, p: PlayerId): CardInstance[] {
   return list.filter((i) => (seen.has(i.uid) ? false : (seen.add(i.uid), true)));
 }
 
+// การ์ดที่ยังไม่ปรากฏ = รายการเด็ค − การ์ดทุกใบของ p ที่มองเห็น (main = มือที่ไม่รู้ + กองการ์ด, g = G โซนที่คว่ำและไม่รู้)
+export function unseenPool(db: CardDB, s: GameState, p: PlayerId, deck: Deck) {
+  const pool = { main: new Map(Object.entries(deck.main)), g: new Map(Object.entries(deck.g_zone)) };
+  const hidden = { main: [] as CardInstance[], g: [] as CardInstance[] };
+  for (const inst of ownedInstances(s, p)) {
+    if (isHidden(inst)) { (s.players[p].gZone.includes(inst) ? hidden.g : hidden.main).push(inst); continue; }
+    const card = db[inst.key];
+    if (!card) continue;
+    const m = isG(card) ? pool.g : pool.main;
+    const n = m.get(inst.key);
+    if (n) m.set(inst.key, n - 1);
+  }
+  return { pool, hidden };
+}
+
+// ข้อมูลที่บอทนับไว้แนบกับ view (สนามที่สุ่มเติมแล้วไม่มี เพราะมองเห็นกองการ์ดอยู่แล้ว)
+export interface Reads {
+  oppPassive: number;     // คู่แข่งยอมรับดาเมจตอนดาเมจสูงกี่ครั้ง (บ่งว่า Shield บนมือน้อย)
+  oppRevealedG3: boolean; // คู่แข่งแสดงเกรด 3 จากมือในเทิร์นนี้ (คอสต์ของทอมมี่) จึงรู้ว่ามีเกรด 3 อย่างน้อย 1 ใบ
+}
+export interface Intel {
+  pools: Record<PlayerId, { main: Map<string, number>; g: Map<string, number> }>;
+  reads: Reads;
+}
+const INTEL = new WeakMap<GameState, Intel>();
+export const intelOf = (s: GameState) => INTEL.get(s);
+export function attachPools(db: CardDB, view: GameState, decks: Record<PlayerId, Deck>, reads: Reads = { oppPassive: 0, oppRevealedG3: false }) {
+  INTEL.set(view, { pools: { me: unseenPool(db, view, "me", decks.me).pool, bot: unseenPool(db, view, "bot", decks.bot).pool }, reads });
+}
+
+// การ์ดที่อาจอยู่ในกองของ p: กองมองเห็น = กองจริง, กองซ่อน = การ์ดที่ยังไม่ปรากฏ (นับจากรายการเด็ค)
+export function deckOdds(db: CardDB, s: GameState, p: PlayerId): { size: number; count: (f: (c: Card) => boolean) => number } {
+  const deck = s.players[p].deck;
+  const pool = INTEL.get(s)?.pools[p].main;
+  if (!deck.some(isHidden) || !pool) {
+    return { size: deck.length, count: (f) => deck.filter((c) => !isHidden(c) && f(db[c.key])).length };
+  }
+  const total = [...pool.values()].reduce((n, x) => n + Math.max(0, x), 0) || 1;
+  // ใช้สัดส่วนจากการ์ดที่ยังไม่ปรากฏ (มือที่ไม่รู้ + กอง) คูณขนาดกองจริง
+  return { size: deck.length, count: (f) => [...pool].reduce((n, [k, x]) => n + (db[k] && f(db[k]) ? Math.max(0, x) : 0), 0) * deck.length / total };
+}
+
 // เติมการ์ดที่ซ่อนด้วยการ์ดที่ยังไม่ปรากฏตามรายการเด็ค แล้วสุ่ม rng ใหม่ (อนาคตของเกมจำลองไม่ตรงกับเกมจริง)
 export function determinize(db: CardDB, view: GameState, decks: Record<PlayerId, Deck>, seed: number): GameState {
   const s = structuredClone(view);
   let r = seed >>> 0 || 1;
+  const reads = INTEL.get(view)?.reads;
   for (const p of PLAYERS) {
-    const all = ownedInstances(s, p);
-    const pool = { main: new Map(Object.entries(decks[p].main)), g: new Map(Object.entries(decks[p].g_zone)) };
-    const hidden = { main: [] as CardInstance[], g: [] as CardInstance[] };
-    for (const inst of all) {
-      if (isHidden(inst)) { (s.players[p].gZone.includes(inst) ? hidden.g : hidden.main).push(inst); continue; }
-      const card = db[inst.key];
-      if (!card) continue;
-      const m = isG(card) ? pool.g : pool.main;
-      const n = m.get(inst.key);
-      if (n) m.set(inst.key, n - 1);
-    }
+    const { pool, hidden } = unseenPool(db, s, p, decks[p]);
     for (const kind of ["main", "g"] as const) {
       const keys = [...pool[kind]].flatMap(([k, n]) => Array<string>(Math.max(0, n)).fill(k));
       let shuffled: string[];
       [shuffled, r] = shuffle(keys, r);
+      const handSlot = kind === "main" ? hidden.main.findIndex((i) => s.players[p].hand.includes(i)) : -1;
+      if (reads?.oppRevealedG3 && handSlot >= 0 && !s.players[p].hand.some((h) => !isHidden(h) && db[h.key].grade === 3)) {
+        const g3 = shuffled.findIndex((k) => db[k]?.grade === 3 && !isG(db[k]));
+        if (g3 >= 0) [shuffled[handSlot], shuffled[g3]] = [shuffled[g3], shuffled[handSlot]];
+      }
       hidden[kind].forEach((inst, i) => { inst.key = shuffled[i] ?? HIDDEN; });
     }
   }
