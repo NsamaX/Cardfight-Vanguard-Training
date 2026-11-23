@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# Next.js / build output
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# generated from content/ by scripts/gen-content.mjs
+src/data/content.json
+
+# raw card scans before tools/clean_images.py
+.temp/
+
+# Python
+__pycache__/
+*.pyc
+
+# env and local settings
+.env*.local
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

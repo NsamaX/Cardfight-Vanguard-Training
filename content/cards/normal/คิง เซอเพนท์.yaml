@@ -1,0 +1,17 @@
+ids: ["PR/0256TH"]
+name: "คิง·เซอเพนท์"
+format: [G]
+type: normal
+grade: 2
+power: 8000
+race: "คราเค่น"
+clan: "แกรนบลู"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self, from=drop)"
+    effect: ["SC(1)", "CC(1)"]
+text: |
+  ### AUTO
+
+  - **จังหวะ:** เมื่อยูนิทนี้เข้าสู่ช่อง (RC) จากดรอปโซนคุณ
+    - **ผล:** SC1, เลือกหงายการ์ดบนดาเมจโซนของคุณ 1 ใบ

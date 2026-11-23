@@ -1,0 +1,30 @@
+ids: ["G-BT13/002TH ZR"]
+name: "เซรอธดราก้อนแห่งท้องทะเลไกลโพ้น, เมกิดโด้"
+format: [G]
+type: g-unit
+grade: 4
+power: "25000+"
+race: "เซรอธดราก้อน"
+clan: "เมกาลานิก้า"
+abilities:
+  - kind: "ULTIMATE STRIDE"
+    timing: "step(stride, own)"
+    cond: ["G-faceup≥3"]
+    cost: ["discard(1, filter=same-name-as-VC)"]
+    effect: ["stride(self)", "remove-G-zone(own, at=return-to-G)"]
+  - kind: "AUTO"
+    timing: "enter(VC, self)"
+    cost: ["CB(2)"]
+    effect: ["call(hand+drop→RC, n≤5, to=different)", "power(+5000, called, until=turn-end)", "grant(AUTO-RC[battle-end(self, did=attack) → swap(self, other-own-RC)], called, until=turn-end)"]
+text: |
+  ### ULTIMATE STRIDE
+
+  - **ช่วงเวลา:** สไตรด์สเต็ป | **คอสต์:** เลือกทิ้งการ์ด 1 ใบที่มีชื่อการ์ดเหมือนกับแวนการ์ดของคุณจากบนมือ
+    - **ผล:** STRIDE การ์ดนี้ลงช่อง (VC) ของคุณจากสภาพคว่ำการ์ด
+
+  ### AUTO
+
+  - **จังหวะ:** เมื่อยูนิทนี้เข้าสู่ช่อง (VC) | **คอสต์:** CB2
+    - **ผล:** คุณสามารถจ่ายค่าคอสท์ ถ้าจ่าย, เลือกการ์ดจากบนมือคุณหรือดรอปโซนคุณรวมกันไม่เกิน 5 ใบ, คอลการ์ดเหล่านั้นลงช่อง (RC) ที่แตกต่างกัน, จนจบเทิร์น, ยูนิทเหล่านั้นได้รับ Power+5000 และได้รับความสามารถ "AUTO (RC): เมื่อจบการต่อสู้ที่ยูนิทนี้โจมตี, เลือกเรียร์การ์ดใบอื่นของคุณ 1 ใบ, คุณสามารถสลับที่ยูนิทนั้นกับยูนิทนี้ได้"
+notes: |
+  แคลน เมกาลานิก้า สะกดตามที่พิมพ์บนการ์ด

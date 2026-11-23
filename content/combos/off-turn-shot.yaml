@@ -1,0 +1,98 @@
+# คอมโบ tutorial แบบ combo trial: ผู้เล่นต้องทำตาม steps ทีละขั้นให้ถูก
+# setup = สถานะสนามตอนเริ่ม, steps = การกระทำที่ต้องทำ (action ตรงกับ Action ใน src/engine/types.ts)
+# "จ่ายคอสต์ / ใช้ความสามารถ" = action: choose, option: "yes"
+# อ้างการ์ดด้วยรหัสการ์ด (ดู documents/content.md)
+
+id: off-turn-shot
+name: คอมโบยิงนอกเทิร์น
+difficulty: 2                    # 1-5
+summary: >
+  ในเทิร์นบอท ใช้เนโครลิลลี่รีไทร์พลปืนใหญ่ของเราเอง ให้ไนท์โรสคอลกลับ
+  แล้วพลปืนใหญ่ยิงเรียร์การ์ดบอท ได้ทั้งกันตาย ได้ CC คืน และได้จั่ว
+tags: [เทิร์นคู่แข่ง, G GUARDIAN, ฮอลโล่ว์]
+
+setup:
+  turn: opp
+  phase: battle
+  step: guard
+  attack:                        # บอทกำลังโจมตีแวนการ์ดเรา
+    attacker: PR/0686TH          # ไนท์โรส (G) ของบอท
+    power: 33000
+    target: vc
+  me:
+    vc: G-CHB03/S11TH            # ไนท์โรส หมอกยามค่ำคืน
+    rc:
+      front_left: G-BT06/087TH   # พลปืนใหญ่โครงกระดูก (ตัวที่จะถูกรีไทร์แล้วกลับมา)
+      front_right: PR/0256TH
+      back_left: G-BT06/040TH
+      back_center: null          # ช่องว่าง: เนโครลิลลี่จะคอลผีน้อยลงตรงนี้
+      back_right: G-CP06/019TH
+    hand: [PR/0740TH, G-CHB03/002TH, G-BT06/S11TH]
+    damage: { up: 3, down: 1 }
+    soul: 3
+    drop: [G-CHB03/S12TH, PR/0740TH, PR/0632TH]
+    g_zone: { up: [PR/0686TH, PR/0686TH], down: [G-CP08/S11TH, G-CP08/S11TH, PR/0686TH] }   # GB2
+    deck: 26
+  opp:
+    vc: PR/0686TH
+    heart: G-CHB03/002TH
+    rc:
+      front_left: G-CP06/019TH
+      front_right: G-BT06/087TH
+      back_center: G-BT06/040TH
+    hand: 5
+    damage: { up: 2, down: 2 }
+
+steps:
+  - action: call-g-guardian
+    card: G-CP08/S11TH
+    discard: PR/0740TH
+    hint: คอลเนโครลิลลี่เป็น G การ์เดี้ยน โดยทิ้งผีน้อย เดวย์ (มีไอคอน Heal)
+  - action: order-queue
+    first: PR/0740TH
+    hint: >
+      ตอนนี้มี AUTO รอ 2 อัน (เดวย์ถูกทิ้ง, เนโครลิลลี่เข้า GC) ทำเดวย์ก่อน
+      จะได้ CC คืนมาใช้จ่าย CB ของเนโครลิลลี่
+  - action: choose
+    option: "yes"
+    card: PR/0740TH
+    bind: PR/0740TH              # ไบนด์ Heal อีกใบจากดรอปโซน
+  - action: choose
+    option: CC(1)
+    hint: เลือก CC1
+  - action: choose
+    option: "yes"
+    card: G-CP08/S11TH
+    retire: front_left
+    hint: เนโครลิลลี่ จ่าย CB1 และรีไทร์พลปืนใหญ่ของเราเอง
+  - action: select-target
+    from: drop
+    card: G-CHB03/S12TH
+    to: back_center
+    hint: คอลผีน้อยพี่น้องทอมมี่ลงช่องว่าง เนโครลิลลี่ได้ Shield+10000 (รวม 36,000 กันได้)
+  - action: choose
+    option: "yes"
+    card: G-CHB03/S11TH
+    hint: ไนท์โรส หมอกยามค่ำคืน ทำงานเพราะเรียร์การ์ดตกดรอป จ่าย mill 3
+  - action: select-target
+    from: drop
+    card: G-BT06/087TH
+    to: front_left
+    hint: คอลพลปืนใหญ่กลับช่องเดิม
+  - action: order-queue
+    first: hollow
+    hint: AUTO ของพลปืนใหญ่รอ 2 อัน ทำฮอลโล่ว์ก่อน จะได้จั่วการ์ดจากความสามารถที่ 2
+  - action: choose
+    option: hollow
+    hint: ติดฮอลโล่ว์ (ถูกรีไทร์ตอนจบเทิร์นบอท)
+  - action: choose
+    option: "yes"
+    card: G-BT06/087TH
+    hint: จ่าย CB1
+  - action: select-target
+    side: opp
+    to: front_left
+    hint: ยิงเรียร์การ์ดบอทที่จะโจมตีต่อ แล้วจั่ว 1 ใบเพราะติดฮอลโล่ว์
+
+result: >
+  กันการโจมตีได้, บอทเสียเรียร์การ์ด 1 ใบ, จั่ว +1, CB ใช้ 2 ได้คืน 1

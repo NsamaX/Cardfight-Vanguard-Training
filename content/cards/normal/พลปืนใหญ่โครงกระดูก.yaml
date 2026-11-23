@@ -1,0 +1,23 @@
+ids: ["G-BT06/087TH SP"]
+name: "พลปืนใหญ่โครงกระดูก"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+race: "สเกเลตัน"
+clan: "แกรนบลู"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    timing: "enter(RC, self, from=drop)"
+    cond: ["GB(1)"]
+    cost: ["CB(1)"]
+    effect: ["retire(opp-RC, n≤1)", "draw(1, if=self-hollowed)"]
+text: |
+  ### AUTO
+
+  - ฮอลโล่ว์
+  - **เงื่อนไข:** GB1 | **จังหวะ:** เมื่อยูนิทนี้เข้าสู่ช่อง (RC) จากดรอปโซนคุณ | **คอสต์:** CB1
+    - **ผล:** สามารถจ่ายค่าคอสท์ ถ้าจ่าย, เลือกรีไทร์เรียร์การ์ดของคู่แข่งไม่เกิน 1 ใบ จากนั้น, ถ้ายูนิทนี้อยู่ในสภาพฮอลโล่ว์, จั่วการ์ด 1 ใบ

@@ -1,0 +1,30 @@
+ids: ["G-BT06/083TH C"]
+name: "หนึ่งคนแกร่งเท่าหนึ่งพัน, ไนท์สตอร์ม"
+format: [G]
+type: normal
+grade: 3
+power: 11000
+race: "แวมไพร์"
+clan: "แกรนบลู"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "battle-end(self, did=attack-VC)"
+    cond: ["GB(1)", "self-hollowed"]
+    cost: ["CB(1)"]
+    effect: ["call(drop→RC, n≤1, filter=not-same-name, to=empty)"]
+  - kind: "AUTO"
+    timing: "enter(VC, self)"
+    cost: ["CB(1)", "SB(1)"]
+    effect: ["search(deck→hand, n≤1, filter=has-hollow, look=top-5)"]
+text: |
+  ### AUTO
+
+  - ฮอลโล่ว์
+  - **ช่อง:** RC | **เงื่อนไข:** GB1 | **จังหวะ:** เมื่อจบการต่อสู้ที่ยูนิทนี้โจมตีแวนการ์ด | **คอสต์:** CB1
+    - **ผล:** ถ้ายูนิทนี้อยู่ในสภาพฮอลโล่ว์, สามารถจ่ายค่าคอสท์ ถ้าจ่าย, เลือกการ์ดที่ไม่ใช่ชื่อ "หนึ่งคนแกร่งเท่าหนึ่งพัน, ไนท์สตอร์ม" จากดรอปโซนคุณไม่เกิน 1 ใบ, และคอลยูนิทนั้นลงช่อง (RC) ที่ไม่มียูนิทนี้อยู่
+  - **จังหวะ:** เมื่อยูนิทนี้เข้าสู่ช่อง (VC) | **คอสต์:** CB1, SB1
+    - **ผล:** สามารถจ่ายค่าคอสท์ ถ้าจ่าย, เปิดดูการ์ด 5 ใบบนสุดจากกองการ์ดคุณ, ค้นหาการ์ดที่มีความสามารถฮอลโล่ว์ไม่เกิน 1 ใบจากที่เปิดดูทั้งหมด, แสดงและนำขึ้นมือคุณ, จากนั้นสลับกองการ์ดคุณ

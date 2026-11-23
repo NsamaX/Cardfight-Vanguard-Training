@@ -1,0 +1,28 @@
+ids: ["G-CHB03/S11TH SP"]
+name: "เจ้าหญิงผีดูดเลือดแห่งหมอกยามค่ำคืน, ไนท์โรส"
+format: [G]
+type: normal
+grade: 3
+power: 11000
+race: "แวมไพร์"
+clan: "แกรนบลู"
+abilities:
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "to-drop(own, from=RC)"
+    cond: ["1/turn", "GB(2)"]
+    cost: ["mill(3)"]
+    effect: ["call(drop→RC, n=1, filter=that-card)"]
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "stride(own)"
+    cond: ["own-turn"]
+    cost: ["CB(1)"]
+    effect: ["call(drop→RC, n≤1)", "power(+2000, called, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - **ช่อง:** VC | **เงื่อนไข:** 1/Turn GB2 | **จังหวะ:** เมื่อเรียร์การ์ดของคุณตกลงดรอปโซน | **คอสต์:** นำการ์ด 3 ใบบนสุดจากกองการ์ดคุณลงช่องดรอปโซนคุณ
+    - **ผล:** สามารถจ่ายค่าคอสท์ ถ้าจ่าย, คุณสามารถคอลการ์ดนั้นลงช่อง (RC)
+  - **ช่อง:** VC | **จังหวะ:** ในเทิร์นคุณ, เมื่อ G ยูนิทคุณทำการ STRIDE | **คอสต์:** CB1
+    - **ผล:** สามารถจ่ายค่าคอสท์ ถ้าจ่าย, เลือกการ์ดจากดรอปโซนคุณไม่เกิน 1 ใบ, คอลลงช่อง (RC), และยูนิทนั้นได้รับ Power+2000 จนจบเทิร์น

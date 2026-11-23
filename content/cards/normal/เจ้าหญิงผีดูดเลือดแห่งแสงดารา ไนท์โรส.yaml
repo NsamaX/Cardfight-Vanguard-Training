@@ -1,0 +1,32 @@
+ids: ["G-CHB03/002TH RLR"]
+name: "เจ้าหญิงผีดูดเลือดแห่งแสงดารา, ไนท์โรส"
+format: [G]
+type: normal
+grade: 3
+power: 11000
+race: "แวมไพร์"
+clan: "แกรนบลู"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    zone: "VC/RC"
+    timing: "enter(RC, other-own, from=drop)"
+    cond: ["1/turn", "GB(2)", "own-turn"]
+    cost: ["SB(1)"]
+    effect: ["call(drop→RC, n=1, filter=grade-1, to=same-column)"]
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "stride(own)"
+    cond: ["own-turn"]
+    cost: ["CB(1)"]
+    effect: ["mill(≤3)", "call(drop→RC, n=1)", "power(+3000, called, until=turn-end, if=called-has-hollow)"]
+text: |
+  ### AUTO
+
+  - ฮอลโล่ว์
+  - **ช่อง:** VC/RC | **เงื่อนไข:** 1/Turn GB2 | **จังหวะ:** ในเทิร์นคุณ, เมื่อยูนิทคุณเข้าสู่ช่อง (RC) ช่องอื่นจากดรอปโซน | **คอสต์:** SB1
+    - **ผล:** คุณสามารถจ่ายค่าคอสต์ ถ้าจ่าย, เลือกการ์ดเกรด 1 จากดรอปโซนคุณ 1 ใบ, คอลลงช่อง (RC) อื่นในแถวแนวตั้งเดียวกับยูนิทนี้
+  - **ช่อง:** VC | **จังหวะ:** ในเทิร์นคุณ, เมื่อคุณทำการ STRIDE G ยูนิท | **คอสต์:** CB1
+    - **ผล:** คุณสามารถจ่ายค่าคอสต์ ถ้าจ่าย, ส่งการ์ดไม่เกิน 3 ใบบนสุดจากกองการ์ดคุณลงดรอปโซน, เลือกการ์ดจากดรอปโซนคุณ 1 ใบ, คอลลงช่อง (RC), ถ้ายูนิทนั้นมีความสามารถฮอลโล่ว์, จนจบเทิร์น, ยูนิทนั้นได้รับ Power+3000

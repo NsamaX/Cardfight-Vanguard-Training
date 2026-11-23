@@ -1,0 +1,21 @@
+ids: ["G-BT08/S32TH SP"]
+name: "แรมเพจ·เชด"
+format: [G]
+type: trigger
+trigger: critical
+grade: 0
+power: 4000
+race: "โกสต์"
+clan: "แกรนบลู"
+abilities:
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "attack(own-VC)"
+    cond: ["vc-name(\"ไนท์โรส\") & vc-grade≥3"]
+    cost: ["soul-in(self)"]
+    effect: ["draw(1)", "power(+5000, own-VC, until=battle-end)"]
+text: |
+  ### AUTO
+
+  - **ช่อง:** RC | **จังหวะ:** เมื่อแวนการ์ดของคุณโจมตี | **คอสต์:** นำยูนิทนี้เข้าสู่โซลคุณ
+    - **ผล:** ถ้าแวนการ์ดของคุณเป็นการ์ดเกรด 3 หรือสูงกว่าที่มีคำว่า "ไนท์โรส" ในชื่อการ์ด, สามารถจ่ายค่าคอสท์ ถ้าจ่าย, จั่วการ์ด 1 ใบ, เลือกแวนการ์ดของคุณ 1 ใบ, จนจบการต่อสู้, ยูนิทนั้นได้รับ Power+5000

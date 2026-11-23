@@ -1,0 +1,299 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap");
+
+:root {
+  --bg: #0e0e0e; --panel: #141414; --ink: #ececea; --mute: #8c8c88; --line: #2a2a2a;
+  --soft: #232323; --card: #1a1a1a; --inv: #111; --veil: rgba(14, 14, 14, .84); --hi: #f2c14e; --act: #f28c28; --bad: #e5484d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); }
+button { font: inherit; color: inherit; }
+.app {
+  --card-h: 128px;                       /* การ์ดทุกใบบนสนามขนาดเดียวกัน */
+  --card-w: 88px;
+  --dmg-step: 35px;                      /* ส่วนที่โผล่ของดาเมจแต่ละใบที่ถูกทับ */
+  --lane: 24px;                          /* ช่องระหว่างแถบการต่อสู้กับแถว VC / G โซน / ไบนด์ (ใส่ป้าย SB, GB) */
+  --gap: 8px;                            /* ช่องว่างระหว่างช่องวางการ์ด */
+  height: 100vh; min-width: 1200px; display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 300px; background: var(--bg); color: var(--ink);
+  font-family: "IBM Plex Sans Thai", sans-serif; font-size: 13px; overflow: hidden;
+}
+.mono { font-family: "IBM Plex Mono", monospace; }
+.mute { color: var(--mute); }
+
+/* เฟส (ล่างสุดของแผงซ้าย เต็มความกว้าง เรียงจากล่างขึ้นบน) */
+.phases { flex: none; display: flex; flex-direction: column-reverse; border-top: 1px solid var(--line); }
+.ph { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; padding: 5px 16px; border-bottom: 1px solid var(--line); }
+.ph:first-child { border-bottom: none; }
+/* สามเหลี่ยมกระพริบช้าๆ หน้าเฟสปัจจุบัน (อยู่ในช่องว่างซ้าย ชื่อเฟสจึงไม่ขยับ) */
+.ph { position: relative; }
+.ph-cursor { position: absolute; left: 5px; top: 10px; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid #fff; animation: ph-blink 1.6s ease-in-out infinite; }
+@keyframes ph-blink { 0%, 100% { opacity: 1; } 50% { opacity: .15; } }
+.ph.on { background: var(--soft); }
+.ph.past { color: var(--mute); }
+.ph .name { min-width: 64px; font: 600 11px/18px "IBM Plex Mono", monospace; letter-spacing: .08em; }
+.btn { height: 32px; padding: 0 12px; border: 1px solid var(--line); background: transparent; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--ink); }
+.btn.primary { background: var(--ink); color: var(--inv); border-color: var(--ink); font-weight: 600; }
+.btn:disabled { opacity: .4; cursor: default; }
+
+/* แผงซ้าย */
+aside { min-height: 0; display: flex; flex-direction: column; background: var(--panel); }
+aside.left { border-right: 1px solid var(--line); }
+aside.right { border-left: 1px solid var(--line); }
+.log { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 12px; }
+.log .tn { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .12em; color: var(--mute); }
+.log .tn::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.log .e { display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 6px; padding: 2px 0; line-height: 1.5; }
+.log .dot { width: 7px; height: 7px; margin-top: 6px; }
+.dot.me { background: var(--ink); }
+.dot.bot { border: 1px solid var(--ink); }
+.panel-foot { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 10px 16px 12px; }
+
+/* สนาม: ครึ่งบนเป็นบอท (หมุนกลับหัว) ครึ่งล่างเป็นเรา แถบการต่อสู้อยู่กึ่งกลางจอพอดี */
+main {
+  position: relative; min-height: 0; display: grid; gap: 4px 8px; padding: 0 16px; overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  grid-template-columns: calc(var(--card-h) + 4px) minmax(0, 1fr) calc(var(--card-h) + 4px);
+  grid-template-areas:
+    "bstack bhand btray"
+    "bstack bside btray"
+    "mid    mid   mid"
+    "mtray  mside mstack"
+    "mtray  mhand mstack";
+}
+
+/* หน้าเลือก/สร้างเด็ค แทนที่ครึ่งสนามของฝั่งที่เลือก */
+.deck-panel { z-index: 5; grid-column: 1 / -1; min-height: 0; display: flex; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.deck-panel.bot { grid-row: 1 / 3; }
+.deck-panel.me { grid-row: 4 / 6; }
+.deck-list { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); grid-auto-rows: 110px; gap: 12px; align-content: start; }
+.deck-tile { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 12px; text-align: left; color: var(--ink); }
+.deck-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; opacity: .45; }
+.deck-tile > span, .deck-tile > button { position: relative; }
+.deck-tile:hover { border-color: var(--ink); }
+.deck-tile.on { border: 2px solid var(--hi); }
+.deck-tile.bad img { filter: grayscale(1); }
+.deck-tile.new { align-items: center; justify-content: center; border-style: dashed; font: inherit; font-weight: 600; }
+.deck-name { font-weight: 700; font-size: 14px; text-shadow: 0 1px 3px #000; }
+.deck-count { font: 11px "IBM Plex Mono", monospace; color: var(--ink); text-shadow: 0 1px 3px #000; }
+.deck-btns { position: absolute !important; top: 8px; right: 8px; display: flex; gap: 6px; }
+.deck-btns .btn { height: 26px; background: var(--panel); }
+
+.deck-view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.deck-view .collection-bar { gap: 12px; font-size: 11px; }
+.deck-view .err { color: var(--bad); }
+.deck-view .deck-actions { margin-left: auto; }
+.deck-view-name { font-weight: 700; font-size: 14px; }
+.deck-view-sep { grid-column: 1 / -1; }
+.deck-builder { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 280px; }
+.collection-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.collection-bar { flex: none; display: flex; gap: 6px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.chip { height: 28px; min-width: 36px; padding: 0 10px; }
+.chip.on { background: var(--ink); color: var(--inv); border-color: var(--ink); }
+.search { margin-left: auto; width: 180px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; }
+.collection { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, var(--card-w)); gap: 10px 12px; align-content: start; }
+.collect { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.collect.full .card { opacity: .4; }
+.copies { height: 16px; font: 600 11px/16px "IBM Plex Mono", monospace; }
+.deck-side { min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); }
+.deck-head { flex: none; display: flex; align-items: center; gap: 8px; margin: 10px; }
+.deck-cover { position: relative; flex: none; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: var(--card) center 20% / cover; cursor: pointer; }
+.deck-cover:hover { border-color: var(--ink); }
+.deck-cover select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.deck-title { flex: 1; min-width: 0; margin: 0; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; font-weight: 700; }
+.deck-sleeves { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
+.deck-sleeves label { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.deck-sleeves .mono { width: 48px; color: var(--mute); }
+.deck-sleeves select { flex: 1; min-width: 0; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; }
+.sleeve-thumb { flex: none; width: 20px; height: 28px; border-radius: 3px; border: 1px solid var(--line); background: repeating-linear-gradient(45deg, var(--ink) 0 3px, var(--card) 3px 7px) center / cover; }
+.deck-rows { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px; display: flex; flex-direction: column; gap: 3px; }
+.deck-row { position: relative; flex: none; height: 28px; display: flex; align-items: center; gap: 6px; padding-right: 8px; border: 1px solid var(--line); border-radius: 4px; cursor: pointer;
+  background: var(--card) no-repeat right 0 top 30% / 60% auto; overflow: hidden; }
+.deck-row::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--card) 40%, transparent); }
+.deck-row > * { position: relative; }
+.deck-row:hover { border-color: var(--ink); }
+.deck-row .g { width: 24px; height: 100%; display: grid; place-items: center; background: var(--ink); color: var(--inv); font: 600 11px "IBM Plex Mono", monospace; }
+.deck-row .n { flex: 1; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
+.deck-row .c { min-width: 18px; padding: 0 4px; border-radius: 3px; background: var(--panel); text-align: center; font: 600 11px/16px "IBM Plex Mono", monospace; }
+.deck-row .star { border: none; background: none; padding: 0 2px; cursor: pointer; color: var(--mute); }
+.deck-row .star.on { color: var(--hi); }
+.deck-sep { margin: 6px 0 2px; font: 10px "IBM Plex Mono", monospace; letter-spacing: .1em; color: var(--mute); }
+.deck-foot { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-top: 1px solid var(--line); font-size: 11px; }
+.deck-foot .err { color: var(--bad); }
+.deck-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.side.bot { grid-area: bside; }
+.side.me { grid-area: mside; }
+.hand.bot { grid-area: bhand; }
+.hand.me { grid-area: mhand; }
+.side.me { padding-top: var(--lane); }
+.side.bot { padding-bottom: var(--lane); align-items: end; }
+.side { min-height: 0; display: grid; grid-template-columns: minmax(0, 170px) auto minmax(0, 170px); justify-content: center; align-items: start; gap: 10px; }
+.col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.col.r { align-items: flex-end; }
+
+/* ข้างสนาม: tray = G โซน + ดาเมจ, stack = ไบนด์ + กองการ์ด + ดรอป (ฝั่งบอทเรียงจากกลางจอขึ้นไป) */
+.tray, .stack { position: relative; z-index: 1; min-height: 0; display: flex; flex-direction: column; }
+.tray { gap: calc(var(--lane) - 18px); }          /* ป้าย GB สูง 18px + ช่องนี้ = --lane */
+.stack { gap: var(--gap); }
+.tray.me { grid-area: mtray; align-items: flex-start; }
+.tray.bot { grid-area: btray; align-items: flex-end; flex-direction: column-reverse; }
+.stack.me { grid-area: mstack; align-items: flex-end; }
+.stack.bot { grid-area: bstack; align-items: flex-start; flex-direction: column-reverse; }
+.dmg-group { display: flex; flex-direction: column; align-items: inherit; gap: calc(var(--lane) - 18px); }
+.tray.bot .dmg-group { flex-direction: column-reverse; }
+.tray.me .dmg-group { margin-top: auto; }
+.tray.bot .dmg-group { margin-bottom: auto; }
+.tray.me { padding-bottom: var(--lane); }       /* ดาเมจห่างขอบจอเท่ากับช่องเหนือ VC */
+.tray.bot { padding-top: var(--lane); }
+.zone-row { display: flex; align-items: center; gap: 6px; }
+.zone-row.to-left { flex-direction: row-reverse; }
+.zone-slot { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: calc(var(--card-w) + 2px); height: calc(var(--card-h) + 2px); border: 1px dashed var(--line); border-radius: 5px; cursor: pointer; }
+.zone-slot .back { position: absolute; inset: 0; border-radius: 4px; }
+/* ป้ายจำนวนเหนือช่อง: ป้ายสูง 18px + ช่อง = --lane เหมือน GB เหนือ G โซน (ฝั่งบอทป้ายอยู่ใต้ช่อง) */
+.pile-group { display: flex; flex-direction: column; align-items: inherit; gap: calc(var(--lane) - 18px); cursor: pointer; }
+.stack.bot .pile-group { flex-direction: column-reverse; }
+/* การ์ดที่ใช้แล้ว: ใบแรก (ใหม่สุด) เห็นเต็มใบ ใบถัดไปถูกทับ โผล่แถบละ --step */
+.fan { display: flex; }
+.fan > span { position: relative; flex: none; }
+.to-right .fan > span + span { margin-left: calc(var(--step) - var(--card-w)); }
+.to-left .fan { flex-direction: row-reverse; }
+.to-left .fan > span + span { margin-right: calc(var(--step) - var(--card-w)); }
+/* ดาเมจ: การ์ดแนวนอนซ้อนกัน ใบถัดไปทับใบก่อน เห็นเต็มเฉพาะใบสุดท้าย */
+.damage { display: flex; flex-direction: column; cursor: pointer; }
+.damage.bot { flex-direction: column-reverse; }
+.dmg-slot { position: relative; width: calc(var(--card-h) + 2px); height: var(--dmg-step); border: 1px dashed var(--line); border-radius: 5px; }
+.dmg-slot:last-child { height: calc(var(--card-w) + 2px); }
+.dmg-card { position: absolute; z-index: 1; left: 0; width: calc(var(--card-h) + 2px); height: calc(var(--card-w) + 2px); display: flex; align-items: center; justify-content: center; }
+.damage.me .dmg-card { top: -1px; }
+.damage.bot .dmg-card { bottom: -1px; }
+.dmg-card .card { transform: rotate(90deg); }
+.grid { display: grid; grid-template-columns: repeat(3, calc(var(--card-h) + 10px)); grid-auto-rows: calc(var(--card-h) + 4px); gap: var(--gap); }
+.slot { position: relative; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; }
+.slot.vc { border-style: solid; border-color: var(--mute); }
+.slot.target, .slot.source { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
+/* ความสามารถ: ขอบเหลือง = รอให้คลิกเลือก, ขอบส้ม = เลือกอยู่/กำลังทำงาน (การ์ดในกอง/ดาเมจ/โซล ไฮไลต์ทั้งโซน) */
+.slot.atk { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.slot.aimed { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
+.slot.active { border: 2px solid var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
+.zone-slot.source, .damage.source, .card.source { outline: 3px solid var(--hi); outline-offset: 2px; }
+.zone-slot.active, .damage.active, .card.active { outline: 3px solid var(--act); outline-offset: 2px; }
+.badge.source { border-color: var(--hi); background: var(--hi); color: var(--inv); }
+.badge.active { border-color: var(--act); background: var(--act); color: var(--inv); }
+.slot .lbl { position: absolute; top: 2px; left: 5px; font-family: "IBM Plex Mono", monospace; font-size: 9px; color: var(--mute); }
+.badge { flex: none; height: 18px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font: 600 11px/16px "IBM Plex Mono", monospace; white-space: nowrap; }
+.soul-count { position: absolute; left: 50%; transform: translateX(-50%); cursor: pointer; }
+.side.me .soul-count { bottom: calc(100% + 4px); }
+.side.bot .soul-count { top: calc(100% + 4px); }
+.heart { position: absolute; transform: translate(6px, -6px); opacity: .55; pointer-events: none; }
+.soul-peek { position: absolute; transform: translateX(calc(var(--card-w) * -.45)); }
+
+/* การ์ด */
+.card { position: relative; height: var(--card-h); width: var(--card-w); flex: none; border: 1px solid var(--ink); border-radius: 5px; overflow: hidden; padding: 0; cursor: pointer; background: var(--card) repeating-linear-gradient(135deg, var(--soft) 0 3px, transparent 3px 7px); text-align: left; transition: transform .2s; display: block; }
+.card.small { height: calc(var(--card-h) * .7); width: calc(var(--card-w) * .7); }
+.card.sel { outline: 3px solid var(--hi); outline-offset: 1px; }
+.card.pick { outline: 3px dashed var(--hi); outline-offset: 1px; }
+.card.rested { transform: rotate(90deg); }
+.card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card .back { position: absolute; inset: 0; }
+/* หลังการ์ด: สลีฟของเด็คแต่ละฝั่ง (Board ตั้ง --sleeve-me ฯลฯ) ไม่มีก็ใช้ลายทาง */
+.me { --sleeve: var(--sleeve-me); --g-sleeve: var(--g-sleeve-me); }
+.bot { --sleeve: var(--sleeve-bot); --g-sleeve: var(--g-sleeve-bot); }
+.back { background: var(--sleeve, repeating-linear-gradient(45deg, var(--ink) 0 4px, var(--card) 4px 9px)) center / cover; }
+.back.g { background: var(--g-sleeve, repeating-linear-gradient(45deg, var(--ink) 0 4px, var(--card) 4px 9px)) center / cover; }
+.card .grade { position: absolute; top: 3px; left: 3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 3px; background: var(--ink); color: var(--inv); font: 600 10px/16px "IBM Plex Mono", monospace; text-align: center; }
+.card .mark { position: absolute; top: 3px; right: 3px; height: 16px; padding: 0 4px; border-radius: 3px; background: var(--card); border: 1px solid var(--ink); font: 600 8px/14px "IBM Plex Mono", monospace; }
+.card .strip { position: absolute; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--ink) 88%, transparent); color: var(--inv); padding: 1px 4px 2px; display: flex; flex-direction: column; }
+.card .nm { font-size: 8.5px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .pw { display: flex; justify-content: space-between; font: 600 10.5px/1.2 "IBM Plex Mono", monospace; }
+.card .pw .up { color: var(--bad); }
+.card.dim { filter: grayscale(1); opacity: .45; }
+.cursor-tip { position: fixed; z-index: 50; pointer-events: none; padding: 2px 8px; border-radius: 4px; font: 600 12px/18px "IBM Plex Mono", monospace; white-space: nowrap; }
+.cursor-tip.pow { background: var(--bad); color: #fff; }
+.cursor-tip.cri { background: var(--hi); color: var(--inv); }
+.card .pw .cri { padding: 0 3px; border-radius: 2px; background: var(--hi); color: var(--inv); }
+
+
+/* แถบการต่อสู้ + ปุ่มถัดไป */
+.mid .history { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 6px; }
+.mid-center { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+.mid-center .prompt { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
+.mid { position: relative; grid-area: mid; height: 54px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 14px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0 4px; }
+/* ตัวเลขโจมตี (ซ้าย) / ป้องกัน (ขวา) ชิดปุ่มกลาง การ์ดเช็คและการ์ดบน GC เป็นรูปเล็กด้านนอก */
+.bside { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+.bside.atk { justify-content: flex-end; }
+.bside .big { font-family: "IBM Plex Mono", monospace; font-size: 19px; font-weight: 600; }
+.bside .ico { width: 18px; height: 18px; flex: none; }
+.bside .card { height: 44px; width: 30px; }
+.bside .card .grade { display: none; }
+.res-tag { padding: 1px 7px; border-radius: 4px; background: var(--ink); color: var(--inv); font-size: 11px; font-weight: 600; margin-left: 6px; }
+/* มือชิดขอบจอ แถวละ 10 ใบ ถ้าที่ไม่พอการ์ดจะซ้อนกัน แถวถัดไปลอยซ้อนเข้าหากลางสนาม */
+.hand { position: relative; z-index: 3; min-width: 0; padding-top: 6px; min-height: calc(var(--card-h) + 6px); }
+.hand.bot { padding: 0 0 6px; }
+/* ไม่ใช่ตาของฝั่งนี้: มือเลื่อนออกนอกจอครึ่งใบ */
+.hand { transition: transform .3s; }
+.hand.me.away { transform: translateY(calc(var(--card-h) * .5)); }
+.hand.bot.away { transform: translateY(calc(var(--card-h) * -.5)); }
+.hand-row { position: relative; display: flex; justify-content: center; align-items: flex-end; }
+.hand.bot .hand-row { align-items: flex-start; }
+.hand-slot { flex: 0 1 calc(var(--card-w) + 6px); min-width: 0; }
+.hand-slot:last-child { flex: none; width: var(--card-w); }
+/* ใบที่ 11 ขึ้นไป: แถวหลังซ่อนใต้แถวแรก โผล่ 30% ของความสูงการ์ด ชี้เมาส์ที่แถวหลังแล้วแถวที่อยู่ข้างหน้าเลื่อนออกให้เห็นเต็มใบ */
+.hand-more { position: absolute; left: 0; right: 0; bottom: calc(var(--card-h) * .3); display: flex; flex-direction: column-reverse; }
+.hand-more .hand-row + .hand-row { margin-bottom: calc(var(--card-h) * -.7); }
+.hand.bot .hand-more { bottom: auto; top: calc(var(--card-h) * .3); flex-direction: column; }
+.hand.bot .hand-more .hand-row + .hand-row { margin-bottom: 0; margin-top: calc(var(--card-h) * -.7); }
+.hand-row { transition: transform .2s; }
+.hand > .hand-row .card:hover { transform: translateY(-6px); }
+.hand.bot > .hand-row .card:hover { transform: translateY(6px); }
+.hand:has(.hand-more .card:hover) > .hand-row,
+.hand-more .hand-row:has(~ .hand-row .card:hover) { transform: translateY(calc(var(--card-h) * .7)); }
+.hand.bot:has(.hand-more .card:hover) > .hand-row,
+.hand.bot .hand-more .hand-row:has(~ .hand-row .card:hover) { transform: translateY(calc(var(--card-h) * -.7)); }
+
+/* แผงขวา */
+/* แผงขวาแบ่งครึ่ง: บอทบน เราล่าง */
+.insp-pane { position: relative; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
+.insp-close { position: absolute; right: 12px; top: 10px; width: 32px; padding: 0; background: var(--panel); }
+.insp { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+.insp .top { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; }
+.insp .big-card { width: 110px; aspect-ratio: .686; border-radius: 6px; overflow: hidden; border: 1px solid var(--ink); background: var(--card); }
+.insp .big-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.insp .side-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.insp .type { padding-right: 36px; font-size: 15px; font-weight: 700; line-height: 1.35; white-space: nowrap; }   /* เว้นที่ให้ปุ่ม X */
+.insp .clan { padding-right: 36px; font-size: 12px; font-weight: 600; line-height: 1.4; }
+.insp .name { padding-right: 36px; font-size: 12px; line-height: 1.4; color: var(--mute); }
+.insp .code { font-size: 10px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; margin-top: auto; }
+.stats > div { display: flex; flex-direction: column; min-width: 0; }
+.stats .k { font-family: "IBM Plex Mono", monospace; font-size: 9px; letter-spacing: .1em; color: var(--mute); }
+.stats .v { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.abil h4 { margin: 10px 0 4px; padding: 1px 6px; display: inline-block; background: var(--ink); color: var(--inv); border-radius: 3px; font: 600 10px "IBM Plex Mono", monospace; }
+.abil p { margin: 3px 0; line-height: 1.55; overflow-wrap: anywhere; }
+.abil p.eff { padding-left: 10px; border-left: 2px solid var(--line); }
+
+/* หน้าต่าง */
+.veil { position: absolute; inset: 0; background: var(--veil); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 10; }
+.modal { width: calc(10 * var(--card-w) + 9 * 6px + 32px); max-width: 100%; max-height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.modal .mh { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; font-weight: 600; }
+/* การ์ดขนาดเท่าในมือ ห่างกัน 6px แถวละ 10 ใบ 5 แถวพอดี เกินนั้นเลื่อนดู (ถ้าหน้าต่างแคบกว่า การ์ดจะซ้อนกันแบบในมือ) */
+.modal .mb { flex: none; height: calc(5 * var(--card-h) + 4 * 8px + 32px); max-height: 100%; overflow-y: auto; padding: 16px; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); grid-auto-rows: var(--card-h); gap: 8px 6px; align-content: start; }
+.modal .mb > .mute { grid-column: 1 / -1; }
+.modal .mcard { position: relative; }
+.toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--bad); color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 600; z-index: 20; }
+
+/* หน้าเริ่มเกม */
+/* หน้าต่างตั้งค่า */
+.dialog { width: 420px; max-width: 100%; display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+.dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.field-row { display: flex; gap: 8px; }
+.field-row > select, .field-row > input { flex: 1; min-width: 0; }
+.icon-btn { width: 34px; height: 34px; padding: 0; flex: none; display: grid; place-items: center; }
+.icon-btn.on { background: var(--ink); color: var(--inv); border-color: var(--ink); }
+.dialog select:disabled, .dialog input:disabled { opacity: .45; }
+.dialog input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.dialog input[type="number"]::-webkit-inner-spin-button, .dialog input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.dialog select, .dialog input { height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; }
+
+.slot .tag { position: absolute; bottom: -7px; padding: 0 5px; border: 1px solid var(--ink); border-radius: 3px; background: var(--bg); font-size: 9.5px; line-height: 13px; white-space: nowrap; z-index: 1; }

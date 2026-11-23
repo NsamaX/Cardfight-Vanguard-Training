@@ -1,0 +1,27 @@
+ids: ["G-FC04/019TH GR"]
+name: "นาวาอมตะ, อิมมอร์ทัล·กัลเลียน"
+format: [G]
+type: g-unit
+grade: 4
+power: "15000+"
+race: "โกสต์"
+clan: "แกรนบลู"
+abilities:
+  - kind: "STRIDE"
+    timing: "step(stride, own)"
+    cost: ["discard(n, grade-sum≥3)"]
+    effect: ["stride(self)"]
+  - kind: "AUTO"
+    timing: "enter(VC, self)"
+    cond: ["GB(8)"]
+    effect: ["call(drop→RC, n≤5, to=different)", "power(+10000, called, until=turn-end)", "retire(own, target=called, at=turn-end)"]
+text: |
+  ### STRIDE
+
+  - **ช่วงเวลา:** สไตรด์สเต็ป | **คอสต์:** เลือกทิ้งการ์ด 1 ใบหรือมากกว่าที่มีผลรวมเกรดการ์ดเป็น 3 หรือสูงกว่าจากมือคุณ
+    - **ผล:** STRIDE การ์ดนี้ลงช่อง (VC) ของคุณจากสภาพคว่ำการ์ด
+
+  ### AUTO
+
+  - **เงื่อนไข:** GB8 | **จังหวะ:** เมื่อยูนิทนี้เข้าสู่ช่อง (VC)
+    - **ผล:** เลือกการ์ดจากดรอปโซนคุณไม่เกิน 5 ใบ, คอลลงช่อง (RC) ที่แตกต่างกัน, จนจบเทิร์น, ยูนิทเหล่านั้นได้รับ Power+10000, เมื่อจบเทิร์น, รีไทร์ยูนิทที่ถูกคอลด้วยความสามารถนี้

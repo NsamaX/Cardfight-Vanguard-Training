@@ -1,0 +1,19 @@
+ids: ["PR/0740TH"]
+name: "ผีน้อย เดวย์"
+format: [G]
+type: trigger
+trigger: heal
+grade: 0
+power: 4000
+race: "โกสต์"
+clan: "แกรนบลู"
+abilities:
+  - kind: "AUTO"
+    timing: "discarded(self, from=hand, as=g-guardian-cost)"
+    cost: ["bind(self + 1 heal-trigger from drop)"]
+    effect: ["choose(CC(1), SC(1))"]
+text: |
+  ### AUTO
+
+  - **จังหวะ:** เมื่อการ์ดใบนี้ถูกทิ้งจากบนมือเพื่อเป็นคอสต์ของการคอล G GUARDIAN | **คอสต์:** ไบนด์การ์ดใบนี้ในสภาพหงายหน้า, เลือกไบนด์ Heal Trigger ใบอื่นจากดรอปโซน 1 ใบในสภาพหงายหน้า
+    - **ผล:** CC1 หรือ SC1

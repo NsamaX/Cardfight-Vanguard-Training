@@ -1,0 +1,23 @@
+ids: ["PR/0564TH"]
+name: "ผีน้อยมิคและครอบครัว"
+format: [G]
+type: trigger
+trigger: stand
+grade: 0
+power: 4000
+race: "โกสต์"
+clan: "แกรนบลู"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    timing: "enter(RC, self, from=drop)"
+    cond: ["GB(1)", "self-hollowed"]
+    effect: ["power(+10000, other-own, n≤1, until=turn-end)", "grant(AUTO[retired(self, from=RC) → return-to-deck(self)], self, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - ฮอลโล่ว์
+  - **เงื่อนไข:** GB1 | **จังหวะ:** เมื่อยูนิทนี้เข้าสู่ช่อง (RC) จากดรอปโซนคุณ
+    - **ผล:** ถ้ายูนิทนี้อยู่ในสภาพฮอลโล่ว์, เลือกยูนิทใบอื่นของคุณไม่เกิน 1 ใบ, และยูนิทนั้นได้รับ Power+10000 จนจบเทิร์น, และจนจบเทิร์น, ยูนิทนี้ได้รับความสามารถ "AUTO: เมื่อยูนิทนี้ถูกรีไทร์จากช่อง (RC), นำการ์ดนี้กลับเข้ากองการ์ดคุณ, และสลับกองการ์ดคุณ"

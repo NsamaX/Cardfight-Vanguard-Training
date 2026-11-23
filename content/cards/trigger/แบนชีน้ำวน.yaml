@@ -1,0 +1,20 @@
+ids: ["PR/0632TH"]
+name: "แบนชีน้ำวน"
+format: [G]
+type: trigger
+trigger: critical
+grade: 0
+power: 4000
+race: "โกสต์"
+clan: "แกรนบลู"
+abilities:
+  - kind: "ACT"
+    zone: "RC"
+    cond: ["vc-clan(แกรนบลู)"]
+    cost: ["soul-in(self)"]
+    effect: ["draw(≤1)"]
+text: |
+  ### ACT
+
+  - **ช่อง:** RC | **คอสต์:** นำยูนิทนี้เข้าสู่โซล
+    - **ผล:** หากแวนการ์ดของเราเป็นแคลน <<แกรนบลู>> เราจั่วการ์ดไม่เกิน 1 ใบ

@@ -1,0 +1,19 @@
+import type { GameState } from "../../engine/types";
+import { useT } from "../../i18n/react";
+import { PHASES, phaseIndex } from "../../lib/board";
+
+// เฟสเรียงจากล่างขึ้นบน: START อยู่ล่างสุด END อยู่บนสุด
+export function PhaseTrack({ s }: { s: GameState }) {
+  const current = phaseIndex(s);
+  const t = useT();
+  return (
+    <div className="phases">
+      {PHASES.map((ph, i) => (
+        <div key={ph.label} className={`ph ${i === current ? "on" : i < current ? "past" : ""}`}>
+          {i === current && <span className="ph-cursor" aria-hidden="true" />}
+          <span className="name">{t(ph.label)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
