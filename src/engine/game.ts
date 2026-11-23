@@ -4,7 +4,7 @@ import { blocked, condOk, declineEntry, emit, placeOnRC, retireUnit, settle, sta
 import { shuffle } from "./rng";
 import { msg, type Msg } from "../i18n/msg";
 import {
-  BEHIND, FRONT, PLAYERS, RC, SAME_COLUMN, RuleError, bothVanguardsGrade3, circleMsg, criticalOf, driveOf, isG, other, powerOf, shieldOf,
+  BEHIND, FRONT, PLAYERS, RC, SAME_COLUMN, RuleError, bothVanguardsGrade3, strideCostGrade, circleMsg, criticalOf, driveOf, isG, other, powerOf, shieldOf,
   vcGrade,
   type CardDB,
 } from "./rules";
@@ -310,19 +310,20 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
     if (!c) throw new RuleError("err.discardFromHand");
     return c;
   });
-  if (discards.length === 0 || discards.reduce((n, c) => n + db[c.key].grade, 0) < 3) {
+  if (discards.length === 0 || discards.reduce((n, c) => n + strideCostGrade(db[c.key]), 0) < 3) {
     throw new RuleError("err.strideCost");
   }
   for (const c of discards) ps.drop.push(reset(takeFrom(ps.hand, c.uid, "มือ")));
   takeFrom(ps.gZone, g.uid, "G โซน");
   const heart = ps.circles.vc!;
+  // AUTO (VC) "เมื่อ G ยูนิทคุณสไตรด์" ของแวนการ์ดเดิม (ที่กำลังจะเป็นฮาร์ท) ต้องถูกตรวจตอนที่ยังอยู่บน VC
+  emit(db, s, { kind: "stride", player: p, uid: g.uid });
   g.faceUp = true;
   g.rested = heart.rested;
   ps.heart = heart;
   ps.circles.vc = g;
   s.strodeThisTurn = true;
   ev(out, "stride", p, msg("log.stride", { player: playerMsg(p), card: name(db, g), heart: name(db, heart) }), g.uid);
-  emit(db, s, { kind: "stride", player: p, uid: g.uid });
   emit(db, s, { kind: "enter", player: p, uid: g.uid, zone: "VC", from: "G" });
 }
 

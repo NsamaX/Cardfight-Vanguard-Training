@@ -101,6 +101,20 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
     expect(s.battle).toBeUndefined();
   });
 
+  it("เลือก CC(1) ตอนดาเมจคว่ำหลายใบ: ถามว่าหงายใบไหน แล้วทำต่อ ไม่ถามผลซ้ำ", () => {
+    setup();
+    for (const d of s.players.me.damage) d.faceUp = false;
+    act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
+    use("me", "เดวย์");
+    pick("me", s.players.me.drop.find((d) => d.key === K.dewey)!.uid);
+    act("me", { type: "choose", option: "CC(1)" });
+    expect(s.awaiting?.choice?.kind).toBe("cards");
+    const chosen = s.players.me.damage[2].uid;
+    pick("me", chosen);
+    expect(s.players.me.damage.filter((d) => d.faceUp).map((d) => d.uid)).toEqual([chosen]);
+    expect(s.awaiting?.kind).toBe("order-queue");
+  });
+
   it("ไม่จ่ายคอสต์ได้ และถ้าไม่มีความสามารถรออยู่ก็กลับมาการ์ดต่อ", () => {
     setup();
     act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
@@ -182,6 +196,27 @@ describe("กดถัดไปตอนมีความสามารถร�
 });
 
 describe("ความสามารถอื่น", () => {
+  it("ไนท์สตอร์ม: จบการต่อสู้ที่โจมตีแวนการ์ด คอลจากดรอปลง RC ไหนก็ได้ที่ไม่ใช่ช่องของตัวเอง (คอลทับได้)", () => {
+    newGame();
+    const me = s.players.me;
+    me.circles = { vc: inst(K.mist), front_left: inst("G-BT06/083TH"), front_right: inst("G-TD08/007TH") };
+    me.circles.front_left!.hollowed = true;
+    me.gZone = [inst(K.gunit)];
+    me.damage = [inst(K.bone)];
+    me.drop = [inst(K.gun)];
+    s.players.bot.circles = { vc: inst(K.mist) };
+    s.players.bot.deck.unshift(inst(K.bone, false));
+    Object.assign(s, { turn: 3, turnPlayer: "me", phase: "battle", step: "attack" });
+    refreshAwaiting(s);
+    act("me", { type: "attack", attacker: "front_left", target: "vc" });
+    act("bot", { type: "end-guard" });
+    use("me", "ไนท์สตอร์ม");
+    pick("me", me.drop[0].uid);
+    expect(s.awaiting?.choice).toMatchObject({ kind: "circle", options: ["front_right", "back_left", "back_center", "back_right"] });
+    to("me", "front_right");
+    expect(s.players.me.circles.front_right?.key).toBe(K.gun);
+  });
+
   it("แรมเพจ·เชด: เมื่อแวนการ์ดไนท์โรสโจมตี เข้าโซล จั่ว และแวนการ์ด Power+5000", () => {
     newGame();
     const me = s.players.me;

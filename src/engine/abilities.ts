@@ -182,7 +182,9 @@ const toResolving = (entry: QueueEntry, activated: boolean): Resolving => ({
 // เหตุที่ความสามารถในคิวทำงานไม่ได้ตอนนี้ (undefined = ทำได้)
 export function blocked(db: CardDB, s: GameState, entry: QueueEntry): Msg | undefined {
   const at = locate(s, entry.uid);
-  const where = at?.zone === "circle" ? at.circle! : at?.zone ?? "";
+  // ความสามารถ "เมื่อสไตรด์" ของแวนการ์ดเดิม ทำงานต่อได้แม้ตอนนี้เป็นฮาร์ทแล้ว
+  const asHeart = at?.zone === "heart" && entry.event?.kind === "stride";
+  const where = at?.zone === "circle" ? at.circle! : asHeart ? "vc" : at?.zone ?? "";
   const self = entry.event && "uid" in entry.event && entry.event.uid === entry.uid;
   if (!at || (!self && !zoneOk(entry.ability.zone, where)) || !condOk(db, s, entry.owner, at.inst, entry.key, entry.ability, "resolve")) return msg("reason.condUnmet");
   if (!canPay(db, s, toResolving(entry, false))) return msg("reason.cannotPay");
@@ -299,6 +301,7 @@ function circleOptions(s: GameState, r: Resolving, to?: string): Circle[] {
   const ps = s.players[r.owner];
   if (to === "empty") return RC.filter((c) => !ps.circles[c]);
   if (to === "different") return RC.filter((c) => !r.usedCircles.includes(c));
+  if (to === "not-self") return RC.filter((c) => c !== circleOf(s, r.owner, r.uid));
   if (to === "same-column") {
     const sc = circleOf(s, r.owner, r.uid);
     if (sc === "vc") return ["back_center"];
@@ -424,10 +427,13 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
     case "power": case "shield": case "critical": return opStat(db, s, r, c, out);
     case "no-hit": { if (s.battle) { s.battle.noHit = true; say("log.noHitEffect"); } return true; }
     case "choose": {
-      if (!r.answer?.option) return ask(r, { kind: "option", prompt: msg("choice.effect"), options: c.pos });
-      const pick = r.answer.option;
-      r.answer = undefined;
-      return runOp(db, s, r, pick, out);
+      // จำผลที่เลือกไว้ ผลนั้นอาจถามต่อ (เช่น CC ต้องเลือกใบดาเมจ) แล้วกลับมาที่รหัสนี้อีกรอบ
+      if (r.local.pick === undefined) {
+        if (!r.answer?.option) return ask(r, { kind: "option", prompt: msg("choice.effect"), options: c.pos });
+        r.local.pick = r.answer.option;
+        r.answer = undefined;
+      }
+      return runOp(db, s, r, String(r.local.pick), out);
     }
     case "hollow": {
       if (c.pos[0] === "called") {

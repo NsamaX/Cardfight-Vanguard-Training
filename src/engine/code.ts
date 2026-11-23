@@ -27,7 +27,16 @@ export function splitTop(src: string, sep: string): string[] {
   return out;
 }
 
+// รหัสมาจากไฟล์การ์ดซึ่งมีจำนวนจำกัด เก็บผลไว้ใช้ซ้ำ (บอทจำลองเกมหลายพันก้าวต่อการตัดสินใจ) ผู้เรียกห้ามแก้ผลที่ได้
+const cache = new Map<string, Code>();
+
 export function parseCode(src: string): Code {
+  let c = cache.get(src);
+  if (!c) { c = parse(src); cache.set(src, c); }
+  return c;
+}
+
+function parse(src: string): Code {
   const open = src.indexOf("(");
   if (open < 0) return { name: src.trim(), pos: [], named: {} };
   const name = src.slice(0, open).trim();

@@ -15,7 +15,7 @@ abilities:
     timing: "battle-end(self, did=attack-VC)"
     cond: ["GB(1)", "self-hollowed"]
     cost: ["CB(1)"]
-    effect: ["call(drop→RC, n≤1, filter=not-same-name, to=empty)"]
+    effect: ["call(drop→RC, n≤1, filter=not-same-name, to=not-self)"]
   - kind: "AUTO"
     timing: "enter(VC, self)"
     cost: ["CB(1)", "SB(1)"]

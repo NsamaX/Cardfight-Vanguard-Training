@@ -5,7 +5,7 @@ import { apply, gGuardianBlocked, usableActs } from "../engine/game";
 import { locate, playerMsg } from "../engine/state";
 import { msg, type Msg } from "../i18n/msg";
 import { fmt } from "../lib/format";
-import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf } from "../engine/rules";
+import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, strideCostGrade } from "../engine/rules";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import { canBoost, canIntercept, columnOf, findCard, isTarget, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
 
@@ -231,7 +231,7 @@ export function useBoard(initial: GameState) {
       { label: no, onClick: next },
     ] };
     if (striding && mode?.kind === "stride") {
-      const gs = mode.picks.reduce((n, u) => n + db[findCard(s, u)!.inst.key].grade, 0);
+      const gs = mode.picks.reduce((n, u) => n + strideCostGrade(db[findCard(s, u)!.inst.key]), 0);
       const g = mode.gUid && db[findCard(s, mode.gUid)!.inst.key].name;
       const gUid = mode.gUid, discardUids = mode.picks;
       const buttons = [{ label: no, onClick: () => setMode(null) }];

@@ -259,6 +259,31 @@ describe("สไตรด์และ G การ์เดี้ยน", () => {
     expect(s.turnPlayer).toBe("me");
   });
 
+  it("สไตรด์: ผีน้อยพี่น้องทอมมี่ (เกรด 1) นับเป็นเกรด 3 ตอนจ่ายคอสต์ ทิ้งใบเดียวพอ", () => {
+    let s = strideReady();
+    const g = s.players.bot.gZone.find((c) => c.key === K.gunit)!;
+    const tommy = toHand(s, "bot", "G-CHB03/S12TH");
+    s = act(s, "bot", { type: "stride", gUid: g.uid, discardUids: [tommy.uid] });
+    expect(s.players.bot.circles.vc!.key).toBe(K.gunit);
+    expect(s.players.bot.drop.map((c) => c.uid)).toContain(tommy.uid);
+  });
+
+  it("ไนท์โรส หมอกยามค่ำคืน: เมื่อสไตรด์ จ่าย CB1 คอลจากดรอปโซน แม้ตอนนี้เป็นฮาร์ทแล้ว", () => {
+    let s = strideReady();
+    const g = s.players.bot.gZone.find((c) => c.key === K.gunit)!;
+    const g3 = toHand(s, "bot", K.star);
+    s.players.bot.damage.push({ ...g3, uid: "dmg1", key: K.bone, faceUp: true });
+    s.players.bot.drop.push({ ...g3, uid: "gun1", key: K.gun });
+    const raw = (x: Action) => { s = apply(db, s, "bot", x).state; };   // ไม่ใช้ act เพราะ act ตอบคำถามความสามารถให้อัตโนมัติ
+    raw({ type: "stride", gUid: g.uid, discardUids: [g3.uid] });
+    expect(s.awaiting?.kind).toBe("order-queue");
+    raw({ type: "order-queue", index: s.queue.findIndex((e) => e.label.includes("หมอกยามค่ำคืน")) });
+    raw({ type: "select-target", uids: ["gun1"] });
+    raw({ type: "select-target", uids: [], to: "front_left" });
+    expect(s.players.bot.circles.front_left?.uid).toBe("gun1");
+    expect(s.players.bot.damage.find((d) => d.uid === "dmg1")!.faceUp).toBe(false);
+  });
+
   it("สไตรด์ไม่ได้ถ้าแวนการ์ดคู่แข่งยังไม่ถึงเกรด 3", () => {
     const s = strideReady();
     place(s, "me", "vc", K.gun);

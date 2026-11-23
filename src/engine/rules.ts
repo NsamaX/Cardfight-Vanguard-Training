@@ -53,7 +53,20 @@ export function driveOf(db: CardDB, inst: CardInstance): number {
   return card.grade >= 3 ? 2 : 1;
 }
 
-export const vcGrade = (db: CardDB, ps: PlayerState) => (ps.circles.vc ? db[ps.circles.vc.key].grade : 0);
+// เกรดของการ์ดบนมือตอนนับเป็นคอสต์สไตรด์ (CONT บนมือ เช่น ผีน้อยพี่น้องทอมมี่ เกรด +2)
+export function strideCostGrade(card: Card): number {
+  let g = card.grade;
+  for (const ab of card.abilities) {
+    if (ab.kind !== "CONT" || ab.zone !== "มือ" || !(ab.cond ?? []).includes("while(stride-cost)")) continue;
+    for (const e of ab.effect) {
+      const m = e.match(/^grade\(\+(\d+), self\)$/);
+      if (m) g += +m[1];
+    }
+  }
+  return g;
+}
+
+export const vcGrade =(db: CardDB, ps: PlayerState) => (ps.circles.vc ? db[ps.circles.vc.key].grade : 0);
 // เงื่อนไขของสไตรด์และ G การ์เดี้ยน
 export const bothVanguardsGrade3 = (db: CardDB, s: GameState) => PLAYERS.every((p) => vcGrade(db, s.players[p]) >= 3);
 
