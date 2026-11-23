@@ -102,6 +102,11 @@ export const th = {
   "settings.seed": "Seed (ใส่เลขเดิม = สับไพ่เหมือนเดิม)",
   "settings.seedRandom": "สุ่ม seed ทุกเกม",
   "settings.language": "ภาษา",
+  "settings.bot": "บอท",
+  "bot.off": "ปิด (คุมเองทั้งสองฝั่ง)",
+  "bot.normal": "Normal",
+  "bot.hard": "Hard",
+  "bot.nightmare": "Nightmare",
   "tip.power": "{v}",
   "tip.critical": "Critical {v}",
   "tip.shield": "Shield {v}",
@@ -151,6 +156,7 @@ export const th = {
   "q.gGuardConfirm": "คอล G การ์เดี้ยน {card} (Shield {shield}) ทิ้ง {discard}?",
   "ui.pickHealDiscard": "เลือกการ์ดที่มีไอคอน Heal เพื่อทิ้ง",
   "ui.pickAttackerFirst": "เลือกยูนิทแถวหน้าที่จะโจมตีก่อน",
+  "ui.botThinking": "บอทกำลังคิด…",
 
   // ---------- สิ่งที่ engine รอ ----------
   "prompt.mulligan": "เลือกการ์ดที่จะเปลี่ยน (เปลี่ยนได้ 1 ครั้ง)",

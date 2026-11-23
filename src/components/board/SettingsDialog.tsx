@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BOT_LEVELS, type BotLevel } from "../../bot";
 import type { PlayerId } from "../../engine/types";
 import { LOCALES, type Locale } from "../../i18n";
 import { useI18n } from "../../i18n/react";
@@ -9,6 +10,7 @@ export const randomSeed = () => Math.floor(Math.random() * 1e9);
 export interface GameSettings {
   seed: number | "random";
   firstPlayer: PlayerId | "random";
+  bot?: BotLevel | "off";     // ไม่ระบุ = ปิด (คุมเองทั้งสองฝั่ง)
 }
 
 export function resolveSettings(s: GameSettings): { seed: number; firstPlayer: PlayerId } {
@@ -44,16 +46,22 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
   const [firstRandom, setFirstRandom] = useState(settings.firstPlayer === "random");
   const [seed, setSeed] = useState(settings.seed === "random" ? current.seed : settings.seed);
   const [seedRandom, setSeedRandom] = useState(settings.seed === "random");
+  const [bot, setBot] = useState(settings.bot ?? "off");
   const { locale, setLocale, t } = useI18n();
 
   return (
     <div className="veil" onClick={onClose}>
       <form className="dialog" onClick={(e) => e.stopPropagation()}
-        onSubmit={(e) => { e.preventDefault(); onApply({ seed: seedRandom ? "random" : seed, firstPlayer: firstRandom ? "random" : first }); }}>
+        onSubmit={(e) => { e.preventDefault(); onApply({ seed: seedRandom ? "random" : seed, firstPlayer: firstRandom ? "random" : first, bot }); }}>
         <div className="dialog-head"><span>{t("settings.title")}</span><button type="button" className="btn" onClick={onClose}>×</button></div>
         <label>{t("settings.language")}
           <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
             {Object.entries(LOCALES).map(([l, label]) => <option key={l} value={l}>{label}</option>)}
+          </select>
+        </label>
+        <label>{t("settings.bot")}
+          <select value={bot} onChange={(e) => setBot(e.target.value as BotLevel | "off")}>
+            {(["off", ...BOT_LEVELS] as const).map((l) => <option key={l} value={l}>{t(`bot.${l}`)}</option>)}
           </select>
         </label>
         <label>{t("settings.first")}

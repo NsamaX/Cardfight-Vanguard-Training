@@ -2,7 +2,7 @@
 // จำลองการคลิกบนหน้าสนามจริง: เล่น 2 เทิร์นตั้งแต่เปลี่ยนการ์ดบนมือจนถึงการโจมตีและการ์ด
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cardByKey as db } from "../../data/cards";
 import { countCards, presetDecks } from "../../data/decks";
 import { createGame } from "../../engine/game";
@@ -223,5 +223,24 @@ describe("หน้าสนาม", () => {
     expect(slots(1)[1].querySelector(":scope > .card")!.getAttribute("title")).toBe(db[BONE].name);
     expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
     expect(button("จบเทิร์น")).toBeTruthy();                         // เทิร์นแรกไม่มีแบทเทิลเฟส
+  });
+
+  it("เล่นกับบอท: มือบอทคว่ำ ตาบอทไม่มีปุ่มให้กดแทน และบอทเปลี่ยนการ์ดเองแล้วถึงตาคุณ", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = createGame(db, { seed: 9, firstPlayer: "bot", decks: { me: deck, bot: deck } });
+      act(() => root.render(<Board initial={s} started onStart={() => {}} settings={{ seed: 9, firstPlayer: "bot", bot: "normal" }} decks={{ me: deck, bot: deck }} deckOpen={false} onDeckOpen={() => {}}
+        onNewGame={() => {}} onApplySettings={() => {}} onSwapDecks={() => {}} onPickDeck={() => {}} onDeckChanged={() => {}} />));
+      const botHand = [...host.querySelectorAll(".hand.bot .card")];
+      expect(botHand).toHaveLength(5);
+      expect(botHand.every((c) => c.getAttribute("title") === "การ์ดคว่ำ")).toBe(true);
+      expect(button("Ready")).toBeUndefined();
+      expect(host.textContent).toContain("บอทกำลังคิด");
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      expect(host.querySelector(".log")!.textContent).toContain("บอทเปลี่ยนการ์ดบนมือ");
+      expect(button("Ready")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

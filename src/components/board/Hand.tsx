@@ -8,8 +8,9 @@ const MOVE_MS = 400;      // การ์ดใหม่บินจากกอ
 const DEAL_GAP_MS = 90;   // แจกหลายใบพร้อมกัน (เริ่มเกม/เปลี่ยนการ์ด) ทยอยทีละใบ
 
 // มือชิดขอบจอ แถวละไม่เกิน 10 ใบ (ถ้าที่ไม่พอการ์ดจะซ้อนกัน) ใบที่ 11 ขึ้นไปอยู่แถวหลัง โผล่ 30% ชี้เมาส์แล้วเด้งให้เห็นเต็มใบ
-export function Hand({ p, away, cards, selUid, lightOf, picks, onClick, onHover }: {
+export function Hand({ p, away, hidden, cards, selUid, lightOf, picks, onClick, onHover }: {
   p: PlayerId;
+  hidden?: boolean;                                // มือของบอท: แสดงหลังการ์ด
   away: boolean;                                   // ไม่ใช่ตาของฝั่งนี้: มือเลื่อนออกนอกจอครึ่งใบ
   cards: CardInstance[];
   selUid?: string;
@@ -48,8 +49,8 @@ export function Hand({ p, away, cards, selUid, lightOf, picks, onClick, onHover 
   const row = (list: CardInstance[], i: number) => (
     <div key={i} className="hand-row" style={{ zIndex: rows.length - i }}>
       {list.map((h) => (
-        <span key={h.uid} ref={slotRef(h.uid)} className="hand-slot" onMouseEnter={() => onHover(h.uid)} onMouseLeave={() => onHover(undefined)}>
-          <CardView inst={h} plain selected={h.uid === selUid} light={lightOf(h.uid)} picked={picks.includes(h.uid)} onClick={() => onClick(h)} />
+        <span key={h.uid} ref={slotRef(h.uid)} className="hand-slot" onMouseEnter={hidden ? undefined : () => onHover(h.uid)} onMouseLeave={hidden ? undefined : () => onHover(undefined)}>
+          <CardView inst={h} plain hidden={hidden} selected={h.uid === selUid} light={hidden ? undefined : lightOf(h.uid)} picked={!hidden && picks.includes(h.uid)} onClick={() => onClick(h)} />
         </span>
       ))}
     </div>

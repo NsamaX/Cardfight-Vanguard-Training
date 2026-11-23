@@ -7,7 +7,7 @@ import { Modal, ModalCard } from "../Modal";
 export function ChoiceModal({ board }: { board: BoardModel }) {
   const { s, choice, choicePicks, toggleChoicePick, act, fieldChoice, choiceMin, setChoiceMin } = board;
   const t = useT();
-  if (choice?.kind !== "cards" || fieldChoice || choiceMin) return null;
+  if (choice?.kind !== "cards" || fieldChoice || choiceMin || board.botTurn) return null;
   const ok = choicePicks.length >= choice.min && choicePicks.length <= choice.max;
   return (
     <Modal

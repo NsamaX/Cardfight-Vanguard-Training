@@ -1,4 +1,5 @@
-import { useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { VanguardBot } from "../../bot";
 import { cardByKey as db } from "../../data/cards";
 import { presetDecks } from "../../data/decks";
 import { sleeveUrl } from "../../data/sleeves";
@@ -44,7 +45,9 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   onPickDeck: (p: PlayerId, d: Deck) => void;
   onDeckChanged: (d: Deck) => void;  // เด็คถูกแก้/คืนค่า ฝั่งที่ใช้เด็คนี้อยู่ต้องได้ฉบับใหม่
 }) {
-  const board = useBoard(initial);
+  // บอทเริ่มคิดเมื่อกด Start แล้ว (หน้าสนามถูกสร้างใหม่ทุกเกม บอทจึงเริ่มจำใหม่ทุกเกม)
+  const bot = useMemo(() => (started && settings.bot && settings.bot !== "off" ? new VanguardBot(db, settings.bot, decks) : undefined), [started, settings.bot, decks]);
+  const board = useBoard(initial, bot);
   const t = useT();
   const [showSettings, setShowSettings] = useState(false);
   const [userDecks, setUserDecks] = useState(loadUserDecks);
@@ -85,7 +88,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     />
   );
   const hand = (p: PlayerId) => (
-    <Hand p={p} away={p !== s.turnPlayer && p !== actor} cards={s.players[p].hand} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
+    <Hand p={p} away={p !== s.turnPlayer && p !== actor} hidden={p === "bot" && board.hideBotHand} cards={s.players[p].hand} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
   );
   // ข้างสนาม: ฝั่งเรา G โซน+ดาเมจอยู่ซ้าย กองการ์ด+ดรอป+ไบนด์อยู่ขวา ฝั่งบอทหมุนกลับหัว
   const open = (p: PlayerId, zone: Zone) => () => board.setPile({ player: p, zone });
@@ -128,6 +131,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             {started && !deckOpen && board.mulligan && (
               <button className="btn primary" onClick={board.mulligan.confirm}>{t(board.mulligan.picks ? "btn.change" : "btn.ready")}</button>
             )}
+            {started && !deckOpen && board.botTurn && <span className="prompt">{t("ui.botThinking")}</span>}
             {started && !deckOpen && !board.mulligan && question && <>
               {question.prompt && <span className="prompt" title={t(question.prompt)}>{t(question.prompt)}</span>}
               {question.buttons.map((q) => {
@@ -135,7 +139,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
                 return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
               })}
             </>}
-            {started && !deckOpen && !board.mulligan && !question && (
+            {started && !deckOpen && !board.mulligan && !question && !board.botTurn && (
               <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
             )}
           </div>

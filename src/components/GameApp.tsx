@@ -24,7 +24,7 @@ function beforeDeal(state: GameState): GameState {
   return s;
 }
 
-// เปิดมาที่หน้าสนามเลย เริ่มด้วยเด็คสำเร็จรูปใบแรกทั้งสองฝั่ง seed สุ่ม คุณเล่นก่อน กด Start เพื่อเริ่มเกม
+// เปิดมาที่หน้าสนามเลย เริ่มด้วยเด็คสำเร็จรูปใบแรกทั้งสองฝั่ง seed สุ่ม คุณเล่นก่อน บอทระดับ Normal กด Start เพื่อเริ่มเกม
 export function GameApp() {
   const [game, setGame] = useState<Running | null>(null);
   const [deckOpen, setDeckOpen] = useState(false);
@@ -38,7 +38,7 @@ export function GameApp() {
   // เด็คตัวอย่างที่ผู้เล่นแก้ไว้ใช้ฉบับที่แก้
   useEffect(() => {
     const first = loadUserDecks().find((d) => d.id === presetDecks[0].id) ?? presetDecks[0];
-    start({ seed: "random", firstPlayer: "me" }, { me: first, bot: first });
+    start({ seed: "random", firstPlayer: "me", bot: "normal" }, { me: first, bot: first });
   }, []);
 
   if (!game) return null;

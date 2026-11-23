@@ -1,5 +1,6 @@
 // สถานะของหน้าสนามและการตอบสนองต่อการคลิก แปลงการคลิกเป็น Action ของ engine
 import { useEffect, useState } from "react";
+import type { Bot } from "../bot/types";
 import { cardByKey as db } from "../data/cards";
 import { apply, gGuardianBlocked, usableActs } from "../engine/game";
 import { locate, playerMsg } from "../engine/state";
@@ -9,7 +10,10 @@ import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, s
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import { canBoost, canIntercept, columnOf, findCard, isTarget, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
 
-export function useBoard(initial: GameState) {
+const BOT_DELAY_MS = 450;   // เว้นจังหวะระหว่างการกระทำของบอท ให้มองตามทัน
+
+// bot: บอทที่เล่นฝั่ง "bot" (ไม่มี = คุมเองทั้งสองฝั่ง)
+export function useBoard(initial: GameState, bot?: Bot) {
   const [s, setS] = useState(initial);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [past, setPast] = useState<{ s: GameState; log: LogEntry[] }[]>([]);
@@ -26,6 +30,7 @@ export function useBoard(initial: GameState) {
   const [choiceMin, setChoiceMin] = useState(false);                                    // ย่อหน้าต่างเลือกการ์ดไว้ดูสนาม                                    // คลิกการ์ดทริกเกอร์แล้ว เมาส์แสดงผลที่จะให้                                         // การ์ดที่คลิกเลือกความสามารถที่รออยู่
 
   const actor = s.awaiting?.player;
+  const botTurn = !!bot && actor === "bot" && !s.winner;
   const choice = s.awaiting?.choice;
   const ordering = s.awaiting?.kind === "order-queue";
   const trig = choice || ordering ? undefined : s.battle?.pendingTrigger;
@@ -68,8 +73,9 @@ export function useBoard(initial: GameState) {
   }
 
   // then: action ต่อเนื่องที่คำนวณจาก state ใหม่ (ทำต่อเฉพาะเมื่อถูกกฎ)
-  function act(action: Action, then?: (st: GameState) => Action | undefined) {
-    if (!actor) return;
+  // ตาของบอท: รับเฉพาะ action จากบอท (fromBot) การคลิกของผู้เล่นไม่มีผล
+  function act(action: Action, then?: (st: GameState) => Action | undefined, fromBot = false) {
+    if (!actor || botTurn !== fromBot) return;
     try {
       const r = apply(db, s, actor, action);
       let st = r.state;
@@ -82,6 +88,7 @@ export function useBoard(initial: GameState) {
           entries.push(...r2.events.map((e) => ({ ...e, turn: st.turn })));
         } catch (e) { if (!(e instanceof RuleError)) throw e; }
       }
+      bot?.observe?.(entries);
       setPast((h) => h.concat({ s, log }));
       setFuture([]);
       setLog(log.concat(entries));
@@ -92,15 +99,35 @@ export function useBoard(initial: GameState) {
     }
   }
 
+  // ตาของบอท: ให้บอทคิดแล้วส่ง action (ยกเลิกถ้า state เปลี่ยนก่อนบอทคิดเสร็จ เช่น กดย้อนกลับ)
+  useEffect(() => {
+    if (!bot || !botTurn) return;
+    let alive = true;
+    const decision = s.awaiting!;
+    const t = setTimeout(() => {
+      bot.decide(s, decision).then((a) => { if (alive) act(a, undefined, true); }, (e) => console.error(e));
+    }, BOT_DELAY_MS);
+    return () => { alive = false; clearTimeout(t); };
+  }, [s, bot, botTurn]);
+
   // ย้อนกลับ/ไปหน้า ทีละ action (state และ log กลับไปพร้อมกัน)
+  // เล่นกับบอท: ข้ามจุดที่บอทตัดสินใจ ไปหยุดที่ตาของผู้เล่น
   function travel(back: boolean) {
-    const from = back ? past : future;
-    const to = from.at(-1);
-    if (!to) return;
-    (back ? setPast : setFuture)(from.slice(0, -1));
-    (back ? setFuture : setPast)((h) => h.concat({ s, log }));
-    setS(to.s);
-    setLog(to.log);
+    let from = back ? past : future;
+    let to = back ? future : past;
+    let cur = { s, log };
+    do {
+      const nx = from.at(-1);
+      if (!nx) break;
+      from = from.slice(0, -1);
+      to = to.concat(cur);
+      cur = nx;
+    } while (bot && cur.s.awaiting?.player === "bot" && !cur.s.winner);
+    if (cur.s === s) return;
+    (back ? setPast : setFuture)(from);
+    (back ? setFuture : setPast)(to);
+    setS(cur.s);
+    setLog(cur.log);
     clearUi();
   }
 
@@ -115,7 +142,9 @@ export function useBoard(initial: GameState) {
   }
 
   function clickHand(p: PlayerId, inst: CardInstance) {
+    if (bot && p === "bot") return;   // มือบอทคว่ำอยู่ ดูไม่ได้
     setInspect(inst.uid);
+    if (botTurn) return;
     if (actor && p !== actor) { setError(msg("err.turnOf", { player: playerMsg(actor) })); return; }
     if (choice || ordering) return;
     if (guarding && mode?.kind !== "gguard") {
@@ -140,6 +169,7 @@ export function useBoard(initial: GameState) {
   function clickCircle(p: PlayerId, c: Circle) {
     const unit = s.players[p].circles[c];
     if (unit) setInspect(unit.uid);
+    if (botTurn) return;
     if (choice?.kind === "circle") {
       if (p === choice.side && choice.options.includes(c)) act({ type: "select-target", uids: [], to: c });
       return;
@@ -213,6 +243,7 @@ export function useBoard(initial: GameState) {
   function question(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
     const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label, cost: cost.join(", ") }) : msg("q.use", { label });
     const yes = msg("btn.yes"), no = msg("btn.no");
+    if (botTurn) return undefined;
     if (focused) {
       const i = queued.indexOf(focused);
       const buttons = [{ label: yes, onClick: () => act({ type: "order-queue", index: i }) }];
@@ -320,13 +351,14 @@ export function useBoard(initial: GameState) {
     closeInspect: (p: PlayerId) => setInspectUids((i) => ({ ...i, [p]: undefined })),
     isTarget: (p: PlayerId, c: Circle) => isTarget({ s, db, actor, choice, sel, mode }, p, c),
     // เปลี่ยนการ์ดบนมือตอนเริ่มเกม (ครั้งเดียวต่อผู้เล่น): ไม่เลือกการ์ด = เก็บมือเดิม
-    mulligan: s.awaiting?.kind === "mulligan" && mode?.kind === "mulligan"
+    mulligan: !botTurn && s.awaiting?.kind === "mulligan" && mode?.kind === "mulligan"
       ? { picks: mode.picks.length, confirm: () => act({ type: "mulligan", returnUids: mode.picks }) }
       : undefined,
     undo: past.length ? () => travel(true) : undefined,
     redo: future.length ? () => travel(false) : undefined,
     act, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
-    canNext: s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering,
+    canNext: !botTurn && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
+    botTurn, hideBotHand: !!bot,
     setInspect, setPile,
   };
 }
