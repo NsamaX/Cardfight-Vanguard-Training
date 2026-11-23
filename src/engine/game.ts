@@ -1,6 +1,7 @@
 // กลไกเฟสและการต่อสู้ภาค G + จุดเชื่อมกับระบบความสามารถ (abilities.ts)
 // apply() รับ state + การกระทำ คืน state ใหม่ + events ไม่แก้ state เดิม และสุ่มด้วย seed เท่านั้น
 import { blocked, condOk, declineEntry, emit, placeOnRC, retireUnit, settle, startResolving, type ResumeHandlers } from "./abilities";
+import { cloneState } from "./clone";
 import { shuffle } from "./rng";
 import { msg, type Msg } from "../i18n/msg";
 import {
@@ -64,7 +65,7 @@ export function apply(db: CardDB, state: GameState, player: PlayerId, action: Ac
   const busy = !!state.resolving || state.queue.length > 0;
   if (busy && !ANSWERS.includes(action.type)) throw new RuleError("err.resolveFirst");
   if (!busy && ANSWERS.includes(action.type)) throw new RuleError("err.noPendingAnswer");
-  const s: GameState = structuredClone(state);
+  const s: GameState = cloneState(state);
   const out: Out = [];
   HANDLERS[action.type](db, s, player, action as never, out);
   settle(db, s, out, RESUME);

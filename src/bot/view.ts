@@ -1,5 +1,6 @@
 // ข้อมูลที่บอทเห็นได้ตามกฎ และการเติมข้อมูลที่ซ่อนอยู่ด้วยการสุ่มเพื่อจำลองล่วงหน้า (determinization)
 // บอทรู้รายการเด็คของทั้งสองฝั่ง (เด็คที่เลือกในโปรแกรม) แต่ไม่รู้ลำดับกองการ์ด มือของคู่แข่ง และ G โซนที่คว่ำของคู่แข่ง
+import { cloneState } from "../engine/clone";
 import { nextRandom, shuffle } from "../engine/rng";
 import { PLAYERS, isG, other, type CardDB } from "../engine/rules";
 import { PILE_ZONES } from "../engine/state";
@@ -19,7 +20,7 @@ export const isHidden = (inst: CardInstance) => inst.key === HIDDEN;
 
 // seen = uid ของการ์ดที่เคยเปิดให้เห็น (ไดรฟ์เช็ค ค้นขึ้นมือ) ถ้ายังอยู่บนมือคู่แข่งก็ยังรู้ว่าเป็นใบไหน
 export function viewFor(s: GameState, p: PlayerId, seen: ReadonlySet<string> = new Set()): GameState {
-  const v = structuredClone(s);
+  const v = cloneState(s);
   v.rngState = 0;
   const keep = new Set(seen);
   if (s.awaiting?.player === p && s.awaiting.choice?.kind === "cards") for (const u of s.awaiting.choice.options) keep.add(u);
@@ -90,7 +91,7 @@ export function deckOdds(db: CardDB, s: GameState, p: PlayerId): { size: number;
 
 // เติมการ์ดที่ซ่อนด้วยการ์ดที่ยังไม่ปรากฏตามรายการเด็ค แล้วสุ่ม rng ใหม่ (อนาคตของเกมจำลองไม่ตรงกับเกมจริง)
 export function determinize(db: CardDB, view: GameState, decks: Record<PlayerId, Deck>, seed: number): GameState {
-  const s = structuredClone(view);
+  const s = cloneState(view);
   let r = seed >>> 0 || 1;
   const reads = INTEL.get(view)?.reads;
   for (const p of PLAYERS) {

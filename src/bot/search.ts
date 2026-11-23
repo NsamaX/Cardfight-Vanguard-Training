@@ -3,7 +3,7 @@
 import { nextRandom } from "../engine/rng";
 import { FRONT, type CardDB } from "../engine/rules";
 import type { Action, Circle, Deck, GameState, PlayerId } from "../engine/types";
-import { candidates, fallbacks, tryApply } from "./actions";
+import { candidates, fallbacks, ownQueue, tryApply } from "./actions";
 import { evaluate } from "./eval";
 import { attackOptions, fastMode, guardPlans, policy, rankedCalls, rideAction, strideDiscard, strideOptions } from "./policy";
 import { determinize } from "./view";
@@ -78,16 +78,25 @@ export function searchCandidates(db: CardDB, s: GameState, p: PlayerId): Action[
       const extra = [...main, ...(["back_left", "back_right"] as Circle[]).filter((c) => ps.circles[c]?.rested)];
       return dedupe([pol, ...candidates(db, s, p).filter((a) => a.type === "trigger-target" && main.includes(a.powerTo) && (!a.extraTo || extra.includes(a.extraTo)))]).slice(0, 12);
     }
+    case "order-queue": {
+      // คิวมีใบเดียวที่เลือกไม่ใช้ได้: ข้ามคิว = ไม่ใช้ใบนั้น
+      const q = ownQueue(s, p);
+      const single = q.length === 1 && q[0].optional;
+      return dedupe([pol, ...candidates(db, s, p).filter((a) => !(single && a.type === "pass-queue"))]).slice(0, 10);
+    }
     default: return dedupe([pol, ...candidates(db, s, p)]).slice(0, 10);
   }
 }
+
+// ผลจำลองมีหางยาว (แพ้/ชนะ = ±60) ถ้าเก็บรอบน้อย SE จะต่ำกว่าจริงเพราะยังไม่เจอเกมที่จบ จึงยังไม่ตัดก่อนรอบนี้
+const MIN_ROUNDS = 30;
 
 const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 const pause = () => new Promise<void>((r) => setTimeout(r, 0));
 
 // เทียบแบบจับคู่: แต่ละรอบสุ่มโลก (ข้อมูลที่ซ่อน + ลำดับกอง) ครั้งเดียว แล้วลองทุกตัวเลือกในโลกเดียวกัน
 // ผลต่างกับตัวเลือกของ policy (cands[0]) จึงสะท้อนการตัดสินใจ ไม่ใช่โชค
-// ตัวเลือกที่แย่กว่าชัดเจนถูกตัดออกระหว่างทาง เวลาที่เหลือไปลงกับตัวที่สูสี
+// ตัวเลือกที่ไม่มีทางถูกเลือกถูกตัดออกระหว่างทาง เวลาที่เหลือไปลงกับตัวที่สูสี และหยุดทันทีเมื่อคำตอบชัดแล้ว
 export async function search(
   db: CardDB, view: GameState, decks: Record<PlayerId, Deck>, p: PlayerId, cands: Action[], cfg: SearchConfig, seed: { v: number },
 ): Promise<{ action: Action; stats: { action: Action; n: number; mean: number; se: number }[] }> {
@@ -97,21 +106,24 @@ export async function search(
   const rand = () => { let v: number; [v, seed.v] = nextRandom(seed.v); return Math.floor(v * 2 ** 31) | 1; };
   const lastTurn = view.turn + cfg.horizon;
   const se = (x: typeof stats[number]) => (x.n > 1 ? Math.sqrt(Math.max(0, x.sq / x.n - (x.sum / x.n) ** 2) / (x.n - 1)) : Infinity);
+  const mean = (x: typeof stats[number]) => x.sum / x.n;
   const value = (det: GameState, a: Action) => {
     const r = tryApply(db, det, p, a);
     if (!r) return undefined;
     fastMode.on = true;
     try { return evaluate(db, rollout(db, r.state, lastTurn), p); } finally { fastMode.on = false; }
   };
+  const alts = stats.slice(1);
   let rollouts = 0;
   for (let round = 0; rollouts < cfg.maxIter && now() - t0 < cfg.ms; round++) {
-    if (stats.filter((x) => x.live).length <= 1) break;
+    const live = alts.filter((x) => x.live);
+    if (!live.length) break;
+    if (live.length === 1 && round >= MIN_ROUNDS && mean(live[0]) - 2 * se(live[0]) > cfg.margin) break;
     const det = determinize(db, view, decks, rand());
     const base = value(det, cands[0]);
     rollouts++;
     if (base === undefined) break;
-    for (const x of stats.slice(1)) {
-      if (!x.live) continue;
+    for (const x of live) {
       const v = value(det, x.action);
       rollouts++;
       if (v === undefined) { x.live = false; continue; }
@@ -120,7 +132,12 @@ export async function search(
       if (now() - lastPause > 15) { await pause(); lastPause = now(); }
     }
     // ตัดตัวที่แย่กว่า policy ชัดเจน
-    if (round >= 3) for (const x of stats.slice(1)) if (x.live && x.sum / x.n + 2 * se(x) < 0) x.live = false;
+    if (round >= 3) for (const x of alts) if (x.live && mean(x) + 2 * se(x) < 0) x.live = false;
+    // ตัดตัวที่ไม่มีทางผ่านเกณฑ์เปลี่ยนใจ (ต่ำกว่า margin ชัดเจน หรือแพ้ตัวที่ดีกว่า policy ชัดเจนแล้ว)
+    if (round >= MIN_ROUNDS) {
+      const bar = Math.max(cfg.margin, ...alts.filter((x) => x.live).map((x) => mean(x) - 2 * se(x)));
+      for (const x of alts) if (x.live && mean(x) + 2 * se(x) < bar) x.live = false;
+    }
   }
   stats[0].n = Math.max(1, ...stats.map((x) => x.n));
   const scored = stats.filter((x) => x.n > 0).map((x) => ({ action: x.action, n: x.n, mean: x === stats[0] ? 0 : x.sum / x.n, se: x === stats[0] ? 0 : se(x) }));
