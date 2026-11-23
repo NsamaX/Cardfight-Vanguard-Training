@@ -48,7 +48,7 @@ aside.right { border-left: 1px solid var(--line); }
 .log .dot { width: 7px; height: 7px; margin-top: 6px; }
 .dot.me { background: var(--ink); }
 .dot.bot { border: 1px solid var(--ink); }
-.panel-foot { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 10px 16px 12px; }
+.panel-foot { flex: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 10px 16px 12px; }
 
 /* สนาม: ครึ่งบนเป็นบอท (หมุนกลับหัว) ครึ่งล่างเป็นเรา แถบการต่อสู้อยู่กึ่งกลางจอพอดี */
 main {
@@ -297,3 +297,15 @@ main {
 .dialog select, .dialog input { height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; }
 
 .slot .tag { position: absolute; bottom: -7px; padding: 0 5px; border: 1px solid var(--ink); border-radius: 3px; background: var(--bg); font-size: 9.5px; line-height: 13px; white-space: nowrap; z-index: 1; }
+
+/* replay: รายการเกมที่บันทึก และแถบควบคุมตอนดูย้อนหลัง */
+.dialog.replays { width: 520px; }
+.replay-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.replay-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
+.replay-info { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.replay-info .mute { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.replay-foot { display: flex; flex-direction: column; gap: 8px; }
+.replay-status { display: flex; align-items: center; gap: 8px; }
+.replay-status .pos { flex: 1; min-width: 0; height: 32px; display: flex; align-items: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.replay-bar { display: flex; gap: 4px; }
+.replay-bar .btn { flex: 1; min-width: 0; padding: 0; }

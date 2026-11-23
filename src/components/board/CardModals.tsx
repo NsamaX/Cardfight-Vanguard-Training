@@ -7,7 +7,7 @@ import { Modal, ModalCard } from "../Modal";
 export function ChoiceModal({ board }: { board: BoardModel }) {
   const { s, choice, choicePicks, toggleChoicePick, act, fieldChoice, choiceMin, setChoiceMin } = board;
   const t = useT();
-  if (choice?.kind !== "cards" || fieldChoice || choiceMin || board.botTurn) return null;
+  if (choice?.kind !== "cards" || fieldChoice || choiceMin || board.botTurn || board.readOnly) return null;
   const ok = choicePicks.length >= choice.min && choicePicks.length <= choice.max;
   return (
     <Modal
@@ -26,7 +26,7 @@ export function ChoiceModal({ board }: { board: BoardModel }) {
   );
 }
 
-// หน้าต่างดูการ์ดในโซน (G โซนคลิกเพื่อสไตรด์/คอล G การ์เดี้ยนได้)
+// หน้าต่างดูการ์ดในโซน (G โซนคลิกเพื่อสไตรด์/คอล G การ์เดี้ยนได้) กองการ์ดดูได้เฉพาะตอนดูย้อนหลัง เรียงจากใบบนสุด
 export function PileModal({ board }: { board: BoardModel }) {
   const { s, pile, setPile, clickPileCard } = board;
   const t = useT();
@@ -35,7 +35,7 @@ export function PileModal({ board }: { board: BoardModel }) {
   const close = () => setPile(null);
   return (
     <Modal title={t("modal.pile", { zone: { key: `pile.${pile.zone}` }, n: list.length })} onClose={close}>
-      {pile.zone === "deck" ? <span className="mute">{t("modal.deckHidden")}</span> : list.map((c) => (
+      {pile.zone === "deck" && !board.readOnly ? <span className="mute">{t("modal.deckHidden")}</span> : list.map((c) => (
         <ModalCard key={c.uid} inst={c} light={board.lightOf(c.uid)} onClick={() => clickPileCard(pile.player, pile.zone, c)} />
       ))}
     </Modal>

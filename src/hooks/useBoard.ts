@@ -8,16 +8,23 @@ import { msg, type Msg } from "../i18n/msg";
 import { fmt } from "../lib/format";
 import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, strideCostGrade } from "../engine/rules";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
+import type { RecordedAction } from "../replay/types";
 import { canBoost, canIntercept, columnOf, findCard, isTarget, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
 
 const BOT_DELAY_MS = 450;   // เว้นจังหวะระหว่างการกระทำของบอท ให้มองตามทัน
 
+// ภาพสนาม ณ ก้าวหนึ่ง พร้อมประวัติและ action ทั้งหมดจนถึงก้าวนั้น (ใช้ย้อนกลับและบันทึก replay)
+interface Snapshot { s: GameState; log: LogEntry[]; actions: RecordedAction[] }
+
 // bot: บอทที่เล่นฝั่ง "bot" (ไม่มี = คุมเองทั้งสองฝั่ง)
-export function useBoard(initial: GameState, bot?: Bot) {
+// view: หน้าดูย้อนหลัง (แสดงสนามพร้อมประวัติที่ให้มา คลิกแล้วไม่มีผลต่อเกม)
+export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[] }) {
+  const readOnly = !!view;
   const [s, setS] = useState(initial);
-  const [log, setLog] = useState<LogEntry[]>([]);
-  const [past, setPast] = useState<{ s: GameState; log: LogEntry[] }[]>([]);
-  const [future, setFuture] = useState<{ s: GameState; log: LogEntry[] }[]>([]);
+  const [log, setLog] = useState<LogEntry[]>(view?.log ?? []);
+  const [actions, setActions] = useState<RecordedAction[]>([]);
+  const [past, setPast] = useState<Snapshot[]>([]);
+  const [future, setFuture] = useState<Snapshot[]>([]);
   const [sel, setSel] = useState<Sel | null>(null);
   const [mode, setMode] = useState<Mode | null>(null);
   const [inspect, setInspectUids] = useState<Partial<Record<PlayerId, string>>>({});   // การ์ดที่กดดูล่าสุด แยกตามเจ้าของ
@@ -48,6 +55,12 @@ export function useBoard(initial: GameState, bot?: Bot) {
   const sources = [...queued, ...acts].map((e) => e.uid).filter((u) => !active.includes(u));
   const waitingPiles = sourcePiles(s, sources), activePiles = sourcePiles(s, active);
 
+  // หน้าดูย้อนหลัง: เลื่อนก้าวแล้วแสดงสนามของก้าวนั้น (ไม่สร้างหน้าสนามใหม่ การ์ดจึงเลื่อนต่อเนื่อง)
+  useEffect(() => {
+    if (!view) return;
+    setS(initial);
+    setLog(view.log);
+  }, [initial]);
   useEffect(() => { if (!error) return; const t = setTimeout(() => setError(undefined), 2600); return () => clearTimeout(t); }, [error]);
   useEffect(() => {
     // โหมดเลือกการ์ดเปลี่ยนมีเฉพาะตอนรอเปลี่ยนการ์ดบนมือ (ทีละฝั่ง ล้างเมื่อพ้นขั้นนี้)
@@ -75,23 +88,27 @@ export function useBoard(initial: GameState, bot?: Bot) {
   // then: action ต่อเนื่องที่คำนวณจาก state ใหม่ (ทำต่อเฉพาะเมื่อถูกกฎ)
   // ตาของบอท: รับเฉพาะ action จากบอท (fromBot) การคลิกของผู้เล่นไม่มีผล
   function act(action: Action, then?: (st: GameState) => Action | undefined, fromBot = false) {
-    if (!actor || botTurn !== fromBot) return;
+    if (!actor || readOnly || botTurn !== fromBot) return;
     try {
       const r = apply(db, s, actor, action);
       let st = r.state;
       const entries = r.events.map((e) => ({ ...e, turn: st.turn }));
+      const done: RecordedAction[] = [{ player: actor, action }];
       const follow = then?.(st);
       if (follow && st.awaiting) {
         try {
-          const r2 = apply(db, st, st.awaiting.player, follow);
+          const p2 = st.awaiting.player;
+          const r2 = apply(db, st, p2, follow);
           st = r2.state;
           entries.push(...r2.events.map((e) => ({ ...e, turn: st.turn })));
+          done.push({ player: p2, action: follow });
         } catch (e) { if (!(e instanceof RuleError)) throw e; }
       }
       bot?.observe?.(entries);
-      setPast((h) => h.concat({ s, log }));
+      setPast((h) => h.concat({ s, log, actions }));
       setFuture([]);
       setLog(log.concat(entries));
+      setActions(actions.concat(done));
       setS(st);
       clearUi();
     } catch (e) {
@@ -115,7 +132,7 @@ export function useBoard(initial: GameState, bot?: Bot) {
   function travel(back: boolean) {
     let from = back ? past : future;
     let to = back ? future : past;
-    let cur = { s, log };
+    let cur: Snapshot = { s, log, actions };
     do {
       const nx = from.at(-1);
       if (!nx) break;
@@ -128,6 +145,7 @@ export function useBoard(initial: GameState, bot?: Bot) {
     (back ? setFuture : setPast)(to);
     setS(cur.s);
     setLog(cur.log);
+    setActions(cur.actions);
     clearUi();
   }
 
@@ -243,7 +261,7 @@ export function useBoard(initial: GameState, bot?: Bot) {
   function question(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
     const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label, cost: cost.join(", ") }) : msg("q.use", { label });
     const yes = msg("btn.yes"), no = msg("btn.no");
-    if (botTurn) return undefined;
+    if (botTurn || readOnly) return undefined;
     if (focused) {
       const i = queued.indexOf(focused);
       const buttons = [{ label: yes, onClick: () => act({ type: "order-queue", index: i }) }];
@@ -351,14 +369,15 @@ export function useBoard(initial: GameState, bot?: Bot) {
     closeInspect: (p: PlayerId) => setInspectUids((i) => ({ ...i, [p]: undefined })),
     isTarget: (p: PlayerId, c: Circle) => isTarget({ s, db, actor, choice, sel, mode }, p, c),
     // เปลี่ยนการ์ดบนมือตอนเริ่มเกม (ครั้งเดียวต่อผู้เล่น): ไม่เลือกการ์ด = เก็บมือเดิม
-    mulligan: !botTurn && s.awaiting?.kind === "mulligan" && mode?.kind === "mulligan"
+    mulligan: !botTurn && !readOnly && s.awaiting?.kind === "mulligan" && mode?.kind === "mulligan"
       ? { picks: mode.picks.length, confirm: () => act({ type: "mulligan", returnUids: mode.picks }) }
       : undefined,
-    undo: past.length ? () => travel(true) : undefined,
-    redo: future.length ? () => travel(false) : undefined,
+    undo: past.length && !readOnly ? () => travel(true) : undefined,
+    redo: future.length && !readOnly ? () => travel(false) : undefined,
     act, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
-    canNext: !botTurn && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
+    canNext: !botTurn && !readOnly && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
     botTurn, hideBotHand: !!bot,
+    actions, readOnly,
     setInspect, setPile,
   };
 }

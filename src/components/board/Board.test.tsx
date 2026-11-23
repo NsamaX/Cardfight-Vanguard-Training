@@ -7,6 +7,9 @@ import { cardByKey as db } from "../../data/cards";
 import { countCards, presetDecks } from "../../data/decks";
 import { createGame } from "../../engine/game";
 import type { CardInstance, GameState } from "../../engine/types";
+import { replayTimeline } from "../../replay/play";
+import { loadReplays } from "../../replay/store";
+import { ReplayViewer } from "../ReplayViewer";
 import { Board } from "./Board";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -242,5 +245,30 @@ describe("หน้าสนาม", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("replay: บันทึกเกมเองทุกก้าว แล้วเปิดดูทีละก้าวได้ (เห็นมือทั้งสองฝั่ง)", () => {
+    localStorage.clear();
+    const s = createGame(db, { seed: 4, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    render(s);
+    click(button("Ready"));
+    click(button("Ready"));
+    const saved = loadReplays();
+    expect(saved).toHaveLength(1);
+    expect(saved[0].actions.map((a) => a.action.type)).toEqual(["mulligan", "mulligan"]);
+
+    const tl = replayTimeline(db, saved[0]);
+    act(() => root.render(<ReplayViewer tl={tl} decks={saved[0].decks} settings={{ seed: 4, firstPlayer: "me" }} onContinue={() => {}} onClose={() => {}} />));
+    expect(host.textContent).toContain("ก้าว 0/2");
+    rawClick(host.querySelector('[aria-label="ไปก้าวสุดท้าย"]'));
+    expect(host.textContent).toContain("ก้าว 2/2");
+    expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
+    expect([...host.querySelectorAll(".hand.bot .card")].some((c) => c.getAttribute("title") !== "การ์ดคว่ำ")).toBe(true);
+    expect(button("Ready")).toBeUndefined();
+    expect(host.querySelector(".mid-center")!.textContent).toBe("เล่นต่อจากตรงนี้");   // แทนปุ่มเล่นเกม (เช่น จบเทิร์น)
+    expect(host.querySelector(".mid .history")).toBeNull();
+    rawClick(host.querySelector(".stack.bot .deck .zone-slot"));                       // กองการ์ดเปิดดูได้ตอนดูย้อนหลัง
+    expect(host.querySelectorAll(".modal .card")).toHaveLength(tl.states.at(-1)!.players.bot.deck.length);
+    expect(host.querySelector(".replay-foot .pos")!.textContent).toContain("ก้าว 2/2");
   });
 });

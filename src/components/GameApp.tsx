@@ -6,7 +6,10 @@ import { loadUserDecks } from "../lib/deckStore";
 import { createGame } from "../engine/game";
 import type { Deck, GameState, PlayerId } from "../engine/types";
 import { I18nProvider } from "../i18n/react";
+import { timelineOf, type Timeline } from "../replay/play";
+import type { RecordedAction, ReplaySource } from "../replay/types";
 import { Board } from "./board/Board";
+import { ReplayViewer } from "./ReplayViewer";
 import { resolveSettings, type GameSettings } from "./board/SettingsDialog";
 
 interface Running {
@@ -15,6 +18,7 @@ interface Running {
   settings: GameSettings;
   decks: Record<PlayerId, Deck>;
   n: number;              // นับเกม ใช้เป็น key ให้หน้าสนามเริ่มใหม่ทุกครั้ง แม้ seed เดิม
+  base?: { start?: GameState; actions: RecordedAction[] };   // เล่นต่อจาก replay
 }
 
 // ก่อนกด Start แสดงสนามที่ยังไม่แจกการ์ด: เอาการ์ดบนมือกลับไปไว้บนกองการ์ด
@@ -28,6 +32,18 @@ function beforeDeal(state: GameState): GameState {
 export function GameApp() {
   const [game, setGame] = useState<Running | null>(null);
   const [deckOpen, setDeckOpen] = useState(false);
+  const [viewing, setViewing] = useState<{ src: ReplaySource; tl: Timeline } | null>(null);
+
+  // เล่นต่อจากก้าวที่ดูอยู่: replay ของเกมใหม่รวมก้าวก่อนหน้าไว้ด้วย (ไฟล์แบบ states เริ่มจากสนามนั้นแทน)
+  function continueFrom(step: number) {
+    if (!viewing || !game) return;
+    const { src, tl } = viewing;
+    const state = tl.states[step];
+    const base = "kind" in src ? { start: state, actions: [] } : { start: src.start, actions: src.actions.slice(0, step) };
+    setViewing(null);
+    setDeckOpen(false);
+    setGame({ ...game, state, started: true, decks: src.decks, n: game.n + 1, base });
+  }
 
   function start(settings: GameSettings, decks: Record<PlayerId, Deck>, fixed?: { seed: number; firstPlayer: PlayerId }) {
     const state = createGame(db, { ...(fixed ?? resolveSettings(settings)), decks });
@@ -44,10 +60,19 @@ export function GameApp() {
   if (!game) return null;
   const { settings, decks } = game;
   const current = { seed: game.state.seed, firstPlayer: game.state.firstPlayer };
+  if (viewing) {
+    return (
+      <I18nProvider>
+        <ReplayViewer tl={viewing.tl} decks={viewing.src.decks} settings={settings} onContinue={continueFrom} onClose={() => setViewing(null)} />
+      </I18nProvider>
+    );
+  }
   return (
     <I18nProvider>
       <Board
         key={game.n}
+        base={game.base}
+        onOpenReplay={(src) => setViewing({ src, tl: timelineOf(db, src) })}
         initial={game.started ? game.state : beforeDeal(game.state)}
         started={game.started}
         onStart={() => setGame({ ...game, started: true, n: game.n + 1 })}

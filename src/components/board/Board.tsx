@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { VanguardBot } from "../../bot";
 import { cardByKey as db } from "../../data/cards";
 import { presetDecks } from "../../data/decks";
@@ -7,7 +7,9 @@ import { generationBreak } from "../../engine/rules";
 import type { Deck, GameState, PlayerId } from "../../engine/types";
 import { useBoard } from "../../hooks/useBoard";
 import { useT } from "../../i18n/react";
-import { nextLabel, type Zone } from "../../lib/board";
+import { nextLabel, type LogEntry, type Zone } from "../../lib/board";
+import { saveReplay } from "../../replay/store";
+import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { loadUserDecks, saveUserDecks } from "../../lib/deckStore";
 import { DeckPanel } from "../deck/DeckPanel";
 import { CardHover } from "../CardView";
@@ -20,6 +22,7 @@ import { FieldSide } from "./FieldSide";
 import { Hand } from "./Hand";
 import { LogPanel } from "./LogPanel";
 import { PhaseTrack } from "./PhaseTrack";
+import { ReplayModal } from "./ReplayModal";
 import { SettingsDialog, type GameSettings } from "./SettingsDialog";
 import { GZoneRow, PileSlot } from "./ZoneRow";
 
@@ -31,7 +34,9 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
   );
 }
 
-export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged }: {
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, base, view, onOpenReplay }: {
   initial: GameState;
   started: boolean;            // false = รอกด Start (ยังไม่แจกการ์ด)
   onStart: () => void;
@@ -44,12 +49,27 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   onSwapDecks: () => void;
   onPickDeck: (p: PlayerId, d: Deck) => void;
   onDeckChanged: (d: Deck) => void;  // เด็คถูกแก้/คืนค่า ฝั่งที่ใช้เด็คนี้อยู่ต้องได้ฉบับใหม่
+  base?: { start?: GameState; actions: RecordedAction[] };   // เกมที่เล่นต่อจาก replay: ก้าวก่อนหน้าที่ต้องรวมไว้ใน replay ของเกมนี้
+  view?: { log: LogEntry[]; center: ReactNode; foot: ReactNode };   // หน้าดูย้อนหลัง: แสดงสนามอย่างเดียว center = กลางแถบกลาง, foot = ล่างแผงขวา
+  onOpenReplay?: (src: ReplaySource) => void;
 }) {
   // บอทเริ่มคิดเมื่อกด Start แล้ว (หน้าสนามถูกสร้างใหม่ทุกเกม บอทจึงเริ่มจำใหม่ทุกเกม)
-  const bot = useMemo(() => (started && settings.bot && settings.bot !== "off" ? new VanguardBot(db, settings.bot, decks) : undefined), [started, settings.bot, decks]);
-  const board = useBoard(initial, bot);
+  const bot = useMemo(() => (started && !view && settings.bot && settings.bot !== "off" ? new VanguardBot(db, settings.bot, decks) : undefined), [started, view, settings.bot, decks]);
+  const board = useBoard(initial, bot, view && { log: view.log });
   const t = useT();
   const [showSettings, setShowSettings] = useState(false);
+  const [showReplays, setShowReplays] = useState(false);
+  const [record] = useState(() => ({ id: newId(), createdAt: new Date().toISOString() }));
+
+  // replay ของเกมนี้ บันทึกลงเบราว์เซอร์ทุกครั้งที่มี action (ย้อนกลับแล้ว action ที่ย้อนทิ้งก็หายจาก replay)
+  const replay = (): Replay => ({
+    version: 1, ...record, title: `${decks.me.name} vs ${decks.bot.name}`,
+    seed: initial.seed, firstPlayer: initial.firstPlayer, decks, start: base?.start, bot: settings.bot,
+    actions: [...(base?.actions ?? []), ...board.actions], winner: board.s.winner, turn: board.s.turn,
+  });
+  useEffect(() => {
+    if (started && !view && board.actions.length) saveReplay(replay());
+  }, [board.actions]);
   const [userDecks, setUserDecks] = useState(loadUserDecks);
   function saveDeck(d: Deck) {
     const next = userDecks.some((x) => x.id === d.id) ? userDecks.map((x) => (x.id === d.id ? d : x)) : [...userDecks, d];
@@ -118,7 +138,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {stack("bot")}
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)} />)}
         <div className="mid">
-          {started && !deckOpen && (
+          {started && !deckOpen && !view && (
             <div className="history">
               <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
               <button className="btn icon-btn" disabled={!board.redo} onClick={board.redo} title={t("btn.redo")} aria-label={t("btn.redo")}><ArrowIcon flip /></button>
@@ -126,6 +146,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
           )}
           {deckOpen ? <div /> : <BattleSide side="atk" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} />}
           <div className="mid-center">
+            {view?.center}
             {deckOpen && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
             {!started && !deckOpen && <button className="btn primary" onClick={onStart}>{t("btn.start")}</button>}
             {started && !deckOpen && board.mulligan && (
@@ -139,7 +160,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
                 return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
               })}
             </>}
-            {started && !deckOpen && !board.mulligan && !question && !board.botTurn && (
+            {started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view && (
               <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
             )}
           </div>
@@ -151,6 +172,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {hand("me")}
         <PileModal board={board} />
         <ChoiceModal board={board} />
+        {showReplays && <ReplayModal current={replay} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
         {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={onApplySettings} onClose={() => setShowSettings(false)} />}
         {board.error && <div className="toast">{t(board.error)}</div>}
         {(board.trigTip ?? board.choiceTip) && <CursorTip text={t((board.trigTip ?? board.choiceTip)!.text)} kind={(board.trigTip ?? board.choiceTip)!.kind} />}
@@ -161,11 +183,15 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
           const c = board.inspectedOf(p);
           return <Inspector key={p} p={p} cardKey={c?.inst.key} power={c?.power} onClose={() => board.closeInspect(p)} />;
         })}
-        <div className="panel-foot">
-          <button className="btn" onClick={onNewGame}>{t("btn.reset")}</button>
-          <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>
-          <button className="btn" onClick={() => setShowSettings(true)}>{t("btn.settings")}</button>
-        </div>
+        {view && <div className="panel-foot replay-foot">{view.foot}</div>}
+        {!view && (
+          <div className="panel-foot">
+            <button className="btn" onClick={onNewGame}>{t("btn.reset")}</button>
+            <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>
+            <button className="btn" onClick={() => setShowReplays(true)}>{t("btn.replays")}</button>
+            <button className="btn" onClick={() => setShowSettings(true)}>{t("btn.settings")}</button>
+          </div>
+        )}
       </aside>
     </div>
   );
