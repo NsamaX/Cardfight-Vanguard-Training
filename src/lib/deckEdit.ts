@@ -15,6 +15,9 @@ export function newDeck(name: string): Deck {
   return { id: `user-${Date.now()}`, name, format: "G", starter: "", main: {}, g_zone: {} };
 }
 
+export const duplicateDeck = (deck: Deck, name: string): Deck =>
+  ({ ...deck, id: `user-${Date.now()}`, name, main: { ...deck.main }, g_zone: { ...deck.g_zone } });
+
 // แวนการ์ดเริ่มต้น: ใช้ใบเดิมถ้ายังอยู่ในเด็ค ไม่งั้นเลือกเกรด 0 ที่ไม่ใช่ทริกเกอร์ใบแรก
 function withStarter(deck: Deck): Deck {
   if (deck.main[deck.starter] && cardByKey[deck.starter].grade === 0) return deck;

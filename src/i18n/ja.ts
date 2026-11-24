@@ -150,6 +150,8 @@ export const ja: Dict = {
   "deck.use": "使う",
   "deck.inUse": "使用中",
   "deck.edit": "編集",
+  "deck.duplicate": "複製",
+  "deck.copyName": "{name}（コピー）",
   "deck.back": "戻る",
   "deck.delete": "削除",
   "deck.reset": "元に戻す",

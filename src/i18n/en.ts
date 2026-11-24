@@ -152,6 +152,8 @@ export const en: Dict = {
   "deck.use": "Use",
   "deck.inUse": "In use",
   "deck.edit": "Edit",
+  "deck.duplicate": "Duplicate",
+  "deck.copyName": "{name} (copy)",
   "deck.back": "Back",
   "deck.delete": "Delete",
   "deck.reset": "Reset",

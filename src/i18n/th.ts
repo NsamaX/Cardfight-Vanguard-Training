@@ -154,6 +154,8 @@ export const th = {
   "deck.use": "Use",
   "deck.inUse": "In use",
   "deck.edit": "Edit",
+  "deck.duplicate": "Duplicate",
+  "deck.copyName": "{name} (สำเนา)",
   "deck.back": "Back",
   "deck.delete": "Delete",
   "deck.reset": "Reset",

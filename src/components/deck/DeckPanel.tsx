@@ -2,7 +2,7 @@ import { useState } from "react";
 import { presetDecks } from "../../data/decks";
 import type { Deck, PlayerId } from "../../engine/types";
 import { useT } from "../../i18n/react";
-import { newDeck } from "../../lib/deckEdit";
+import { duplicateDeck, newDeck } from "../../lib/deckEdit";
 import { DeckBuilder } from "./DeckBuilder";
 import { DeckList } from "./DeckList";
 import { DeckView } from "./DeckView";
@@ -50,7 +50,8 @@ export function DeckPanel({ p, current, userDecks, onSaveDeck, onDeleteDeck, onP
               onEdit={() => setEditing(viewing)} onUse={() => onPick(viewing)}
               removeLabel={edited ? t(preset(viewing.id) ? "deck.reset" : "deck.delete") : undefined} onRemove={() => remove(viewing)} />
           : <DeckList decks={decks} currentId={current.id}
-              onOpen={setViewing} onEdit={setEditing} onUse={onPick} onNew={() => setEditing(newDeck(t("deck.newName")))} />}
+              onOpen={setViewing} onEdit={setEditing} onUse={onPick}
+              onDuplicate={(d) => onSaveDeck(duplicateDeck(d, t("deck.copyName", { name: d.name })))} onNew={() => setEditing(newDeck(t("deck.newName")))} />}
     </section>
   );
 }
