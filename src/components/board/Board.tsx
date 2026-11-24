@@ -21,6 +21,7 @@ import { DamageZone } from "./DamageZone";
 import { FieldSide } from "./FieldSide";
 import { Hand } from "./Hand";
 import { LogPanel } from "./LogPanel";
+import { useCardFlight } from "./motion";
 import { PhaseTrack } from "./PhaseTrack";
 import { ReplayModal } from "./ReplayModal";
 import { SettingsDialog, type GameSettings } from "./SettingsDialog";
@@ -87,6 +88,8 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   // โหมดเปลี่ยนเด็ค: กล่องเทาคลุมแต่ละฝั่งให้คลิกเลือกฝั่ง ฝั่งที่เลือกกลายเป็นหน้าเลือก/สร้างเด็ค และปุ่มสลับเด็คกลางแถบการต่อสู้
 
   const { s, actor, mode, selUid, picks } = board;
+  const mainRef = useRef<HTMLElement>(null);
+  const seen = useCardFlight(mainRef, s);
   const next = nextLabel(db, s);
   const question = board.question();
   const sleeveVars = Object.fromEntries((["me", "bot"] as const).flatMap((p) => [
@@ -108,7 +111,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     />
   );
   const hand = (p: PlayerId) => (
-    <Hand p={p} away={p !== s.turnPlayer && p !== actor} hidden={p === "bot" && board.hideBotHand} cards={s.players[p].hand} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
+    <Hand p={p} away={p !== s.turnPlayer && p !== actor} hidden={p === "bot" && board.hideBotHand} cards={s.players[p].hand} seen={seen} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
   );
   // ข้างสนาม: ฝั่งเรา G โซน+ดาเมจอยู่ซ้าย กองการ์ด+ดรอป+ไบนด์อยู่ขวา ฝั่งบอทหมุนกลับหัว
   const open = (p: PlayerId, zone: Zone) => () => board.setPile({ player: p, zone });
@@ -131,7 +134,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     <div className="app">
       <LogPanel log={board.log} onInspect={board.setInspect}><PhaseTrack s={s} /></LogPanel>
       <CardHover.Provider value={board.setHover}>
-      <main style={sleeveVars}>
+      <main ref={mainRef} style={sleeveVars}>
         {hand("bot")}
         {side("bot")}
         {tray("bot")}

@@ -199,6 +199,7 @@ main {
 .card.sel { outline: 3px solid var(--hi); outline-offset: 1px; }
 .card.pick { outline: 3px dashed var(--hi); outline-offset: 1px; }
 .card.rested { transform: rotate(90deg); }
+.card.ghost { position: fixed; z-index: 9; margin: 0; pointer-events: none; transition: none; }
 .card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .card .back { position: absolute; inset: 0; }
 /* หลังการ์ด: สลีฟของเด็คแต่ละฝั่ง (Board ตั้ง --sleeve-me ฯลฯ) ไม่มีก็ใช้ลายทาง */

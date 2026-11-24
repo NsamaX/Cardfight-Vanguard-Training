@@ -43,7 +43,7 @@ export function PileSlot({ ps, zone, light, onOpen }: { ps: PlayerState; zone: k
   return (
     <div className={`pile-group ${zone}`} onClick={onOpen}>
       <span className="badge">{t(PILE_BADGE[zone])} {list.length}</span>
-      <div className={`zone-slot ${light ?? ""}`}>{top && (zone === "deck" ? <span className="back" /> : <CardView inst={top} noRotate plain />)}</div>
+      <div className={`zone-slot ${light ?? ""}`}>{top && (zone === "deck" ? <span className="back" data-uid={list[0].uid} /> : <CardView inst={top} noRotate plain />)}</div>
     </div>
   );
 }

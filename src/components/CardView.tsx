@@ -32,11 +32,11 @@ export function CardView({ inst, power, small, selected, picked, hidden, noRotat
   const t = useT();
   const cls = ["card", small && "small", selected && "sel", picked && "pick", light, dim && "dim", inst.rested && !noRotate && "rested"].filter(Boolean).join(" ");
   if (hidden || !inst.faceUp) {
-    return <button className={cls} onClick={onClick} title={t("card.faceDown")}><span className={`back ${card.type.startsWith("g-") ? "g" : ""}`} /></button>;
+    return <button className={cls} data-uid={inst.uid} onClick={onClick} title={t("card.faceDown")}><span className={`back ${card.type.startsWith("g-") ? "g" : ""}`} /></button>;
   }
   const shown = power ?? card.power ?? card.shield;
   return (
-    <button className={cls} onClick={onClick} title={card.name} onMouseEnter={hover && (() => hover(inst.uid))} onMouseLeave={hover && (() => hover(undefined))}>
+    <button className={cls} data-uid={inst.uid} onClick={onClick} title={card.name} onMouseEnter={hover && (() => hover(inst.uid))} onMouseLeave={hover && (() => hover(undefined))}>
       {card.image && <img src={card.image} alt="" draggable={false} />}
       <span className="grade">{card.grade}</span>
       {mark && (card.trigger || card.type.startsWith("g-")) && <span className="mark">{card.trigger ? t(`mark.${card.trigger}`) : "G"}</span>}

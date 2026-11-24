@@ -2,17 +2,18 @@ import { useLayoutEffect, useRef } from "react";
 import type { CardInstance, PlayerId } from "../../engine/types";
 import type { Light } from "../../lib/board";
 import { CardView } from "../CardView";
+import { MOVE_EASE, MOVE_MS, type Spot } from "./motion";
 
 const PER_ROW = 10;
-const MOVE_MS = 400;      // การ์ดใหม่บินจากกองการ์ดถึงมือ และการ์ดเดิมเลื่อนหลบ ใช้เวลาเท่ากันจึงถึงตำแหน่งพร้อมกัน
 const DEAL_GAP_MS = 90;   // แจกหลายใบพร้อมกัน (เริ่มเกม/เปลี่ยนการ์ด) ทยอยทีละใบ
 
 // มือชิดขอบจอ แถวละไม่เกิน 10 ใบ (ถ้าที่ไม่พอการ์ดจะซ้อนกัน) ใบที่ 11 ขึ้นไปอยู่แถวหลัง โผล่ 30% ชี้เมาส์แล้วเด้งให้เห็นเต็มใบ
-export function Hand({ p, away, hidden, cards, selUid, lightOf, picks, onClick, onHover }: {
+export function Hand({ p, away, hidden, cards, seen, selUid, lightOf, picks, onClick, onHover }: {
   p: PlayerId;
   hidden?: boolean;                                // มือของบอท: แสดงหลังการ์ด
   away: boolean;                                   // ไม่ใช่ตาของฝั่งนี้: มือเลื่อนออกนอกจอครึ่งใบ
   cards: CardInstance[];
+  seen: Map<string, Spot>;                         // ตำแหน่งบนกระดานก่อนหน้า: การ์ดที่เข้ามือบินมาจากที่เดิม (ไม่เห็นที่เดิมก็บินจากกองการ์ด)
   selUid?: string;
   lightOf: (uid: string) => Light;
   picks: string[];
@@ -22,7 +23,7 @@ export function Hand({ p, away, hidden, cards, selUid, lightOf, picks, onClick, 
   const slots = useRef(new Map<string, HTMLElement>());
   const lastRects = useRef(new Map<string, DOMRect>());
 
-  // FLIP: เทียบตำแหน่งก่อน/หลัง render การ์ดเดิมเลื่อนจากที่เก่า การ์ดใหม่บินจากกองการ์ดของฝั่งนี้
+  // FLIP: เทียบตำแหน่งก่อน/หลัง render การ์ดเดิมเลื่อนจากที่เก่า การ์ดใหม่บินจากที่เดิมบนกระดาน
   useLayoutEffect(() => {
     const deck = document.querySelector(`.stack.${p} .deck .zone-slot`)?.getBoundingClientRect();
     const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -31,13 +32,14 @@ export function Hand({ p, away, hidden, cards, selUid, lightOf, picks, onClick, 
     for (const [uid, el] of slots.current) {
       const now = el.getBoundingClientRect();
       rects.set(uid, now);
-      const from = lastRects.current.get(uid) ?? deck;
+      const spot = seen.get(uid);
+      const from = lastRects.current.get(uid) ?? (spot ? { left: spot.x - now.width / 2, top: spot.y - now.height / 2 } : deck);
       if (still || !from || typeof el.animate !== "function") continue;
       const dx = from.left - now.left, dy = from.top - now.top;
       if (!dx && !dy) continue;
       const isNew = !lastRects.current.has(uid);
       el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }],
-        { duration: MOVE_MS, delay: isNew ? dealt++ * DEAL_GAP_MS : 0, easing: "cubic-bezier(.2,.7,.2,1)", fill: "backwards" });
+        { duration: MOVE_MS, delay: isNew ? dealt++ * DEAL_GAP_MS : 0, easing: MOVE_EASE, fill: "backwards" });
     }
     lastRects.current = rects;
   }, [cards, p]);
