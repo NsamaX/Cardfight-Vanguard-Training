@@ -62,7 +62,19 @@ main {
     "mid    mid   mid"
     "mtray  mside mstack"
     "mtray  mhand mstack";
+  isolation: isolate;
 }
+/* ออร่าฝั่งเจ้าของเทิร์น (เรา: ฟ้า / บอท: แดง) เรืองจากขอบจอ โค้งขึ้นตามขอบซ้ายขวาแล้วจางหาย อยู่ใต้การ์ดทั้งหมด */
+main::before, main::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 380px; z-index: -1; pointer-events: none;
+  opacity: 0; transition: opacity .5s;
+  box-shadow: inset 0 0 60px 2px color-mix(in srgb, var(--aura) 30%, transparent);
+  -webkit-mask-image: linear-gradient(var(--edge), #000 100px, transparent);
+  mask-image: linear-gradient(var(--edge), #000 100px, transparent);
+}
+main::before { top: 0; --aura: #e5484d; --edge: to bottom; }
+main::after { bottom: 0; --aura: #3b9eff; --edge: to top; }
+main.turn-bot::before, main.turn-me::after { opacity: 1; }
 
 /* หน้าเลือก/สร้างเด็ค แทนที่ครึ่งสนามของฝั่งที่เลือก */
 .deck-panel { z-index: 5; grid-column: 1 / -1; min-height: 0; display: flex; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
@@ -227,9 +239,6 @@ main {
 .mid-center .prompt { min-width: 0; max-width: min(520px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
 .mid-center .prompt.long { white-space: normal; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .mid { position: relative; grid-area: mid; height: 54px; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center; gap: 14px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0 12px; }
-/* เส้นสีเหลืองฝั่งเจ้าของเทิร์น */
-.mid.turn-me { box-shadow: inset 0 -3px 0 var(--hi); }
-.mid.turn-bot { box-shadow: inset 0 3px 0 var(--hi); }
 /* ตัวเลขโจมตี (ซ้าย) / ป้องกัน (ขวา) ชิดปุ่มกลาง การ์ดเช็คและการ์ดบน GC เป็นรูปเล็กด้านนอก */
 .bside { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
 .bside.atk { justify-content: flex-end; }

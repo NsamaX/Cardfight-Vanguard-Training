@@ -130,13 +130,13 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     <div className="app">
       <LogPanel log={board.log} onInspect={board.setInspect}><PhaseTrack s={s} /></LogPanel>
       <CardHover.Provider value={board.setHover}>
-      <main ref={mainRef} style={sleeveVars}>
+      <main ref={mainRef} style={sleeveVars} className={started ? `turn-${s.turnPlayer}` : undefined}>
         {hand("bot")}
         {side("bot")}
         {tray("bot")}
         {stack("bot")}
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)} />)}
-        <div className={`mid${started ? ` turn-${s.turnPlayer}` : ""}`}>
+        <div className="mid">
           {/* ซ้าย: ปุ่มย้อนกลับ + Power ฝ่ายโจมตี / ขวา: Shield ฝ่ายตั้งรับ + ปุ่มตอบคำถาม (ข้อความกลางหดหรือขึ้นบรรทัดใหม่แทนการทับ) */}
           <div className="mid-side">
             {started && !deckOpen && !view ? (
