@@ -9,8 +9,8 @@ html, body { margin: 0; height: 100%; }
 body { background: var(--bg); }
 button { font: inherit; color: inherit; }
 .app {
-  /* การ์ดทุกใบบนสนามขนาดเดียวกัน ย่อตามความสูงจอ: สนามต้องใช้ราว 6 × card-h + 256px (วัดจากคอลัมน์ดาเมจ/กอง สองฝั่ง + แถบกลาง) */
-  --card-h: clamp(64px, calc((100vh - 260px) / 6), 128px);
+  /* การ์ดทุกใบบนสนามขนาดเดียวกัน ย่อตามความสูงจอ: หาร 7 (ไม่ใช่ 6 ที่พอดีจอ) เผื่อที่ให้ G โซน 4 แถวไม่ชนดาเมจ */
+  --card-h: clamp(64px, calc((100vh - 260px) / 7), 128px);
   --card-w: calc(var(--card-h) * .6875);
   --dmg-step: calc(var(--card-h) * .273);  /* ส่วนที่โผล่ของดาเมจแต่ละใบที่ถูกทับ */
   --lane: 24px;                          /* ช่องระหว่างแถบการต่อสู้กับแถว VC / G โซน / ไบนด์ (ใส่ป้าย SB, GB) */
@@ -161,8 +161,9 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .tray.bot .dmg-group { flex-direction: column-reverse; }
 .tray.me .dmg-group { margin-top: auto; }
 .tray.bot .dmg-group { margin-bottom: auto; }
-.tray.me { padding-bottom: var(--lane); }       /* ดาเมจห่างขอบจอเท่ากับช่องเหนือ VC */
-.tray.bot { padding-top: var(--lane); }
+/* ดาเมจห่างขอบจอแค่ 6px เพื่อให้ G โซน 4 แถวไม่ชนดาเมจ */
+.tray.me { padding-bottom: 6px; }
+.tray.bot { padding-top: 6px; }
 .zone-row { display: flex; align-items: center; gap: 6px; }
 .zone-row.to-left { flex-direction: row-reverse; }
 .zone-slot { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: calc(var(--card-w) + 2px); height: calc(var(--card-h) + 2px); border: 1px dashed var(--line); border-radius: 5px; cursor: pointer; }
@@ -250,7 +251,7 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .mid-center { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
 .mid-center .prompt { min-width: 0; max-width: min(520px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
 .mid-center .prompt.long { white-space: normal; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.mid { position: relative; grid-area: mid; height: 54px; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center; gap: 14px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0 12px; }
+.mid { position: relative; grid-area: mid; height: 90px; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center; gap: 14px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0 12px; }
 /* ตัวเลขโจมตี (ซ้าย) / ป้องกัน (ขวา) ชิดปุ่มกลาง การ์ดเช็คและการ์ดบน GC เป็นรูปเล็กด้านนอก */
 .bside { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
 .bside.atk { justify-content: flex-end; }
