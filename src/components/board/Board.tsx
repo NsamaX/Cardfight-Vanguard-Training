@@ -88,6 +88,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const seen = useCardFlight(mainRef, s);
   const next = nextLabel(db, s);
   const question = board.question();
+  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;   // ปุ่มจบการป้องกัน (Pass) อยู่ขวาสุดกับปุ่มป้องกัน
   const sleeveVars = Object.fromEntries((["me", "bot"] as const).flatMap((p) => [
     [`--sleeve-${p}`, sleeveUrl(decks[p].sleeve)], [`--g-sleeve-${p}`, sleeveUrl(decks[p].g_sleeve)],
   ]).filter(([, u]) => u).map(([k, u]) => [k, `url(${u})`])) as CSSProperties;
@@ -137,39 +138,44 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {stack("bot")}
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)} />)}
         <div className="mid">
-          {/* ซ้าย: ปุ่มย้อนกลับ + Power ฝ่ายโจมตี / ขวา: Shield ฝ่ายตั้งรับ + ปุ่มตอบคำถาม (ข้อความกลางหดหรือขึ้นบรรทัดใหม่แทนการทับ) */}
-          <div className="mid-side">
-            {started && !deckOpen && !view ? (
-              <div className="history">
-                <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
-                <button className="btn icon-btn" disabled={!board.redo} onClick={board.redo} title={t("btn.redo")} aria-label={t("btn.redo")}><ArrowIcon flip /></button>
-              </div>
-            ) : <div />}
+          {/* ซ้ายสุด: ย้อนกลับ/ไปหน้า | กลาง: Power ฝ่ายโจมตี + ข้อความคำถาม + ปุ่มขั้นตอนเกม + Shield ฝ่ายตั้งรับ | ขวาสุด: ปุ่มตอบคำถามของความสามารถ */}
+          <div className="mid-history">
+            {started && !deckOpen && !view && <>
+              <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
+              <button className="btn icon-btn" disabled={!board.redo} onClick={board.redo} title={t("btn.redo")} aria-label={t("btn.redo")}><ArrowIcon flip /></button>
+            </>}
+          </div>
+          <div className="mid-main">
             {deckOpen ? <div /> : <BattleSide side="atk" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} />}
-          </div>
-          <div className="mid-center">
-            {view?.center}
-            {deckOpen && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
-            {!started && !deckOpen && <button className="btn primary" onClick={onStart}>{t("btn.start")}</button>}
-            {started && !deckOpen && board.mulligan && (
-              <button className="btn primary" onClick={board.mulligan.confirm}>{t(board.mulligan.picks ? "btn.change" : "btn.ready")}</button>
-            )}
-            {started && !deckOpen && board.botTurn && <span className="prompt">{t("ui.botThinking")}</span>}
-            {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
-            {started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view && (
-              <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
-            )}
-          </div>
-          <div className="mid-side">
-            {deckOpen ? <div /> : <BattleSide side="def" s={s} preview={board.guardPreview} lightOf={board.lightOf} onInspect={board.setInspect} />}
-            {started && !deckOpen && !board.mulligan && question && question.buttons.length > 0 ? (
-              <div className="actions">
-                {question.buttons.map((q) => {
+            <div className="mid-center">
+              {started && !deckOpen && board.botTurn && <span className="prompt">{t("ui.botThinking")}</span>}
+              {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
+              <div className="steps">
+                {view?.center}
+                {deckOpen && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
+                {!started && !deckOpen && <button className="btn primary" onClick={onStart}>{t("btn.start")}</button>}
+                {started && !deckOpen && board.mulligan && (
+                  <button className="btn primary" onClick={board.mulligan.confirm}>{t(board.mulligan.picks ? "btn.change" : "btn.ready")}</button>
+                )}
+                {started && !deckOpen && !board.mulligan && question?.step && question.buttons.map((q) => {
                   const label = typeof q.label === "string" ? q.label : t(q.label);
                   return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
                 })}
+                {showNext && next !== "next.noMoreGuard" && (
+                  <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
+                )}
               </div>
-            ) : <div />}
+            </div>
+            {deckOpen ? <div /> : <BattleSide side="def" s={s} preview={board.guardPreview} lightOf={board.lightOf} onInspect={board.setInspect} />}
+          </div>
+          <div className="mid-actions">
+            {started && !deckOpen && !board.mulligan && question && !question.step && question.buttons.map((q) => {
+              const label = typeof q.label === "string" ? q.label : t(q.label);
+              return <button key={label} className="btn primary" onClick={q.onClick} title={label}>{label}</button>;
+            })}
+            {showNext && next === "next.noMoreGuard" && (
+              <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next)}</button>
+            )}
           </div>
         </div>
         {side("me")}

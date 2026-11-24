@@ -81,7 +81,7 @@ export const en = {
   "next.toMain": "To main phase →",
   "next.toBattle": "To battle phase →",
   "next.endTurn": "End turn →",
-  "next.noMoreGuard": "No more guards →",
+  "next.noMoreGuard": "Pass",
   "battle.attack": "Attack",
   "battle.defense": "Defense",
   "battle.label": "{player} · {card}",

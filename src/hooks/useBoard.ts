@@ -273,7 +273,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   // คำถามแรกของความสามารถที่เพิ่งคลิกเปิด: ปุ่มไม่ใช้/ข้าม เปลี่ยนเป็น Cancel
-  function question(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
+  // step: คำถามของสไตรด์ ปุ่มอยู่กลางแถบแทนปุ่มเปลี่ยนเฟส ไม่ใช่ = ความสามารถ/การป้องกัน ปุ่มอยู่ขวาสุด
+  function question(): { prompt?: Msg; step?: boolean; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
     const q = baseQuestion();
     if (!opened || !s.resolving || !choice) return q;
     const cancel = { label: msg("btn.cancel"), onClick: cancelOpened };
@@ -282,7 +283,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   // คำถามในแถบกลาง: ความสามารถที่คลิกเลือก (ใช่/ไม่) หรือคำถามระหว่างความสามารถทำงาน (ใช่/ไม่ เลือกผล เลือกช่อง)
-  function baseQuestion(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
+  function baseQuestion(): { prompt?: Msg; step?: boolean; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
     const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label: abilityTag(label), cost: cost.join(", ") }) : msg("q.use", { label: abilityTag(label) });
     const yes = msg("btn.yes"), no = msg("btn.no");
     if (botTurn || readOnly) return undefined;
@@ -299,7 +300,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       const gUid = mode.gUid, discardUids = mode.picks;
       const buttons = [{ label: msg("btn.cancel"), onClick: () => setMode(null) }];
       if (gUid && gs >= 3) buttons.unshift({ label: msg("btn.stride"), onClick: () => act({ type: "stride", gUid, discardUids }) });
-      return { prompt: msg("q.stride", { g: g ?? msg("q.pickGUnit"), n: gs }), buttons };
+      return { prompt: msg("q.stride", { g: g ?? msg("q.pickGUnit"), n: gs }), step: true, buttons };
     }
     // การ์ด: เลือกการ์ดบนมือ หรือ G การ์เดี้ยน แล้วยืนยัน
     if (guarding && mode?.kind === "gguard") {

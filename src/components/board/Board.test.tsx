@@ -272,7 +272,7 @@ describe("หน้าสนาม", () => {
     expect([...host.querySelectorAll(".hand.bot .card")].some((c) => c.getAttribute("title") !== "Face-down card")).toBe(true);
     expect(button("Ready")).toBeUndefined();
     expect(host.querySelector(".mid-center")!.textContent).toBe("Play from here");   // แทนปุ่มเล่นเกม (เช่น จบเทิร์น)
-    expect(host.querySelector(".mid .history")).toBeNull();
+    expect(host.querySelector(".mid-history button")).toBeNull();
     rawClick(host.querySelector(".stack.bot .deck .zone-slot"));                       // กองการ์ดเปิดดูได้ตอนดูย้อนหลัง
     expect(host.querySelectorAll(".modal .card")).toHaveLength(tl.states.at(-1)!.players.bot.deck.length);
     expect(host.querySelector(".replay-foot .pos")!.textContent).toContain("Step 2/2");

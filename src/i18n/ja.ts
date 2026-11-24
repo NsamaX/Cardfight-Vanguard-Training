@@ -78,7 +78,7 @@ export const ja: Dict = {
   "next.toMain": "メインフェイズへ →",
   "next.toBattle": "バトルフェイズへ →",
   "next.endTurn": "ターン終了 →",
-  "next.noMoreGuard": "これ以上ガードしない →",
+  "next.noMoreGuard": "パス",
   "battle.attack": "アタック",
   "battle.defense": "ガード",
   "battle.label": "{player}・{card}",
