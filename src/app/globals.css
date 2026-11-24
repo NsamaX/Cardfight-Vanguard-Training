@@ -169,7 +169,15 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 /* ป้ายจำนวนเหนือช่อง: ป้ายสูง 18px + ช่อง = --lane เหมือน GB เหนือ G โซน (ฝั่งบอทป้ายอยู่ใต้ช่อง) */
 .pile-group { display: flex; flex-direction: column; align-items: inherit; gap: calc(var(--lane) - 18px); cursor: pointer; }
 .stack.bot .pile-group { flex-direction: column-reverse; }
-/* การ์ดที่ใช้แล้ว: ใบแรก (ใหม่สุด) เห็นเต็มใบ ใบถัดไปถูกทับ โผล่แถบละ --step */
+/* G ที่หงายแล้ว: แถวละ 4 ใบ ใบแรก (ใหม่สุด) เห็นเต็มใบ ใบถัดไปถูกทับ โผล่แถบละ --step
+   แถวถัดไปอยู่ข้างหลัง โผล่ออกทางขอบจอแถบละ --dmg-step (ฝั่งบอทโผล่ขึ้นบน) */
+.gZone { --step: 28px; align-items: flex-start; }
+.tray.bot .gZone { align-items: flex-end; }
+.g-rows { display: flex; flex-direction: column; }
+.g-rows > .fan { position: relative; }
+.g-rows > .fan + .fan { margin-top: calc(var(--dmg-step) - var(--card-h)); }
+.tray.bot .g-rows { flex-direction: column-reverse; }
+.tray.bot .g-rows > .fan + .fan { margin-top: 0; margin-bottom: calc(var(--dmg-step) - var(--card-h)); }
 .fan { display: flex; }
 .fan > span { position: relative; flex: none; }
 .to-right .fan > span + span { margin-left: calc(var(--step) - var(--card-w)); }
