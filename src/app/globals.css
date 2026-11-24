@@ -9,9 +9,10 @@ html, body { margin: 0; height: 100%; }
 body { background: var(--bg); }
 button { font: inherit; color: inherit; }
 .app {
-  --card-h: 128px;                       /* การ์ดทุกใบบนสนามขนาดเดียวกัน */
-  --card-w: 88px;
-  --dmg-step: 35px;                      /* ส่วนที่โผล่ของดาเมจแต่ละใบที่ถูกทับ */
+  /* การ์ดทุกใบบนสนามขนาดเดียวกัน ย่อตามความสูงจอ: สนามต้องใช้ราว 6 × card-h + 256px (วัดจากคอลัมน์ดาเมจ/กอง สองฝั่ง + แถบกลาง) */
+  --card-h: clamp(64px, calc((100vh - 260px) / 6), 128px);
+  --card-w: calc(var(--card-h) * .6875);
+  --dmg-step: calc(var(--card-h) * .273);  /* ส่วนที่โผล่ของดาเมจแต่ละใบที่ถูกทับ */
   --lane: 24px;                          /* ช่องระหว่างแถบการต่อสู้กับแถว VC / G โซน / ไบนด์ (ใส่ป้าย SB, GB) */
   --gap: 8px;                            /* ช่องว่างระหว่างช่องวางการ์ด */
   height: 100vh; min-width: 1200px; display: grid;
