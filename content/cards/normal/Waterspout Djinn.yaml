@@ -1,0 +1,27 @@
+ids: ["G-BT06/S11TH SP"]
+name: "Waterspout Djinn"
+format: [G]
+type: normal
+grade: 1
+power: 6000
+shield: 0
+critical: 1
+skill: boost
+race: "Demon"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(GC, self, from=hand)"
+    cost: ["discard(1)"]
+    effect: ["no-hit(own-VC-attacked, until=battle-end)", "CC(1, if=name-in-drop(\"Waterspout Djinn\"))"]
+  - kind: "CONT"
+    effect: ["keyword(Sentinel)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC) from hand | **Cost:** Choose a card from your hand, and discard it
+    - **Effect:** You may pay the cost. If you do, choose up to one of your vanguards that is being attacked, and that unit cannot be hit until end of that battle. Then, if there is a card named "Waterspout Djinn" in your drop zone, CC1.
+
+  ### CONT
+
+  - Sentinel

@@ -1,0 +1,29 @@
+ids: ["G-TD08/014TH"]
+name: "Undying Departed, Grenache"
+format: [G]
+type: normal
+grade: 0
+power: 5000
+shield: 10000
+critical: 1
+skill: boost
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "ridden-upon(self)"
+    effect: ["call(self→RC)"]
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    timing: "to-drop(self, from=RC, by=hollow)"
+    cond: ["GB(1)"]
+    effect: ["CC(2)"]
+text: |
+  ### AUTO
+
+  - Forerunner
+  - Hollow
+  - **Condition:** GB1 | **Timing:** When this unit is put into the drop zone from (RC) due to the effect of the hollow ability
+    - **Effect:** CC2

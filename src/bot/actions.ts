@@ -1,6 +1,6 @@
 // การกระทำที่เป็นไปได้ ณ จุดที่ engine รอ: สร้างจากกฎแบบหยาบ แล้วให้ engine ตัดสินว่าถูกกฎไหม (กฎอยู่ที่ engine ที่เดียว)
 import { apply, usableActs, type Result } from "../engine/game";
-import { BEHIND, FRONT, RC, RuleError, SAME_COLUMN, bothVanguardsGrade3, isG, other, vcGrade, type CardDB } from "../engine/rules";
+import { BEHIND, FRONT, RC, RuleError, SAME_COLUMN, bothVanguardsGrade3, canBoost, isG, other, vcGrade, type CardDB } from "../engine/rules";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 
 export function tryApply(db: CardDB, s: GameState, p: PlayerId, a: Action): Result | undefined {
@@ -57,7 +57,7 @@ export function candidates(db: CardDB, s: GameState, p: PlayerId): Action[] {
           if (!u || u.rested) continue;
           const b = BEHIND[a];
           const bu = b ? ps.circles[b] : undefined;
-          const booster = bu && !bu.rested && db[bu.key].grade <= 1 ? b : undefined;
+          const booster = bu && !bu.rested && canBoost(db[bu.key]) ? b : undefined;
           for (const t of FRONT) if (opp.circles[t]) out.push({ type: "attack", attacker: a, target: t, booster });
         }
       }

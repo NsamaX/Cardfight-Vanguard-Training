@@ -1,0 +1,34 @@
+ids: ["MB/044TH"]
+name: "Light Element, Agleam"
+format: [G]
+type: g-guardian
+grade: 4
+shield: 15000
+critical: 1
+race: "Elemental"
+clan: "Cray Elemental"
+abilities:
+  - kind: "G GUARDIAN"
+    timing: "step(guard, opp)"
+    cost: ["discard(1, filter=heal)"]
+    effect: ["call(G→GC, self)"]
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    cost: ["discard(1)"]
+    effect: ["draw(1)"]
+  - kind: "CONT"
+    effect: ["all-clan(self)"]
+text: |
+  ### G GUARDIAN
+
+  - **Timing:** Opponent Turn's Guard Step | **Cost:** Choose a card with [Heal] from your hand, and discard it
+    - **Effect:** Call this card to your (GC) from face down.
+
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC) | **Cost:** Choose a card from your hand, and discard it
+    - **Effect:** You may pay the cost. If you do, draw a card.
+
+  ### CONT
+
+  - This card is from all clans and nations.

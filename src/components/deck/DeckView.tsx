@@ -5,7 +5,7 @@ import { useT } from "../../i18n/react";
 import { G_ZONE_SIZE, MAIN_SIZE, displayInstance } from "../../lib/deckEdit";
 import { CardView } from "../CardView";
 
-const byGradeThenName = (a: string, b: string) => db[a].grade - db[b].grade || db[a].name.localeCompare(db[b].name, "th");
+const byGradeThenName = (a: string, b: string) => db[a].grade - db[b].grade || db[a].name.localeCompare(db[b].name, "en");
 
 // ดูการ์ดในเด็ค: Back กลับรายการ / Delete หรือ Reset (เด็คตัวอย่างที่ถูกแก้) / Edit เข้าหน้าแก้เด็ค / Use ใช้เด็คนี้กับฝั่งนี้ (เด็คที่ผิดกฎใช้ไม่ได้)
 export function DeckView({ deck, current, onBack, onEdit, onUse, removeLabel, onRemove }: {

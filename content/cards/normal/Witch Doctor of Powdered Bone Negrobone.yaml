@@ -1,0 +1,23 @@
+ids: ["G-BT06/040TH SP"]
+name: "Witch Doctor of Powdered Bone, Negrobone"
+format: [G]
+type: normal
+grade: 1
+power: 7000
+shield: 5000
+critical: 1
+skill: boost
+race: "Demon"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "battle-end(self, did=boost-RC)"
+    cond: ["GB(1)", "vc-name(\"Nightrose\")"]
+    cost: ["CB(1)"]
+    effect: ["retire(own, target=boosted)", "call(drop→RC, n≤1, filter=has-hollow)"]
+text: |
+  ### AUTO
+
+  - **Zone:** RC | **Condition:** GB1 | **Timing:** At the end of the battle that this unit boosted a rear-guard | **Cost:** CB1
+    - **Effect:** If you have a vanguard with "Nightrose" in its card name, you may pay the cost. If you do, retire the unit that was boosted during that battle, choose up to one card with the hollow ability from your drop zone, and call it to (RC).

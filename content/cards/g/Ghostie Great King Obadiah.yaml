@@ -1,0 +1,28 @@
+ids: ["G-CP06/037TH (rarity text cut off at the edge)"]
+name: "Ghostie Great King, Obadiah"
+format: [G]
+type: g-unit
+grade: 4
+power: "15000+"
+critical: 1
+skill: triple-drive
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "STRIDE"
+    timing: "step(stride, own)"
+    cost: ["discard(n, grade-sum≥3)"]
+    effect: ["stride(self)"]
+  - kind: "AUTO"
+    timing: "enter(VC, self)"
+    effect: ["search(deck→drop, n≤3)", "call(drop→RC, n≤1, filter=normal-unit & name(\"Ghostie\"), to=same-column, if=hollow-milled≥2)"]
+text: |
+  ### STRIDE
+
+  - **Timing:** Stride Step | **Cost:** Choose one or more cards with the sum of their grades being 3 or greater from your hand, and discard them
+    - **Effect:** STRIDE this card on your (VC) from face down.
+
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (VC)
+    - **Effect:** Search your deck for up to three cards, put them into your drop zone, shuffle your deck, and if two or more cards with the hollow ability were put into your drop zone with this effect, choose up to one normal unit with "Ghostie" in its card name from your drop zone, and call it to a (RC) in the same column as this unit.

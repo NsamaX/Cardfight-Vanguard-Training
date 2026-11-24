@@ -1,0 +1,30 @@
+ids: ["G-CHB03/S11TH SP"]
+name: "Vampire Princess of Night Fog, Nightrose"
+format: [G]
+type: normal
+grade: 3
+power: 11000
+critical: 1
+skill: twin-drive
+race: "Vampire"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "to-drop(own, from=RC)"
+    cond: ["1/turn", "GB(2)"]
+    cost: ["mill(3)"]
+    effect: ["call(drop→RC, n=1, filter=that-card)"]
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "stride(own)"
+    cond: ["own-turn"]
+    cost: ["CB(1)"]
+    effect: ["call(drop→RC, n≤1)", "power(+2000, called, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - **Zone:** VC | **Condition:** 1/Turn GB2 | **Timing:** When your rear-guard is put into the drop zone | **Cost:** Put three cards from the top of your deck into the drop zone
+    - **Effect:** You may pay the cost. If you do, you may call that card to (RC).
+  - **Zone:** VC | **Timing:** During your turn, when your G unit STRIDEs | **Cost:** CB1
+    - **Effect:** You may pay the cost. If you do, choose up to one card from your drop zone, call it to (RC), and that unit gets Power+2000 until end of turn.

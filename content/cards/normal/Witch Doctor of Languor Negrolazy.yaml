@@ -1,0 +1,26 @@
+ids: ["G-CP06/019TH RR (Fighters Road Thailand 2018 stamp)"]
+name: "Witch Doctor of Languor, Negrolazy"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Demon"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    cond: ["GB(1)", "vc-name(\"Nightrose\")"]
+    cost: ["CB(1)", "SB(1)"]
+    effect: ["call(drop→RC, n≤1, filter=grade≤2 & not-same-name)", "power(+2000, self, until=turn-end)", "grant(AUTO[to-drop(self, from=RC, by=hollow) → choose(CC(1), SC(1))], self, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - Hollow
+  - **Condition:** GB1 | **Timing:** When this unit is placed on (RC) | **Cost:** CB1, SB1
+    - **Effect:** If you have a vanguard with "Nightrose" in its card name, you may pay the cost. If you do, choose up to one grade 2 or less card not named "Witch Doctor of Languor, Negrolazy" from your drop zone, call it to (RC), and until end of turn, this unit gets Power+2000, and "AUTO: When this unit is put into your drop zone due to the effect of a hollow ability, CC1 / SC1".

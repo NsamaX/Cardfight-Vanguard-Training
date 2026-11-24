@@ -1,0 +1,34 @@
+ids: ["MB/065TH"]
+name: "Zombie Whale of the Ocean Depths"
+format: [G]
+type: normal
+grade: 3
+power: 12000
+critical: 1
+skill: twin-drive
+race: "Zombie"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "attack(self, target=VC)"
+    cond: ["GB(1)", "self-hollowed"]
+    effect: ["power(+1000 per 2 drop, self, until=battle-end)"]
+  - kind: "CONT"
+    zone: "VC/RC"
+    cond: ["drop-count≤5"]
+    effect: ["power(-3000, self)"]
+text: |
+  ### AUTO
+
+  - Hollow
+  - **Zone:** RC | **Condition:** GB1 | **Timing:** When this unit attacks a vanguard
+    - **Effect:** If this unit is hollowed, this unit gets Power+1000 until end of that battle for every two cards in your drop zone.
+
+  ### CONT
+
+  - **Zone:** VC/RC
+    - **Effect:** If the number of cards in your drop zone is five or less, this unit gets Power-3000.

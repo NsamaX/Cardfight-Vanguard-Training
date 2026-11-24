@@ -1,0 +1,25 @@
+ids: ["PR/0740TH"]
+name: "Dewey the Ghostie"
+format: [G]
+type: trigger
+trigger: heal
+grade: 0
+power: 4000
+shield: 10000
+critical: 1
+skill: boost
+trigger_power: 5000
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "discarded(self, from=hand, as=g-guardian-cost)"
+    cost: ["bind(self + 1 heal-trigger from drop)"]
+    effect: ["choose(CC(1), SC(1))"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this card is discarded from hand for the cost of calling a G GUARDIAN | **Cost:** Bind this card & bind another [Heal] trigger from drop
+    - **Effect:** CC1 or SC1
+notes: |
+  The image is the D-PV01/071 reprint (Shield 15000, trigger +10000). Shield and trigger power here follow the G print.

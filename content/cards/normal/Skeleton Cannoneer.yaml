@@ -1,0 +1,26 @@
+ids: ["G-BT06/087TH SP"]
+name: "Skeleton Cannoneer"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Skeleton"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    timing: "enter(RC, self, from=drop)"
+    cond: ["GB(1)"]
+    cost: ["CB(1)"]
+    effect: ["retire(opp-RC, n≤1)", "draw(1, if=self-hollowed)"]
+text: |
+  ### AUTO
+
+  - Hollow
+  - **Condition:** GB1 | **Timing:** When this unit is placed on (RC) from your drop zone | **Cost:** CB1
+    - **Effect:** You may pay the cost. If you do, choose up to one of your opponent's rear-guards, and retire it. Then, if this unit is hollowed, draw a card.

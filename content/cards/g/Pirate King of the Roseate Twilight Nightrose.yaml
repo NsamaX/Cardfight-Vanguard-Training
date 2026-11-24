@@ -1,0 +1,39 @@
+ids: ["PR/0686TH"]
+name: "Pirate King of the Roseate Twilight, Nightrose"
+format: [G]
+type: g-unit
+grade: 4
+power: "15000+"
+critical: 1
+skill: triple-drive
+race: "Vampire"
+clan: "Granblue"
+abilities:
+  - kind: "STRIDE"
+    timing: "step(stride, own)"
+    cost: ["discard(n, grade-sum≥3)"]
+    effect: ["stride(self)"]
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "phase-start(battle, own)"
+    effect: ["power(+5000, own-units, n=count-in-drop(name(\"Nightrose\")), until=turn-end)"]
+  - kind: "ACT"
+    zone: "VC"
+    cond: ["1/turn"]
+    cost: ["CB(1)", "flip-G-up(1, filter=same-name)"]
+    effect: ["call(drop→RC, n≤G-faceup+1, to=different)", "hollow(called)", "critical(+1, self, if=called≥3)"]
+text: |
+  ### STRIDE
+
+  - **Timing:** Stride Step | **Cost:** Choose one or more cards with the sum of their grades being 3 or greater from your hand, and discard them
+    - **Effect:** STRIDE this card on your (VC) from face down.
+
+  ### AUTO
+
+  - **Zone:** VC | **Timing:** At the beginning of your battle phase
+    - **Effect:** Choose one of your units for each card with "Nightrose" in its card name in your drop zone, and they get Power+5000 until end of turn.
+
+  ### ACT
+
+  - **Zone:** VC | **Condition:** 1/Turn | **Cost:** CB1, choose a face down card with the same card name as this unit from your G zone, and turn it face up
+    - **Effect:** Choose up to the number of cards in your drop zone equal to the number of face up cards in your G zone +1, call them to separate (RC) as hollowed, and if you called three or more cards, this unit gets Critical+1.

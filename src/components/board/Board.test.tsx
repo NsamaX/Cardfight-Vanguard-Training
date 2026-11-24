@@ -31,17 +31,17 @@ function rawClick(el: Element | undefined | null) {
   if (!el) throw new Error("ไม่พบสิ่งที่จะคลิก");
   act(() => (el as HTMLElement).click());
 }
-// เทสต์กฎพื้นฐาน: ถ้ามีความสามารถถามขึ้นมา ตอบ "ไม่" / ไม่เลือก ให้อัตโนมัติ
+// เทสต์กฎพื้นฐาน: ถ้ามีความสามารถถามขึ้นมา ตอบ "No" / ไม่เลือก ให้อัตโนมัติ
 function declineAll() {
   for (let i = 0; i < 30; i++) {
     const cmd = host.querySelector(".command");
-    const modalOk = [...host.querySelectorAll(".modal button")].find((b) => b.textContent === "ยืนยัน") as HTMLButtonElement | undefined;
-    const no = [...(cmd?.querySelectorAll("button") ?? [])].find((b) => b.textContent === "ไม่" || b.textContent === "ไม่เลือก");
+    const modalOk = [...host.querySelectorAll(".modal button")].find((b) => b.textContent === "Confirm") as HTMLButtonElement | undefined;
+    const no = [...(cmd?.querySelectorAll("button") ?? [])].find((b) => b.textContent === "No" || b.textContent === "Skip");
     if (modalOk) {
       if (modalOk.disabled) rawClick(host.querySelector(".modal .card"));
       rawClick(modalOk);
     } else if (no) rawClick(no);
-    else if (cmd?.textContent?.includes("ทำก่อน")) rawClick(cmd.querySelector(".btn.primary"));
+    else if (cmd?.textContent?.includes("resolves first")) rawClick(cmd.querySelector(".btn.primary"));
     else return;
   }
 }
@@ -67,10 +67,10 @@ describe("หน้าสนาม", () => {
     render(s);
 
     // เปลี่ยนการ์ดบนมือ: ไม่เปลี่ยนทั้งสองฝั่ง
-    expect(pill()).toContain("รอคุณ");
-    click(button("ยืนยัน"));
-    expect(pill()).toContain("รอบอท");
-    click(button("ยืนยัน"));
+    expect(pill()).toContain("Waiting for you");
+    click(button("Confirm"));
+    expect(pill()).toContain("Waiting for bot");
+    click(button("Confirm"));
     expect(host.textContent).toContain("TURN 1");
 
     // เทิร์น 1 ของเรา: ไรด์เนโครโบนลง VC
@@ -79,41 +79,41 @@ describe("หน้าสนาม", () => {
     expect(slots(1)[1].querySelector(".card")!.getAttribute("title")).toBe(db[BONE].name);
 
     // เมนเฟส: คอลทอมมี่ลง RC หน้าซ้าย / คอลพลปืนใหญ่ (เกรด 2) ไม่ได้ ต้องขึ้นข้อความเตือน
-    click(button("ไปสไตรด์สเต็ป"));
-    click(button("ไปเมนเฟส"));
+    click(button("To stride step"));
+    click(button("To main phase"));
     click(handCard("me", db[TOMMY].name));
     click(slots(1)[0]);
     expect(slots(1)[0].querySelector(".card")!.getAttribute("title")).toBe(db[TOMMY].name);
     click(handCard("me", db[GUN].name));
     click(slots(1)[2]);
-    expect(host.querySelector(".toast")?.textContent).toContain("เกรดไม่เกินแวนการ์ด");
+    expect(host.querySelector(".toast")?.textContent).toContain("grade no higher than your vanguard");
 
     // แบทเทิล: เทิร์นแรกโจมตีไม่ได้ จบเทิร์น
-    click(button("ไปแบทเทิลเฟส"));
+    click(button("To battle phase"));
     click(slots(1)[1]);
     click(slots(0)[4]);
-    expect(host.querySelector(".toast")?.textContent).toContain("เทิร์นแรก");
-    click(button("จบเทิร์น"));
-    expect(host.textContent).toContain("เทิร์นบอท");
+    expect(host.querySelector(".toast")?.textContent).toContain("first turn");
+    click(button("End turn"));
+    expect(host.textContent).toContain("Bot's turn");
 
     // เทิร์น 2 ของบอท: ไรด์ แล้วโจมตี VC ของเรา
     click(handCard("bot", db[BONE].name));
     click(slots(0)[4]);
-    click(button("ไปสไตรด์สเต็ป"));
-    click(button("ไปเมนเฟส"));
-    click(button("ไปแบทเทิลเฟส"));
+    click(button("To stride step"));
+    click(button("To main phase"));
+    click(button("To battle phase"));
     click(slots(0)[4]);
     click(slots(1)[1]);
-    expect(pill()).toContain("รอคุณ");
+    expect(pill()).toContain("Waiting for you");
     expect(host.querySelector(".battle")!.textContent).toContain("7,000");
 
     // เราการ์ดด้วยพลปืนใหญ่ (Shield 5000): 7000 vs 7000+5000 ไม่ฮิท
     click(handCard("me", db[GUN].name));
-    expect(host.querySelector(".battle")!.textContent).toContain("ไม่ฮิท");
-    click(button("จบการการ์ด"));
+    expect(host.querySelector(".battle")!.textContent).toContain("No hit");
+    click(button("End guard"));
     expect(host.querySelector(".pip.up")).toBeNull();               // ไม่ได้ดาเมจ
-    expect(pill()).toContain("รอบอท");
-    expect(host.querySelector(".log")!.textContent).toContain("ไม่ฮิท");
+    expect(pill()).toContain("Waiting for bot");
+    expect(host.querySelector(".log")!.textContent).toContain("No hit");
   });
 
   it.skip("สไตรด์ผ่าน G โซน แล้วเลือกเป้าหมายคริติคอลทริกเกอร์ได้", () => {
@@ -128,18 +128,18 @@ describe("หน้าสนาม", () => {
     s.awaiting = { player: "me", kind: "next-phase" };
     render(s);
 
-    click(button("เปิด G โซน"));
+    click(button("Open G zone"));
     click([...host.querySelectorAll(".modal .card")].find((c) => c.getAttribute("title") === db[GUNIT].name));
     click(handCard("me", db[STAR].name));
-    click(button("สไตรด์"));
+    click(button("Stride"));
     expect(slots(1)[1].querySelector(":scope > .card .pw")!.textContent).toBe("26,000");
     expect(slots(1)[1].querySelector(".heart .card")!.getAttribute("title")).toBe(db[MIST].name);
 
-    click(button("ไปเมนเฟส"));
-    click(button("ไปแบทเทิลเฟส"));
+    click(button("To main phase"));
+    click(button("To battle phase"));
     click(slots(1)[1]);
     click(slots(0)[4]);
-    click(button("จบการการ์ด"));
+    click(button("End guard"));
     expect(host.querySelector(".command")!.textContent).toContain("CRITICAL TRIGGER");
     click(slots(1)[1]);      // Power+5000
     click(slots(1)[1]);      // Critical+1
@@ -166,38 +166,38 @@ describe("หน้าสนาม", () => {
     s.awaiting = { player: "me", kind: "guard", prompt: { key: "prompt.guard" } };
     render(s);
 
-    click(button("คอล G การ์เดี้ยน"));
+    click(button("Call G guardian"));
     click(modalCard(db[K.lily].name));
     click(handCard("me", db[K.dewey].name));
-    click([...host.querySelectorAll(".command button")].find((b) => b.textContent?.includes("เดวย์")));
-    click(button("ใช่"));
+    click([...host.querySelectorAll(".command button")].find((b) => b.textContent?.includes("Dewey")));
+    click(button("Yes"));
     click(host.querySelector(".modal .card"));                    // ไบนด์ Heal อีกใบ
-    click(button("ยืนยัน"));
+    click(button("Confirm"));
     click(button("CC(1)"));
-    click(button("ใช่"));                                         // เนโครลิลลี่
+    click(button("Yes"));                                         // เนโครลิลลี่
     click(modalCard(db[GUN].name));
-    click(button("ยืนยัน"));
+    click(button("Confirm"));
     click(modalCard(db[TOMMY].name));
-    click(button("ยืนยัน"));
+    click(button("Confirm"));
     click(slots(1)[4]);                                           // หลังกลาง
-    expect(host.querySelector(".command")!.textContent).toContain("หมอกยามค่ำคืน");
-    click(button("ใช่"));                                         // ไนท์โรส mill 3
+    expect(host.querySelector(".command")!.textContent).toContain("Night Fog");
+    click(button("Yes"));                                         // ไนท์โรส mill 3
     click(modalCard(db[GUN].name));
-    click(button("ยืนยัน"));
+    click(button("Confirm"));
     click(slots(1)[0]);                                           // หน้าซ้าย
-    click([...host.querySelectorAll(".command button")].find((b) => b.textContent?.includes("พลปืนใหญ่") && b.textContent.includes("#1")));
-    click(button("ใช่"));                                         // ฮอลโล่ว์
-    click(button("ใช่"));                                         // CB1 ยิง
+    click([...host.querySelectorAll(".command button")].find((b) => b.textContent?.includes("Skeleton Cannoneer") && b.textContent.includes("#1")));
+    click(button("Yes"));                                         // ฮอลโล่ว์
+    click(button("Yes"));                                         // CB1 ยิง
     click(modalCard(db[K.lazy].name));
-    click(button("ยืนยัน"));
-    click(button("จบการการ์ด"));
+    click(button("Confirm"));
+    click(button("End guard"));
 
     expect(slots(0)[5].querySelector(".card")).toBeNull();        // เรียร์การ์ดหน้าซ้ายของบอทถูกยิง
-    expect(slots(1)[0].textContent).toContain("ฮอลโล่ว์");
+    expect(slots(1)[0].textContent).toContain("Hollow");
     expect(slots(1)[4].querySelector(".card")!.getAttribute("title")).toBe(db[TOMMY].name);
     expect(host.querySelector(".side .damage")).toBeTruthy();
     expect(host.querySelectorAll(".side")[1].querySelectorAll(".pip.up")).toHaveLength(2);
-    expect(host.querySelector(".log")!.textContent).toContain("ไม่ฮิท");
+    expect(host.querySelector(".log")!.textContent).toContain("No hit");
     autoDecline = true;
   });
 
@@ -219,13 +219,13 @@ describe("หน้าสนาม", () => {
     expect(host.querySelector(".ph.on")!.textContent).toBe("START");   // ยังรอบอทเลือกเปลี่ยนการ์ด
     click(button("Ready"));
     expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
-    expect(button("ไปเมนเฟส")).toBeTruthy();                         // แวนการ์ดไม่ถึงเกรด 3 กดถัดไปจะข้ามสไตรด์
+    expect(button("To main phase")).toBeTruthy();                         // แวนการ์ดไม่ถึงเกรด 3 กดถัดไปจะข้ามสไตรด์
     click(handCard("me", db[BONE].name));
     expect(handCard("me", db[BONE].name)!.classList.contains("sel")).toBe(true);
     click(slots(1)[1]);
     expect(slots(1)[1].querySelector(":scope > .card")!.getAttribute("title")).toBe(db[BONE].name);
     expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
-    expect(button("จบเทิร์น")).toBeTruthy();                         // เทิร์นแรกไม่มีแบทเทิลเฟส
+    expect(button("End turn")).toBeTruthy();                         // เทิร์นแรกไม่มีแบทเทิลเฟส
   });
 
   it("เล่นกับบอท: มือบอทคว่ำ ตาบอทไม่มีปุ่มให้กดแทน และบอทเปลี่ยนการ์ดเองแล้วถึงตาคุณ", async () => {
@@ -236,11 +236,11 @@ describe("หน้าสนาม", () => {
         onNewGame={() => {}} onApplySettings={() => {}} onSwapDecks={() => {}} onPickDeck={() => {}} onDeckChanged={() => {}} />));
       const botHand = [...host.querySelectorAll(".hand.bot .card")];
       expect(botHand).toHaveLength(5);
-      expect(botHand.every((c) => c.getAttribute("title") === "การ์ดคว่ำ")).toBe(true);
+      expect(botHand.every((c) => c.getAttribute("title") === "Face-down card")).toBe(true);
       expect(button("Ready")).toBeUndefined();
-      expect(host.textContent).toContain("บอทกำลังคิด");
+      expect(host.textContent).toContain("Bot is thinking");
       await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
-      expect(host.querySelector(".log")!.textContent).toContain("บอทเปลี่ยนการ์ดบนมือ");
+      expect(host.querySelector(".log")!.textContent).toContain("Bot redrew");
       expect(button("Ready")).toBeTruthy();
     } finally {
       vi.useRealTimers();
@@ -259,16 +259,16 @@ describe("หน้าสนาม", () => {
 
     const tl = replayTimeline(db, saved[0]);
     act(() => root.render(<ReplayViewer tl={tl} decks={saved[0].decks} settings={{ seed: 4, firstPlayer: "me" }} onContinue={() => {}} onClose={() => {}} />));
-    expect(host.textContent).toContain("ก้าว 0/2");
-    rawClick(host.querySelector('[aria-label="ไปก้าวสุดท้าย"]'));
-    expect(host.textContent).toContain("ก้าว 2/2");
+    expect(host.textContent).toContain("Step 0/2");
+    rawClick(host.querySelector('[aria-label="Last step"]'));
+    expect(host.textContent).toContain("Step 2/2");
     expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
-    expect([...host.querySelectorAll(".hand.bot .card")].some((c) => c.getAttribute("title") !== "การ์ดคว่ำ")).toBe(true);
+    expect([...host.querySelectorAll(".hand.bot .card")].some((c) => c.getAttribute("title") !== "Face-down card")).toBe(true);
     expect(button("Ready")).toBeUndefined();
-    expect(host.querySelector(".mid-center")!.textContent).toBe("เล่นต่อจากตรงนี้");   // แทนปุ่มเล่นเกม (เช่น จบเทิร์น)
+    expect(host.querySelector(".mid-center")!.textContent).toBe("Play from here");   // แทนปุ่มเล่นเกม (เช่น จบเทิร์น)
     expect(host.querySelector(".mid .history")).toBeNull();
     rawClick(host.querySelector(".stack.bot .deck .zone-slot"));                       // กองการ์ดเปิดดูได้ตอนดูย้อนหลัง
     expect(host.querySelectorAll(".modal .card")).toHaveLength(tl.states.at(-1)!.players.bot.deck.length);
-    expect(host.querySelector(".replay-foot .pos")!.textContent).toContain("ก้าว 2/2");
+    expect(host.querySelector(".replay-foot .pos")!.textContent).toContain("Step 2/2");
   });
 });

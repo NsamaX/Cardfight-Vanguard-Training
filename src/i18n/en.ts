@@ -1,8 +1,9 @@
-import type { Dict } from "./msg";
+import type { Template } from "./msg";
 
 const cards = (n: string) => (n === "1" ? "1 card" : `${n} cards`);
 
-export const en: Dict = {
+// พจนานุกรมหลัก: key ทั้งหมดของโปรแกรมมาจากไฟล์นี้ ภาษาอื่นต้องมี key ครบเท่านี้
+export const en = {
   "player.me": "You",
   "player.bot": "Bot",
   "circle.vc": "VC",
@@ -19,6 +20,7 @@ export const en: Dict = {
   "zone.damage": "damage zone",
   "zone.gZone": "G zone",
   "zone.bind": "bind zone",
+  "zone.removed": "removed from the game",
   "zone.heart": "heart",
   "zone.check": "check card",
   "pile.deck": "Deck",
@@ -197,6 +199,8 @@ export const en: Dict = {
   "choice.bindHeal": "Pick a Heal Trigger in the drop zone to bind",
   "choice.flipG": "Pick a face-down card in the G zone to flip face up",
   "choice.searchHand": ({ n }) => `Search for up to ${cards(n)} and add to hand`,
+  "choice.gAssistPick": "G Assist: pick up to 1 grade {grade} unit to add to hand",
+  "choice.gAssistRemove": ({ n }) => `G Assist: pick ${cards(n)} in hand to remove from the game`,
   "choice.searchDrop": ({ n }) => `Search for up to ${cards(n)} and put into the drop zone`,
   "choice.retireOpp": "Pick your opponent's rear-guards to retire",
   "choice.effect": "Pick an effect",
@@ -229,7 +233,7 @@ export const en: Dict = {
   "log.hit": "{atk} vs {def} · Hit",
   "log.noHit": "{atk} vs {def} · No hit",
   "log.battleEnd": "Battle ends",
-  "log.triggerPower": "Power+5000 to {card}",
+  "log.triggerPower": "Power+{v} to {card}",
   "log.triggerCritical": "Critical+1 to {card}",
   "log.heal": "Healed 1 damage ({card})",
   "log.draw": "{player} drew 1 card",
@@ -253,6 +257,8 @@ export const en: Dict = {
   "log.bind": "Bound {card}",
   "log.flipG": "Flipped {card} face up in the G zone",
   "log.searchHand": "Added to hand: {card}",
+  "log.revealHand": "{player} revealed their hand: {cards}",
+  "log.removed": "Removed from the game: {card}",
   "log.searchDrop": "Put into drop zone: {card}",
   "log.shuffle": "Shuffled the deck",
   "log.noHitEffect": "The attacked unit can't be hit this battle",
@@ -272,6 +278,7 @@ export const en: Dict = {
   "reason.cannotPay": "can't pay the cost",
   "win.deckOutCheck": "{player} had to check but the deck is empty",
   "win.deckOutDraw": "{player} had to draw but the deck is empty",
+  "win.deckOut": "{player} has no cards left in the deck",
   "win.damage6": "{player} reached 6 damage",
 
   "err.gameOver": "The game is over",
@@ -325,8 +332,8 @@ export const en: Dict = {
   "err.gGuardNeedG": "Pick a face-down G guardian in the G zone",
   "err.gGuardDiscard": "Discard a card with a Heal icon from hand",
   "err.noTrigger": "No trigger is waiting for a target",
-  "err.triggerPower": "Pick one of your units to get Power+5000",
+  "err.triggerPower": "Pick one of your units to get the trigger power",
   "err.triggerCritical": "Pick a unit to get Critical+1",
   "err.standRearOnly": "A stand trigger can only stand a rear-guard",
   "err.differentGrades": "Pick cards with different grades",
-};
+} satisfies Record<string, Template>;

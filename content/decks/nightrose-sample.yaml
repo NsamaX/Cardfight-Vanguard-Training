@@ -1,44 +1,44 @@
-# เด็คตัวอย่าง: แกรนบลู ไนท์โรส
+# เด็คตัวอย่าง: Granblue Nightrose
 # จัดจากการ์ดที่มีในคลังเท่านั้น ไว้ทดสอบโปรแกรม แก้จำนวนได้ตามต้องการ
 # อ้างการ์ดด้วย "รหัสการ์ด" = ส่วนแรกของ ids ตัวแรกในไฟล์การ์ด เช่น "G-CHB03/S11TH SP" → G-CHB03/S11TH
 
-name: แกรนบลู ไนท์โรส (ตัวอย่าง)
+name: Granblue Nightrose
 format: G
-starter: G-TD08/014TH          # ผู้ตายที่ไม่ยอมตาย, กรูนาช (นับรวมใน main แล้ว)
+starter: G-TD08/014TH          # Undying Departed, Grenache (นับรวมใน main แล้ว)
 
 main:                           # 50 ใบ
   # เกรด 0
-  G-TD08/014TH: 1               # กรูนาช
-  BT02/026TH: 2                 # ผีน้อยจั๊บปี้
+  G-TD08/014TH: 1               # Grenache
+  BT02/026TH: 2                 # Chappie the Ghostie
   # ทริกเกอร์ 16 ใบ
-  PR/0632TH: 4                  # แบนชีน้ำวน (Critical)
-  G-BT08/S32TH: 4               # แรมเพจ·เชด (Critical)
-  PR/0740TH: 4                  # ผีน้อย เดวย์ (Heal)
-  PR/0564TH: 4                  # ผีน้อยมิคและครอบครัว (Stand)
+  PR/0632TH: 4                  # Rough Seas Banshee (Critical)
+  G-BT08/S32TH: 4               # Rampage Shade (Critical)
+  PR/0740TH: 4                  # Dewey the Ghostie (Heal)
+  PR/0564TH: 4                  # Mick the Ghostie and Family (Stand)
   # เกรด 1
-  G-BT06/040TH: 4               # เนโครโบน
-  G-CHB03/S12TH: 4              # ผีน้อยพี่น้องทอมมี่
-  G-BT06/S11TH: 3               # พายุหมุนพิฆาตจิน (พิทักษ์)
-  BT02/014TH: 1                 # พายุกระหน่ำ จิน
-  G-BT09/104TH: 1               # ไลต์เอเลเมนทัล โฮโนลี่
+  G-BT06/040TH: 4               # Negrobone
+  G-CHB03/S12TH: 4              # Tommy the Ghostie Brothers
+  G-BT06/S11TH: 3               # Waterspout Djinn (พิทักษ์)
+  BT02/014TH: 1                 # Gust Jinn
+  G-BT09/104TH: 1               # ไลต์เอเลเมนทัล Honoly
   # เกรด 2
-  G-CP06/019TH: 3               # เนโครเลซี่
-  G-BT06/087TH: 2               # พลปืนใหญ่โครงกระดูก
-  PR/0256TH: 2                  # คิง·เซอเพนท์
-  G-TD08/007TH: 2               # เนโครรูค
+  G-CP06/019TH: 3               # Negrolazy
+  G-BT06/087TH: 2               # Skeleton Cannoneer
+  PR/0256TH: 2                  # King Serpent
+  G-TD08/007TH: 2               # Negrorook
   # เกรด 3
-  G-CHB03/S11TH: 4              # ไนท์โรส หมอกยามค่ำคืน
-  G-CHB03/002TH: 2              # ไนท์โรส แสงดารา
-  G-BT06/083TH: 2               # ไนท์สตอร์ม
-  MB/065TH: 1                   # ซอมบี้ปลาวาฬแห่งมหาสมุทรลึก
+  G-CHB03/S11TH: 4              # Nightrose (Night Fog)
+  G-CHB03/002TH: 2              # Nightrose (Starlight)
+  G-BT06/083TH: 2               # Nightstorm
+  MB/065TH: 1                   # Zombie Whale of the Ocean Depths
 
 g_zone:                         # 14 ใบ (ไม่เกิน 16)
-  PR/0686TH: 4                  # ไนท์โรส (G)
-  G-CP06/037TH: 1               # โอบาไดอา
-  G-FC04/019TH: 1               # กัลเลียน
-  G-BT13/002TH: 1               # เมกิดโด้
-  G-FC03/049TH: 1               # ซีบรีซ
-  G-CP08/S11TH: 2               # เนโครลิลลี่
-  G-FC04/043TH: 2               # เนโครนอร่า
-  G-FC03/043TH: 1               # ดีพ คอร์ปส์-ดราก้อน
-  MB/044TH: 1                   # อากรีม
+  PR/0686TH: 4                  # Nightrose (G)
+  G-CP06/037TH: 1               # Obadiah
+  G-FC04/019TH: 1               # Immortal Galleon
+  G-BT13/002TH: 1               # Megiddo
+  G-FC03/049TH: 1               # Sebreeze
+  G-CP08/S11TH: 2               # Negrolily
+  G-FC04/043TH: 2               # Negronora
+  G-FC03/043TH: 1               # Deep Corpse Dragon
+  MB/044TH: 1                   # Agleam

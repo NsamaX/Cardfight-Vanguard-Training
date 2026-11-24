@@ -2,15 +2,14 @@ import { fmt } from "../lib/format";
 import { en } from "./en";
 import { ja } from "./ja";
 import type { Dict, Msg, MsgKey, Params } from "./msg";
-import { th } from "./th";
 
-export type Locale = "th" | "en" | "ja";
+export type Locale = "en" | "ja";
 
 // ชื่อภาษาแสดงด้วยภาษานั้นเอง ไม่แปล
-export const LOCALES: Record<Locale, string> = { th: "ไทย", en: "English", ja: "日本語" };
-export const DEFAULT_LOCALE: Locale = "th";
+export const LOCALES: Record<Locale, string> = { en: "English", ja: "日本語" };
+export const DEFAULT_LOCALE: Locale = "en";
 
-const DICTS: Record<Locale, Dict> = { th, en, ja };
+const DICTS: Record<Locale, Dict> = { en, ja };
 
 export function translate(locale: Locale, m: Msg | MsgKey, params?: Params): string {
   const { key, params: p = {} } = typeof m === "string" ? { key: m, params } : m;

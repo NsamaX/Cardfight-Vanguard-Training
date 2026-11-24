@@ -1,7 +1,7 @@
 // ประเมินฝั่งคู่แข่งจากข้อมูลที่เห็นได้: มือ (การ์ดที่รู้ + คาดเดาจากการ์ดที่ยังไม่ปรากฏ), G การ์เดี้ยน, ทรัพยากร, แรงตีเทิร์นหน้า
 // สนามที่สุ่มเติมแล้ว (ใช้ในการจำลอง) เห็นมือจริงทั้งหมด ค่าประเมินจึงเป็นค่าจริงของโลกที่สุ่มนั้น
 import {
-  BEHIND, FRONT, bothVanguardsGrade3, criticalOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, type CardDB,
+  BEHIND, FRONT, bothVanguardsGrade3, canBoost, criticalOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, type CardDB,
 } from "../engine/rules";
 import type { Card, GameState, PlayerId } from "../engine/types";
 import { intelOf, isHidden } from "./view";
@@ -89,7 +89,7 @@ export function unitThreat(db: CardDB, s: GameState, q: PlayerId, uid: string): 
     if (/attack\(self|battle-end\(self|boost/.test(ab.timing ?? "")) v += 0.5;
   }
   const front = FRONT.includes(c);
-  if (!front && card.grade <= 1) {
+  if (!front && canBoost(card)) {
     const f = FRONT.find((x) => BEHIND[x] === c);
     if (f && ps.circles[f]) v += 0.3;   // ตัวบูสท์ของแนวที่มีตัวโจมตี
   }
@@ -121,9 +121,9 @@ function computeNextTurnNeed(db: CardDB, s: GameState, p: PlayerId): number {
     const u = col === "vc" ? vc : ops.circles[col];
     if (!u) continue;
     const b = ops.circles[BEHIND[col]!];
-    const boost = b && db[b.key].grade <= 1 ? db[b.key].power ?? 0 : 0;
+    const boost = b && canBoost(db[b.key]) ? db[b.key].power ?? 0 : 0;
     const base = col === "vc" ? (canStride ? 15000 + heartPower : heartPower) : db[u.key].power ?? 0;
-    const crit = col === "vc" ? criticalOf(vc) : 1;
+    const crit = col === "vc" ? criticalOf(db, vc) : 1;
     if (dmg + crit + (col === "vc" ? 1 : 0) < 6) continue;   // แวนการ์ดเผื่อ Critical จากไดรฟ์เช็ค 1 ใบ
     const n = base + boost - def + 1;
     if (n > 0) need += Math.ceil(n / 5000) * 5000;

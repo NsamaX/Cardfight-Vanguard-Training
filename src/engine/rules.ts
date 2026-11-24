@@ -25,7 +25,10 @@ export const PLAYERS: PlayerId[] = ["me", "bot"];
 export const other = (p: PlayerId): PlayerId => (p === "me" ? "bot" : "me");
 export const isG = (c: Card) => c.type === "g-unit" || c.type === "g-guardian";
 export const hasHollow = (c: Card) => c.abilities.some((a) => a.effect.includes("hollow(self)"));
-export const isSentinel = (c: Card) => c.abilities.some((a) => a.effect.includes("keyword(พิทักษ์)"));
+export const isSentinel = (c: Card) => c.abilities.some((a) => a.effect.includes("keyword(Sentinel)"));
+export const canBoost = (c: Card) => c.skill === "boost";
+export const canIntercept = (c: Card) => c.skill === "intercept";
+export const triggerPower = (c: Card) => c.triggerPower ?? 0;
 
 const modSum = (inst: CardInstance, stat: "power" | "critical" | "shield") =>
   inst.mods.filter((m) => m.stat === stat).reduce((n, m) => n + m.value, 0);
@@ -40,24 +43,23 @@ export function powerOf(db: CardDB, ps: PlayerState, circle: Circle): number {
   return base + modSum(inst, "power");
 }
 
-export const criticalOf = (inst: CardInstance) => 1 + modSum(inst, "critical");
+export const criticalOf = (db: CardDB, inst: CardInstance) => (db[inst.key].critical ?? 0) + modSum(inst, "critical");
 
-// Shield ตามเกรดที่พิมพ์ในภาค G: เกรด 0 = 10000, 1-2 = 5000, 3 = 0 / G การ์เดี้ยนใช้ค่าบนการ์ด
-export const printedShield = (card: Card) => (card.type === "g-guardian" ? card.shield ?? 0 : [10000, 5000, 5000, 0][card.grade] ?? 0);
+// ค่าบนการ์ดตามไฟล์ .yaml การ์ดที่ไม่มี Shield พิมพ์ไว้ (เกรด 3, G ยูนิท) = 0
+export const printedShield = (card: Card) => card.shield ?? 0;
 
 export const shieldOf = (db: CardDB, inst: CardInstance) => printedShield(db[inst.key]) + modSum(inst, "shield");
 
 export function driveOf(db: CardDB, inst: CardInstance): number {
-  const card = db[inst.key];
-  if (card.type === "g-unit") return 3;
-  return card.grade >= 3 ? 2 : 1;
+  const skill = db[inst.key].skill;
+  return skill === "triple-drive" ? 3 : skill === "twin-drive" ? 2 : 1;
 }
 
-// เกรดของการ์ดบนมือตอนนับเป็นคอสต์สไตรด์ (CONT บนมือ เช่น ผีน้อยพี่น้องทอมมี่ เกรด +2)
+// เกรดของการ์ดบนมือตอนนับเป็นคอสต์สไตรด์ (CONT บนมือ เช่น Tommy the Ghostie Brothers เกรด +2)
 export function strideCostGrade(card: Card): number {
   let g = card.grade;
   for (const ab of card.abilities) {
-    if (ab.kind !== "CONT" || ab.zone !== "มือ" || !(ab.cond ?? []).includes("while(stride-cost)")) continue;
+    if (ab.kind !== "CONT" || ab.zone !== "hand" || !(ab.cond ?? []).includes("while(stride-cost)")) continue;
     for (const e of ab.effect) {
       const m = e.match(/^grade\(\+(\d+), self\)$/);
       if (m) g += +m[1];

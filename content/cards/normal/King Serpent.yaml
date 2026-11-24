@@ -1,0 +1,20 @@
+ids: ["PR/0256TH"]
+name: "King Serpent"
+format: [G]
+type: normal
+grade: 2
+power: 8000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Kraken"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self, from=drop)"
+    effect: ["SC(1)", "CC(1)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (RC) from your drop zone
+    - **Effect:** SC1, choose a card in your damage zone, and turn it face up.

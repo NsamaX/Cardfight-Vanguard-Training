@@ -2,8 +2,8 @@
 
 ตัวอย่าง:
   python tools/find_chains.py                              # เทิร์นคู่แข่ง เริ่มจาก G GUARDIAN
-  python tools/find_chains.py --vc "หมอกยามค่ำคืน" --gb 2    # ระบุแวนการ์ดและ GB เพื่อตัดเส้นทางที่เงื่อนไขไม่ผ่าน
-  python tools/find_chains.py --turn own --start "โอบาไดอา"   # เทิร์นเรา เริ่มจากการ์ดที่ชื่อมีคำนี้
+  python tools/find_chains.py --vc "Night Fog" --gb 2         # ระบุแวนการ์ดและ GB เพื่อตัดเส้นทางที่เงื่อนไขไม่ผ่าน
+  python tools/find_chains.py --turn own --start "Obadiah"    # เทิร์นเรา เริ่มจากการ์ดที่ชื่อมีคำนี้
 """
 import argparse, glob, os, re, sys
 import yaml

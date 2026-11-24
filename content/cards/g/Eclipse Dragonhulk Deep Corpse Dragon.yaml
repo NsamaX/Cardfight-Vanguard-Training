@@ -1,0 +1,28 @@
+ids: ["G-FC03/043TH RR"]
+name: "Eclipse Dragonhulk, Deep Corpse Dragon"
+format: [G]
+type: g-guardian
+grade: 4
+shield: 15000
+critical: 1
+race: "Skeleton"
+clan: "Granblue"
+abilities:
+  - kind: "G GUARDIAN"
+    timing: "step(guard, opp)"
+    cost: ["discard(1, filter=heal)"]
+    effect: ["call(G→GC, self)"]
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    cost: ["mill(2)"]
+    effect: ["shield(+5000, self, until=battle-end)"]
+text: |
+  ### G GUARDIAN
+
+  - **Timing:** Opponent Turn's Guard Step | **Cost:** Choose a card with [Heal] from your hand, and discard it
+    - **Effect:** Call this card to your (GC) from face down.
+
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC) | **Cost:** Put two cards from the top of your deck into your drop zone
+    - **Effect:** You may pay the cost. If you do, this unit gets Shield+5000 until end of that battle.

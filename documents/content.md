@@ -20,19 +20,24 @@
 
 ## ไฟล์การ์ด
 
-ช่องในไฟล์: `ids`, `name`, `format`, `type`, `trigger`, `grade`, `power` หรือ `shield`, `race`, `clan`, `abilities`, `text` และ `notes` (ถ้ามี)
+ช่องในไฟล์: `ids`, `name`, `format`, `type`, `trigger`, `grade`, `power`, `shield`, `critical`, `skill`, `trigger_power`, `race`, `clan`, `abilities`, `text` และ `notes` (ถ้ามี) ชื่อ เผ่า แคลน และข้อความเป็นภาษาอังกฤษตามการ์ดฉบับ EN
+
+- **ค่าสถานะ:** โปรแกรมอ่านจากไฟล์ตรงๆ ไม่คำนวณจากเกรด
+  - `shield`: Shield บนการ์ด ไม่ใส่ = 0 (เกรด 3, G ยูนิท)
+  - `critical`: Critical บนการ์ด
+  - `skill`: ไอคอนสกิล `boost` (บูสท์ได้), `intercept` (อินเตอร์เซปต์ได้), `twin-drive` (ไดรฟ์ 2 ครั้ง), `triple-drive` (ไดรฟ์ 3 ครั้ง) ไม่ใส่ = ไม่มีสกิล ไดรฟ์ 1 ครั้ง
+  - `trigger_power`: Power ที่ทริกเกอร์ให้ ตามตัวเลขบนไอคอนทริกเกอร์
 
 - **`abilities`:** รหัสสำหรับโปรแกรม แต่ละความสามารถมี `kind`, `zone`, `timing`, `cond`, `cost`, `effect` รหัสมาตรฐานดูได้ที่ [vocabulary.md](vocabulary.md)
 - **`text`:** ข้อความความสามารถจริงจากการ์ด (markdown) แสดงในแผงขวาของโปรแกรม แบ่งหัวข้อตามประเภทความสามารถ เรียงดังนี้: ULTIMATE STRIDE, STRIDE, G GUARDIAN, AUTO, ACT, CONT แต่ละความสามารถแยกเป็นช่อง:
 
 | ช่อง | ความหมาย |
 |---|---|
-| ช่อง | ตำแหน่งที่ความสามารถทำงาน: VC, RC, GC, มือ, G โซน |
-| เงื่อนไข | GB และ 1/Turn |
-| ช่วงเวลา | สเต็ปที่ใช้ได้ (สำหรับ STRIDE และ G GUARDIAN) |
-| จังหวะ | เหตุการณ์ที่ทำให้ AUTO ทำงาน |
-| คอสต์ | สิ่งที่ต้องจ่าย |
-| ผล | ผลของความสามารถ |
+| Zone | ตำแหน่งที่ความสามารถทำงาน: VC, RC, GC, hand, G zone |
+| Condition | GB และ 1/Turn |
+| Timing | สเต็ปที่ใช้ได้ (STRIDE และ G GUARDIAN) หรือเหตุการณ์ที่ทำให้ AUTO ทำงาน |
+| Cost | สิ่งที่ต้องจ่าย |
+| Effect | ผลของความสามารถ |
 
 รหัสจังหวะแต่ละตัวเกิดตอนไหนของเทิร์น ดูได้ที่ [timing-g.md](timing-g.md)
 

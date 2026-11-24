@@ -1,0 +1,27 @@
+ids: ["BT02/014TH RR"]
+name: "Gust Jinn"
+format: [G]
+type: normal
+grade: 1
+power: 6000
+shield: 0
+critical: 1
+skill: boost
+race: "Demon"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    cost: ["discard(1, filter=Granblue)"]
+    effect: ["no-hit(own-attacked, filter=Granblue, until=battle-end)"]
+  - kind: "CONT"
+    effect: ["keyword(Sentinel)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC) | **Cost:** Choose a <<Granblue>> from your hand, and discard it
+    - **Effect:** You may pay the cost. If you do, choose one of your <<Granblue>> that is being attacked, and that unit cannot be hit until end of that battle.
+
+  ### CONT
+
+  - Sentinel

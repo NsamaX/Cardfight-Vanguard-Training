@@ -1,0 +1,34 @@
+ids: ["G-BT09/104TH C"]
+name: "Light Elemental, Honoly"
+format: [G]
+type: normal
+grade: 1
+power: 6000
+shield: 10000
+critical: 1
+skill: boost
+race: "Elemental"
+clan: "Cray Elemental"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["damage-facedown(1)"]
+  - kind: "CONT"
+    zone: "RC"
+    cond: ["attack-count≥5"]
+    effect: ["attack-tax(CB(1), RC)"]
+  - kind: "CONT"
+    effect: ["all-clan(self)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (RC)
+    - **Effect:** Choose a face up card in your damage zone, and turn it face down.
+
+  ### CONT
+
+  - **Zone:** RC
+    - **Effect:** During the fifth battle of that turn or later, all rear-guards cannot attack the vanguard unless [CB1] is paid.
+  - This card is from all clans and nations.
+notes: |
+  The image is the D-PV01/028 reprint. Shield 10000 is taken from that image.

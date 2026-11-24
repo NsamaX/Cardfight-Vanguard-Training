@@ -8,8 +8,8 @@
 
 ```
 python tools/find_chains.py                                   # เทิร์นคู่แข่ง เริ่มจาก G GUARDIAN
-python tools/find_chains.py --vc "หมอกยามค่ำคืน" --gb 2        # ระบุแวนการ์ดและ GB
-python tools/find_chains.py --turn own --start "โอบาไดอา"      # เทิร์นเรา เริ่มจากการ์ดที่ระบุ
+python tools/find_chains.py --vc "Night Fog" --gb 2        # ระบุแวนการ์ดและ GB
+python tools/find_chains.py --turn own --start "Obadiah"      # เทิร์นเรา เริ่มจากการ์ดที่ระบุ
 ```
 
 | ตัวเลือก | ความหมาย |

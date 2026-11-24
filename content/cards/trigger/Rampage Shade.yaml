@@ -1,0 +1,27 @@
+ids: ["G-BT08/S32TH SP"]
+name: "Rampage Shade"
+format: [G]
+type: trigger
+trigger: critical
+grade: 0
+power: 4000
+shield: 10000
+critical: 1
+skill: boost
+trigger_power: 5000
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "attack(own-VC)"
+    cond: ["vc-name(\"Nightrose\") & vc-grade≥3"]
+    cost: ["soul-in(self)"]
+    effect: ["draw(1)", "power(+5000, own-VC, until=battle-end)"]
+text: |
+  ### AUTO
+
+  - **Zone:** RC | **Timing:** When your vanguard attacks | **Cost:** Put this unit into your soul
+    - **Effect:** If your vanguard is grade 3 or greater with "Nightrose" in its card name, you may pay the cost. If you do, draw a card, choose one of your vanguards, and it gets Power+5000 until end of that battle.
+notes: |
+  The image is the D-PV01/047 reprint (Shield 15000, trigger +10000, plus a damage check draw ability). Stats and abilities here follow the G print.

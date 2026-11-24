@@ -331,12 +331,12 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       : fieldChoice?.options.includes(uid) ? (choicePicks.includes(uid) ? "active" : "source")
       : mode?.kind === "stride" && s.players[actor!]?.gZone.some((g) => g.uid === uid && !g.faceUp && db[g.key].type === "g-unit") ? (mode.gUid === uid ? "active" : "source")
       : active.includes(uid) ? "active" : sources.includes(uid) ? "source" : undefined,
-    // ทริกเกอร์: คลิกการ์ดที่เปิดเช็คแล้วเมาส์บอกผลที่จะให้ (+5,000 ก่อน แล้ว Critical/Stand) ยูนิทที่เลือกรับ Power แสดง +5,000 ล่วงหน้า
+    // ทริกเกอร์: คลิกการ์ดที่เปิดเช็คแล้วเมาส์บอกผลที่จะให้ (Power ของทริกเกอร์ก่อน แล้ว Critical/Stand) ยูนิทที่เลือกรับ Power แสดงค่าล่วงหน้า
     clickCheck: (uid: string) => { setInspect(uid); if (trig && uid === s.battle?.checkCard?.uid) setTrigArmed(true); },
     trigTip: trig && trigArmed
-      ? mode?.kind === "trigger" && mode.powerTo ? { text: trig.kind === "critical" ? msg("tip.critical", { v: "+1" }) : msg("tip.stand"), kind: "cri" } : { text: msg("tip.power", { v: `+${fmt(5000)}` }), kind: "pow" }
+      ? mode?.kind === "trigger" && mode.powerTo ? { text: trig.kind === "critical" ? msg("tip.critical", { v: "+1" }) : msg("tip.stand"), kind: "cri" } : { text: msg("tip.power", { v: `+${fmt(trig.power)}` }), kind: "pow" }
       : undefined,
-    trigBonus: trig && mode?.kind === "trigger" && mode.powerTo ? { player: trig.owner, bonus: { [mode.powerTo]: 5000 } as Partial<Record<Circle, number>> }
+    trigBonus: trig && mode?.kind === "trigger" && mode.powerTo ? { player: trig.owner, bonus: { [mode.powerTo]: trig.power } as Partial<Record<Circle, number>> }
       : fieldChoice?.bonus?.stat === "power" ? { player: actor!, bonus: Object.fromEntries(choicePicks.map((u) => [locate(s, u)!.circle!, fieldChoice.bonus!.value])) as Partial<Record<Circle, number>> }
       : undefined,
     // เลือกยูนิทรับผลบนสนาม: เมาส์บอกผลที่จะได้ (จนกว่าจะเลือกครบ)

@@ -1,0 +1,27 @@
+ids: ["PR/0564TH"]
+name: "Mick the Ghostie and Family"
+format: [G]
+type: trigger
+trigger: stand
+grade: 0
+power: 4000
+shield: 10000
+critical: 1
+skill: boost
+trigger_power: 5000
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    timing: "enter(RC, self, from=drop)"
+    cond: ["GB(1)", "self-hollowed"]
+    effect: ["power(+10000, other-own, n≤1, until=turn-end)", "grant(AUTO[retired(self, from=RC) → return-to-deck(self)], self, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - Hollow
+  - **Condition:** GB1 | **Timing:** When this unit is placed on (RC) from your drop zone
+    - **Effect:** If this unit is hollowed, choose up to one of your other units, and it gets Power+10000 until end of turn, and until end of turn, this unit gets "AUTO: When this unit is put into the drop zone from (RC), return this card to your deck, and shuffle your deck."

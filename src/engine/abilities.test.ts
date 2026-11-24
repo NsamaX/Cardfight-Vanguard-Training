@@ -25,6 +25,8 @@ function newGame() {
   s = createGame(db, { seed: 11, firstPlayer: "me", decks: { me: deck, bot: deck } });
   act("me", { type: "mulligan", returnUids: [] });
   act("bot", { type: "mulligan", returnUids: [] });
+  // เทสต์ในไฟล์นี้จัดสนามเอง ไม่ใช้ G อาซิสต์ของเทิร์นแรก
+  if (s.queue.some((e) => e.key === "g-assist")) act("me", { type: "decline-queue", index: 0 });
 }
 
 // ความสามารถที่รออยู่ในคิว (ชื่อมีคำนี้): use = กดใช้ (ไม่ถามคอสต์ซ้ำ) / skip = ไม่ใช้
@@ -68,24 +70,24 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
 
     act("me", { type: "call-g-guardian", gUid: lily, discardUid: s.players.me.hand[0].uid });
     expect(s.awaiting?.kind).toBe("order-queue");                 // เดวย์ + เนโครลิลลี่ ทำงานพร้อมกัน
-    use("me", "เดวย์");                                           // จ่ายคอสต์ไบนด์
+    use("me", "Dewey");                                           // จ่ายคอสต์ไบนด์
     pick("me", otherDewey);                                       // ไบนด์ Heal อีกใบจากดรอป
     act("me", { type: "choose", option: "CC(1)" });
     expect(s.players.me.damage.filter((d) => d.faceUp)).toHaveLength(4);
 
-    use("me", "เนโครลิลลี่");                                     // CB1 + รีไทร์เรียร์การ์ดตัวเอง
+    use("me", "Negrolily");                                     // CB1 + รีไทร์เรียร์การ์ดตัวเอง
     pick("me", gun);
     pick("me", tommy);                                            // คอลผีน้อยจากดรอป
     to("me", "back_center");
     expect(shieldOf(db, s.players.me.guardian[0])).toBe(25000);
 
-    use("me", "หมอกยามค่ำคืน");                                   // ไนท์โรสทำงานเพราะเรียร์การ์ดตกดรอป: mill 3
+    use("me", "Night Fog");                                   // ไนท์โรสทำงานเพราะเรียร์การ์ดตกดรอป: mill 3
     pick("me", gun);
     to("me", "front_left");
 
-    use("me", "พลปืนใหญ่", "0");                                  // ฮอลโล่ว์ก่อน เพื่อให้ได้จั่ว
+    use("me", "Skeleton Cannoneer", "0");                                  // ฮอลโล่ว์ก่อน เพื่อให้ได้จั่ว
     const hand = s.players.me.hand.length;
-    use("me", "พลปืนใหญ่");                                       // CB1 ยิงเรียร์การ์ดบอท
+    use("me", "Skeleton Cannoneer");                                       // CB1 ยิงเรียร์การ์ดบอท
     pick("me", botLazy);
     expect(s.players.bot.circles.front_left).toBeUndefined();
     expect(s.players.me.hand).toHaveLength(hand + 1);
@@ -105,7 +107,7 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
     setup();
     for (const d of s.players.me.damage) d.faceUp = false;
     act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
-    use("me", "เดวย์");
+    use("me", "Dewey");
     pick("me", s.players.me.drop.find((d) => d.key === K.dewey)!.uid);
     act("me", { type: "choose", option: "CC(1)" });
     expect(s.awaiting?.choice?.kind).toBe("cards");
@@ -118,8 +120,8 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
   it("ไม่จ่ายคอสต์ได้ และถ้าไม่มีความสามารถรออยู่ก็กลับมาการ์ดต่อ", () => {
     setup();
     act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
-    skip("me", "เนโครลิลลี่");
-    skip("me", "เดวย์");
+    skip("me", "Negrolily");
+    skip("me", "Dewey");
     expect(s.awaiting).toMatchObject({ player: "me", kind: "guard" });
     expect(shieldOf(db, s.players.me.guardian[0])).toBe(15000);
   });
@@ -128,8 +130,8 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
     setup();
     act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
     expect(() => act("me", { type: "end-guard" })).toThrow("err.resolveFirst");
-    expect(() => skip("me", "ไนท์โรส")).toThrow();
-    use("me", "เนโครลิลลี่");
+    expect(() => skip("me", "Nightrose")).toThrow();
+    use("me", "Negrolily");
     expect(() => pick("me", s.players.bot.circles.front_left!.uid)).toThrow();
   });
 });
@@ -152,10 +154,10 @@ describe("ฮอลโล่ว์ในเอนด์เฟส", () => {
     const gun = s.players.me.circles.front_left!.uid;
     act("me", { type: "next-phase" });
     expect(s.players.me.circles.vc?.key).toBe(K.mist);            // ฮาร์ทกลับเป็นแวนการ์ดแล้ว
-    use("me", "หมอกยามค่ำคืน");
+    use("me", "Night Fog");
     pick("me", gun);
     to("me", "front_left");
-    skip("me", "พลปืนใหญ่", "0");                                 // ไม่ติดฮอลโล่ว์
+    skip("me", "Skeleton Cannoneer", "0");                                 // ไม่ติดฮอลโล่ว์
     // ความสามารถยิง (CB1) ถูกข้ามเองเพราะไม่มีดาเมจหงายให้จ่าย
     expect(s.turnPlayer).toBe("bot");
     expect(s.players.me.circles.front_left).toMatchObject({ uid: gun, hollowed: false });
@@ -164,10 +166,10 @@ describe("ฮอลโล่ว์ในเอนด์เฟส", () => {
   it("ติดฮอลโล่ว์ซ้ำ ถูกรีไทร์อีกรอบ และไนท์โรสใช้ซ้ำไม่ได้ (1/Turn)", () => {
     setup();
     act("me", { type: "next-phase" });
-    use("me", "หมอกยามค่ำคืน");
+    use("me", "Night Fog");
     pick("me", s.players.me.drop.find((c) => c.key === K.gun)!.uid);
     to("me", "front_left");
-    use("me", "พลปืนใหญ่", "0");                                  // ติดฮอลโล่ว์อีก
+    use("me", "Skeleton Cannoneer", "0");                                  // ติดฮอลโล่ว์อีก
     expect(s.turnPlayer).toBe("bot");
     expect(s.players.me.circles.front_left).toBeUndefined();
     expect(s.players.me.drop.some((c) => c.key === K.gun)).toBe(true);
@@ -210,7 +212,7 @@ describe("ความสามารถอื่น", () => {
     refreshAwaiting(s);
     act("me", { type: "attack", attacker: "front_left", target: "vc" });
     act("bot", { type: "end-guard" });
-    use("me", "ไนท์สตอร์ม");
+    use("me", "Nightstorm");
     pick("me", me.drop[0].uid);
     expect(s.awaiting?.choice).toMatchObject({ kind: "circle", options: ["front_right", "back_left", "back_center", "back_right"] });
     to("me", "front_right");
@@ -226,7 +228,7 @@ describe("ความสามารถอื่น", () => {
     refreshAwaiting(s);
     const hand = me.hand.length;
     act("me", { type: "attack", attacker: "vc", target: "vc" });
-    use("me", "แรมเพจ");
+    use("me", "Rampage Shade");
     expect(s.players.me.circles.back_left).toBeUndefined();
     expect(s.players.me.soul.some((c) => c.key === K.rampage)).toBe(true);
     expect(s.players.me.hand).toHaveLength(hand + 1);
@@ -257,7 +259,7 @@ describe("ความสามารถอื่น", () => {
     refreshAwaiting(s);
     const soul = me.soul.length;
     act("me", { type: "next-phase" });   // เอนด์เฟส: เซอเพนท์ (ฮอลโล่ว์) ถูกรีไทร์ ไนท์โรสคอลกลับ
-    use("me", "หมอกยามค่ำคืน");
+    use("me", "Night Fog");
     pick("me", s.players.me.drop.find((c) => c.key === K.serp)!.uid);
     to("me", "front_left");
     expect(s.players.me.soul).toHaveLength(soul + 1);
@@ -278,11 +280,11 @@ describe("ลำดับความสามารถที่ทำงาน�
     Object.assign(s, { turn: 3, turnPlayer: "me", phase: "main", step: undefined });
     refreshAwaiting(s);
     act("me", { type: "call", uid: me.hand[0].uid, to: "back_left" });
-    skip("me", "เนโครเลซี่", "0");                                // ไม่ติดฮอลโล่ว์ให้เลซี่
-    use("me", "เนโครเลซี่");                                      // CB1 + SB1 คอลมิคจากดรอป
+    skip("me", "Negrolazy", "0");                                // ไม่ติดฮอลโล่ว์ให้เลซี่
+    use("me", "Negrolazy");                                      // CB1 + SB1 คอลมิคจากดรอป
     pick("me", s.players.me.drop.find((c) => c.key === "PR/0564TH")!.uid);
     to("me", "back_right");
-    use("me", "มิค", "0");                                        // ติดฮอลโล่ว์ก่อน
+    use("me", "Mick", "0");                                        // ติดฮอลโล่ว์ก่อน
     expect(s.awaiting?.choice?.kind).toBe("cards");               // เอฟเฟคบวกพลังของมิคทำงานต่อ
     pick("me", s.players.me.circles.front_left!.uid);
     expect(powerOf(db, s.players.me, "front_left")).toBe(db[K.gun].power! + 10000);
@@ -302,7 +304,7 @@ describe("ลำดับความสามารถที่ทำงาน�
     act("me", { type: "attack", attacker: "front_left", target: "vc", booster: "back_left" });
     act("bot", { type: "end-guard" });
     while (s.awaiting?.kind === "trigger-target") act(s.awaiting.player, { type: "trigger-target", powerTo: "vc", extraTo: "vc" });
-    use("me", "เนโครโบน");
+    use("me", "Negrobone");
     pick("me", s.players.me.drop.find((c) => c.key === K.lazy)!.uid);
     to("me", "front_left");
     expect(s.players.me.drop.some((c) => c.uid === gun)).toBe(true);

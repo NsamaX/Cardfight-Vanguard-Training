@@ -1,0 +1,28 @@
+ids: ["G-CP08/S11TH SP"]
+name: "Great Witch Doctor of Banquets, Negrolily"
+format: [G]
+type: g-guardian
+grade: 4
+shield: 15000
+critical: 1
+race: "Demon"
+clan: "Granblue"
+abilities:
+  - kind: "G GUARDIAN"
+    timing: "step(guard, opp)"
+    cost: ["discard(1, filter=heal)"]
+    effect: ["call(G→GC, self)"]
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    cost: ["CB(1)", "retire-own(1)"]
+    effect: ["call(drop→RC, n=1, filter=normal-unit & name(\"Ghostie\"), to=empty)", "shield(+10000, self, until=battle-end)"]
+text: |
+  ### G GUARDIAN
+
+  - **Timing:** Opponent Turn's Guard Step | **Cost:** Choose a card with [Heal] from your hand, and discard it
+    - **Effect:** Call this card to your (GC) from face down.
+
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC) | **Cost:** CB1, choose one of your rear-guards, and retire it
+    - **Effect:** You may pay the cost. If you do, choose up to one normal unit with "Ghostie" in its card name from your drop zone, call it to an open (RC), and this unit gets Shield+10000 until end of that battle.

@@ -1,0 +1,29 @@
+ids: ["G-FC04/019TH GR"]
+name: "Unfading Ship, Immortal Galleon"
+format: [G]
+type: g-unit
+grade: 4
+power: "15000+"
+critical: 1
+skill: triple-drive
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "STRIDE"
+    timing: "step(stride, own)"
+    cost: ["discard(n, grade-sum≥3)"]
+    effect: ["stride(self)"]
+  - kind: "AUTO"
+    timing: "enter(VC, self)"
+    cond: ["GB(8)"]
+    effect: ["call(drop→RC, n≤5, to=different)", "power(+10000, called, until=turn-end)", "retire(own, target=called, at=turn-end)"]
+text: |
+  ### STRIDE
+
+  - **Timing:** Stride Step | **Cost:** Choose one or more cards with the sum of their grades being 3 or greater from your hand, and discard them
+    - **Effect:** STRIDE this card on your (VC) from face down.
+
+  ### AUTO
+
+  - **Condition:** GB8 | **Timing:** When this unit is placed on (VC)
+    - **Effect:** Choose up to five cards from your drop zone, call them to separate (RC), they get Power+10000 until end of turn, and at the end of that turn, retire the units called with this effect.

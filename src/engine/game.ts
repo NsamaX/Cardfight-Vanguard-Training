@@ -5,7 +5,8 @@ import { cloneState } from "./clone";
 import { shuffle } from "./rng";
 import { msg, type Msg } from "../i18n/msg";
 import {
-  BEHIND, FRONT, PLAYERS, RC, SAME_COLUMN, RuleError, bothVanguardsGrade3, strideCostGrade, circleMsg, criticalOf, driveOf, isG, other, powerOf, shieldOf,
+  BEHIND, FRONT, PLAYERS, RC, SAME_COLUMN, RuleError, bothVanguardsGrade3, canBoost, canIntercept, strideCostGrade, circleMsg, criticalOf, driveOf, isG, other, powerOf, shieldOf,
+  triggerPower,
   vcGrade,
   type CardDB,
 } from "./rules";
@@ -28,7 +29,7 @@ function newInstance(s: GameState, key: string, faceUp = true): CardInstance {
 }
 
 function emptyPlayer(): PlayerState {
-  return { circles: {}, guardian: [], hand: [], deck: [], drop: [], soul: [], damage: [], gZone: [], bind: [] };
+  return { circles: {}, guardian: [], hand: [], deck: [], drop: [], soul: [], damage: [], gZone: [], bind: [], removed: [] };
 }
 
 // ---------- สร้างเกม ----------
@@ -82,7 +83,7 @@ const HANDLERS: { [T in Action["type"]]: Handler<T> } = {
   manual: () => { throw new RuleError("err.manualUnsupported"); },
 };
 
-const RESUME: ResumeHandlers = { close: closeBattle, "close-finish": finishClose, "end-finish": finishEnd, "ride-finish": finishRide };
+const RESUME: ResumeHandlers = { close: closeBattle, "close-finish": finishClose, "end-finish": finishEnd, "ride-finish": finishRide, "draw-finish": finishDraw };
 
 function requirePhase(s: GameState, p: PlayerId, phase: GameState["phase"], step?: string) {
   if (s.turnPlayer !== p) throw new RuleError("err.notYourTurn");
@@ -176,7 +177,7 @@ export function usableActs(db: CardDB, s: GameState): { uid: string; index: numb
 function mulligan(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "mulligan" }>, out: Out) {
   if (s.phase !== "setup" || s.mulliganDone.includes(p)) throw new RuleError("err.mulliganDone");
   const ps = s.players[p];
-  const back = a.returnUids.map((uid) => takeFrom(ps.hand, uid, "มือ"));
+  const back = a.returnUids.map((uid) => takeFrom(ps.hand, uid, "hand"));
   ps.hand.push(...ps.deck.splice(0, back.length).map((c) => reset(c)));
   ps.deck.push(...back.map((c) => reset(c, false)));
   [ps.deck, s.rngState] = shuffle(ps.deck, s.rngState);
@@ -192,7 +193,7 @@ function mulligan(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { ty
 
 // ---------- เฟส ----------
 
-function startTurn(_db: CardDB, s: GameState, out: Out) {
+function startTurn(db: CardDB, s: GameState, out: Out) {
   const p = s.turnPlayer;
   s.rodeThisTurn = false;
   s.strodeThisTurn = false;
@@ -201,6 +202,20 @@ function startTurn(_db: CardDB, s: GameState, out: Out) {
   for (const inst of fieldUnits(s.players[p])) inst.rested = false;
   s.phase = "draw";
   if (!drawCard(s, p, out)) return;
+  queueGAssist(db, s, p);
+  s.resume = "draw-finish";
+}
+
+// G อาซิสต์สเต็ป: แวนการ์ดยังไม่ถึงเกรด 3 และบนมือไม่มียูนิทเกรดสูงกว่าแวนการ์ด 1 เกรด เลือกใช้ได้
+function queueGAssist(db: CardDB, s: GameState, p: PlayerId) {
+  const ps = s.players[p];
+  const vc = ps.circles.vc;
+  const next = vcGrade(db, ps) + 1;
+  if (!vc || next > 3 || ps.hand.some((c) => !isG(db[c.key]) && db[c.key].grade === next)) return;
+  s.queue.push({ owner: p, uid: vc.uid, key: "g-assist", ability: { kind: "AUTO", effect: [`g-assist(${next})`] }, label: "G ASSIST", optional: true });
+}
+
+function finishDraw(_db: CardDB, s: GameState) {
   s.phase = "ride";
   s.step = "ride";
 }
@@ -286,7 +301,7 @@ function ride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: 
   if (!inst) throw new RuleError("err.notInHand");
   const g = db[inst.key].grade, cur = vcGrade(db, ps);
   if (isG(db[inst.key]) || (g !== cur && g !== cur + 1)) throw new RuleError("err.rideGrade");
-  takeFrom(ps.hand, a.uid, "มือ");
+  takeFrom(ps.hand, a.uid, "hand");
   const old = ps.circles.vc!;
   inst.rested = old.rested;
   ps.soul.push(reset(old));
@@ -314,8 +329,8 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   if (discards.length === 0 || discards.reduce((n, c) => n + strideCostGrade(db[c.key]), 0) < 3) {
     throw new RuleError("err.strideCost");
   }
-  for (const c of discards) ps.drop.push(reset(takeFrom(ps.hand, c.uid, "มือ")));
-  takeFrom(ps.gZone, g.uid, "G โซน");
+  for (const c of discards) ps.drop.push(reset(takeFrom(ps.hand, c.uid, "hand")));
+  takeFrom(ps.gZone, g.uid, "G zone");
   const heart = ps.circles.vc!;
   // AUTO (VC) "เมื่อ G ยูนิทคุณสไตรด์" ของแวนการ์ดเดิม (ที่กำลังจะเป็นฮาร์ท) ต้องถูกตรวจตอนที่ยังอยู่บน VC
   emit(db, s, { kind: "stride", player: p, uid: g.uid });
@@ -337,7 +352,7 @@ function call(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: 
   const inst = ps.hand.find((c) => c.uid === a.uid);
   if (!inst) throw new RuleError("err.notInHand");
   if (isG(db[inst.key]) || db[inst.key].grade > vcGrade(db, ps)) throw new RuleError("err.callGrade");
-  takeFrom(ps.hand, a.uid, "มือ");
+  takeFrom(ps.hand, a.uid, "hand");
   placeOnRC(db, s, p, inst, a.to, "hand", out);
 }
 
@@ -367,12 +382,12 @@ function attack(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   if (a.booster) {
     booster = ps.circles[a.booster];
     if (BEHIND[a.attacker] !== a.booster || !booster) throw new RuleError("err.boostBehind");
-    if (booster.rested || db[booster.key].grade > 1) throw new RuleError("err.boostGrade");
+    if (booster.rested || !canBoost(db[booster.key])) throw new RuleError("err.boostGrade");
   }
   atk.rested = true;
   if (booster) {
     booster.rested = true;
-    atk.mods.push({ stat: "power", value: powerOf(db, ps, a.booster!), source: "บูสท์", until: "battle-end" });
+    atk.mods.push({ stat: "power", value: powerOf(db, ps, a.booster!), source: "boost", until: "battle-end" });
   }
   s.battle = { attacker: a.attacker, booster: a.booster, target: a.target, drivesLeft: 0, damageLeft: 0 };
   s.step = "guard";
@@ -388,14 +403,14 @@ function guard(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type:
   requireGuard(s, p);
   const ps = s.players[p];
   for (const uid of a.uids) {
-    const inst = takeFrom(ps.hand, uid, "มือ");
+    const inst = takeFrom(ps.hand, uid, "hand");
     ps.guardian.push(reset(inst));
     ev(out, "guard", p, msg("log.guard", { player: playerMsg(p), card: name(db, inst), shield: shieldOf(db, inst) }), inst.uid);
     emit(db, s, { kind: "enter", player: p, uid: inst.uid, zone: "GC", from: "hand" });
   }
   for (const c of a.intercept ?? []) {
     const inst = ps.circles[c];
-    if (!inst || (c !== "front_left" && c !== "front_right") || c === s.battle!.target || db[inst.key].grade !== 2) {
+    if (!inst || (c !== "front_left" && c !== "front_right") || c === s.battle!.target || !canIntercept(db[inst.key])) {
       throw new RuleError("err.intercept");
     }
     delete ps.circles[c];
@@ -422,8 +437,8 @@ function callGGuardian(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action,
   if (!g || g.faceUp || db[g.key].type !== "g-guardian") throw new RuleError("err.gGuardNeedG");
   const discard = ps.hand.find((c) => c.uid === a.discardUid);
   if (!discard || db[discard.key].trigger !== "heal") throw new RuleError("err.gGuardDiscard");
-  ps.drop.push(reset(takeFrom(ps.hand, discard.uid, "มือ")));
-  ps.guardian.push(reset(takeFrom(ps.gZone, g.uid, "G โซน")));
+  ps.drop.push(reset(takeFrom(ps.hand, discard.uid, "hand")));
+  ps.guardian.push(reset(takeFrom(ps.gZone, g.uid, "G zone")));
   ev(out, "discard", p, msg("log.discard", { card: name(db, discard) }), discard.uid);
   ev(out, "g-guardian", p, msg("log.gGuardian", { player: playerMsg(p), card: name(db, g), shield: shieldOf(db, g) }), g.uid);
   emit(db, s, { kind: "discarded", player: p, uid: discard.uid, as: "g-guardian-cost" });
@@ -455,7 +470,7 @@ function revealCheck(db: CardDB, s: GameState, p: PlayerId, during: "drive" | "d
     : msg(during === "drive" ? "log.driveCheck" : "log.damageCheck", { card: card.name });
   ev(out, during === "drive" ? "drive-check" : "damage-check", p, text, top.uid);
   if (card.trigger) {
-    s.battle!.pendingTrigger = { owner: p, kind: card.trigger, during };
+    s.battle!.pendingTrigger = { owner: p, kind: card.trigger, during, power: triggerPower(card) };
     (s.battle!.triggers ??= []).push({ card: reset(top), during, done: false });
   }
   return true;
@@ -496,7 +511,7 @@ function continueBattle(db: CardDB, s: GameState, out: Out) {
       const dp = powerOf(db, def, b.target) + def.guardian.reduce((n, g) => n + shieldOf(db, g), 0);
       b.hit = !!target && !b.noHit && ap >= dp;
       ev(out, b.hit ? "hit" : "no-hit", atkSide, msg(b.hit ? "log.hit" : "log.noHit", { atk: ap, def: dp }), target?.uid);
-      if (b.hit && b.target === "vc") b.damageLeft = criticalOf(atk.circles[b.attacker] ?? target!);
+      if (b.hit && b.target === "vc") b.damageLeft = criticalOf(db, atk.circles[b.attacker] ?? target!);
       else if (b.hit) retireUnit(db, s, defSide, b.target, out, msg("reason.attacked"));
     }
     while (b.damageLeft > 0) {
@@ -554,15 +569,15 @@ function triggerTarget(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action,
     if (u && a.extraTo === "vc") throw new RuleError("err.standRearOnly");
     if (u) u.rested = false;
   }
-  powerUnit.mods.push({ stat: "power", value: 5000, source: "ทริกเกอร์", until: "turn-end" });
-  ev(out, "trigger", p, msg("log.triggerPower", { card: name(db, powerUnit) }), powerUnit.uid);
+  powerUnit.mods.push({ stat: "power", value: t.power, source: "trigger", until: "turn-end" });
+  ev(out, "trigger", p, msg("log.triggerPower", { card: name(db, powerUnit), v: String(t.power) }), powerUnit.uid);
   if (t.kind === "critical") {
     const u = ps.circles[a.extraTo ?? "vc"]!;
-    u.mods.push({ stat: "critical", value: 1, source: "ทริกเกอร์", until: "turn-end" });
+    u.mods.push({ stat: "critical", value: 1, source: "trigger", until: "turn-end" });
     ev(out, "trigger", p, msg("log.triggerCritical", { card: name(db, u) }), u.uid);
   }
   if (t.kind === "heal" && ps.damage.length > 0 && ps.damage.length >= opp.damage.length) {
-    const healed = a.healUid ? takeFrom(ps.damage, a.healUid, "ดาเมจโซน") : ps.damage.pop()!;
+    const healed = a.healUid ? takeFrom(ps.damage, a.healUid, "damage zone") : ps.damage.pop()!;
     ps.drop.push(reset(healed));
     ev(out, "heal", p, msg("log.heal", { card: name(db, healed) }), healed.uid);
   }

@@ -3,7 +3,7 @@ import { msg, type Msg, type MsgKey } from "../i18n/msg";
 import { parseCode, quoted, splitTop, type Code } from "./code";
 import { shuffle } from "./rng";
 import { RC, RuleError, SAME_COLUMN, circleMsg, generationBreak, hasHollow, isG, other, type CardDB } from "./rules";
-import { circleOf, drawCard, ev, fieldUnits, locate, name, playerMsg, pull, reset, type Out } from "./state";
+import { circleOf, drawCard, ev, fieldUnits, locate, name, playerMsg, pull, reset, win, type Out } from "./state";
 import type { Ability, CardInstance, Choice, Circle, GameState, PlayerId, QueueEntry, Resolving, TriggerEvent } from "./types";
 
 export type ResumeHandlers = Record<string, (db: CardDB, s: GameState, out: Out) => void>;
@@ -24,7 +24,7 @@ function abilitiesOf(db: CardDB, inst: CardInstance, grants: Ability[]): [string
 function zoneOk(zone: string | undefined, where: string): boolean {
   if (!zone) return true;
   return zone.split("/").some((z) =>
-    z === "VC" ? where === "vc" : z === "RC" ? RC.includes(where as Circle) : z === "GC" ? where === "guardian" : z === "มือ" ? where === "hand" : false);
+    z === "VC" ? where === "vc" : z === "RC" ? RC.includes(where as Circle) : z === "GC" ? where === "guardian" : z === "hand" ? where === "hand" : false);
 }
 
 function matches(timing: string, e: TriggerEvent, uid: string, owner: PlayerId): boolean {
@@ -146,6 +146,9 @@ export const isOptional = (ab: Ability) => !!ab.cost?.length || MAY_FIRST.test(a
 export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandlers) {
   for (let guard = 0; guard < 2000; guard++) {
     if (s.winner) return;
+    // rule action: กองการ์ดเหลือ 0 ใบเป็นฝ่ายแพ้ทันที ไม่ต้องรอจั่ว
+    const empty = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.players[q].deck.length === 0);
+    if (empty) { win(s, other(empty), out, msg("win.deckOut", { player: playerMsg(empty) })); return; }
     if (s.resolving) { if (!runResolving(db, s, out)) return; continue; }
     if (s.events.length) { collectTriggers(db, s); continue; }
     if (s.battle?.pendingTrigger) return;
@@ -166,7 +169,7 @@ export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandler
     if (s.resume) { const r = s.resume; s.resume = undefined; resume[r](db, s, out); continue; }
     return;
   }
-  throw new Error("ระบบความสามารถวนไม่จบ");
+  throw new Error("ability resolution did not settle");
 }
 
 export function declineEntry(s: GameState, entry: QueueEntry, out: Out) {
@@ -252,7 +255,7 @@ function matchFilter(db: CardDB, s: GameState, r: Resolving, inst: CardInstance,
     else if (t === "G-GUARDIAN") { if (card.type !== "g-guardian") return false; }
     else if (t === "that-card") { const e = r.event; if (!e || !("uid" in e) || e.uid !== inst.uid) return false; }
     else if (t === "different-grades" || t === "grade-sum≥3") { /* ตรวจตอนเลือก */ }
-    else if (card.clan !== t) return false;          // ชื่อแคลน เช่น แกรนบลู
+    else if (card.clan !== t) return false;          // ชื่อแคลน เช่น Granblue
   }
   return true;
 }
@@ -404,6 +407,29 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
       }
       [ps.deck, s.rngState] = shuffle(ps.deck, s.rngState);
       say("log.shuffle");
+      return true;
+    }
+    case "g-assist": {
+      // เปิดมือ ดู 5 ใบบนกอง เอายูนิทเกรดที่ต้องการขึ้นมือได้ 1 ใบ แล้วสับกอง ถ้าได้การ์ด นำการ์ดบนมือ 2 ใบออกจากเกม
+      if (!r.local.stage) {
+        const grade = num(c.pos[0]);
+        const pool = ps.deck.slice(0, 5).filter((i) => !isG(db[i.key]) && db[i.key].grade === grade);
+        if (!r.answer?.uids) {
+          say("log.revealHand", { player: playerMsg(p), cards: ps.hand.map((h) => name(db, h)).join(", ") });
+          if (pool.length) return askCards(r, msg("choice.gAssistPick", { grade }), pool, 0, 1);
+        }
+        const picked = r.answer?.uids ?? [];
+        for (const u of picked) { const { inst } = pull(s, u); ps.hand.push(reset(inst)); say("log.searchHand", { card: name(db, inst) }, u); }
+        [ps.deck, s.rngState] = shuffle(ps.deck, s.rngState);
+        say("log.shuffle");
+        if (!picked.length) return true;
+        r.local.stage = 1;
+        r.answer = undefined;
+      }
+      const n = Math.min(2, ps.hand.length);
+      if (!n) return true;
+      if (!r.answer?.uids) return askCards(r, msg("choice.gAssistRemove", { n }), ps.hand, n, n);
+      for (const u of r.answer.uids) { const { inst } = pull(s, u); ps.removed.push(reset(inst)); say("log.removed", { card: name(db, inst) }, u); }
       return true;
     }
     case "retire": {

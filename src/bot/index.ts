@@ -75,6 +75,6 @@ export class VanguardBot implements Bot {
     // ตรวจกับเกมจริงก่อนส่ง (ข้อมูลที่ซ่อนอาจทำให้ action ที่คิดไว้ผิดกฎ)
     if (legal(this.db, state, p, action)) return action;
     for (const a of [...fallbacks(state), ...candidates(this.db, state, p)]) if (legal(this.db, state, p, a)) return a;
-    throw new Error("บอทหาการกระทำที่ถูกกฎไม่ได้");
+    throw new Error("bot found no legal action");
   }
 }

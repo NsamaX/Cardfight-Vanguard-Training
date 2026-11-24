@@ -1,5 +1,5 @@
 // กติกาฝั่งหน้าจอของหน้าสนาม (ฟังก์ชันล้วน ไม่มี React): ช่องไหนคลิกได้ ตัวเลขการต่อสู้ และการหาการ์ดที่กำลังดู
-import { BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, circleMsg, other, powerOf, shieldOf, type CardDB } from "../engine/rules";
+import { BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost as cardBoosts, canIntercept as cardIntercepts, circleMsg, other, powerOf, shieldOf, type CardDB } from "../engine/rules";
 import { locate, playerMsg } from "../engine/state";
 import type { CardInstance, Choice, Circle, GameEvent, GameState, PlayerId } from "../engine/types";
 import { msg, type Msg, type MsgKey } from "../i18n/msg";
@@ -82,7 +82,7 @@ export function isTarget({ s, db, actor, choice, sel, mode }: TargetContext, p: 
   const unit = s.players[p].circles[c];
   if (choice) return choice.kind === "circle" && p === choice.side && choice.options.includes(c);
   if (mode?.kind === "trigger") return p === actor && !!unit;
-  if (s.step === "guard" && s.battle) return p === actor && canIntercept(c) && !!unit && db[unit.key].grade === 2 && c !== s.battle.target;
+  if (s.step === "guard" && s.battle) return p === actor && canIntercept(c) && !!unit && cardIntercepts(db[unit.key]) && c !== s.battle.target;
   if (sel?.kind === "hand" && p === actor) {
     if (s.phase === "ride" && s.step === "ride") return c === "vc";
     if (s.phase === "main") return RC.includes(c);
@@ -93,7 +93,7 @@ export function isTarget({ s, db, actor, choice, sel, mode }: TargetContext, p: 
 }
 
 // บูสท์ได้: เกรด 0-1 ที่สแตนด์อยู่
-export const canBoost = (db: CardDB, inst: CardInstance) => !inst.rested && db[inst.key].grade <= 1;
+export const canBoost = (db: CardDB, inst: CardInstance) => !inst.rested && cardBoosts(db[inst.key]);
 
 export function battleSummary(db: CardDB, s: GameState) {
   const b = s.battle;

@@ -1,0 +1,32 @@
+ids: ["G-BT06/083TH C"]
+name: "Mighty Rogue, Nightstorm"
+format: [G]
+type: normal
+grade: 3
+power: 11000
+critical: 1
+skill: twin-drive
+race: "Vampire"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "battle-end(self, did=attack-VC)"
+    cond: ["GB(1)", "self-hollowed"]
+    cost: ["CB(1)"]
+    effect: ["call(drop→RC, n≤1, filter=not-same-name, to=not-self)"]
+  - kind: "AUTO"
+    timing: "enter(VC, self)"
+    cost: ["CB(1)", "SB(1)"]
+    effect: ["search(deck→hand, n≤1, filter=has-hollow, look=top-5)"]
+text: |
+  ### AUTO
+
+  - Hollow
+  - **Zone:** RC | **Condition:** GB1 | **Timing:** At the end of the battle that this unit attacked a vanguard | **Cost:** CB1
+    - **Effect:** If this unit is hollowed, you may pay the cost. If you do, choose up to one card not named "Mighty Rogue, Nightstorm" from your drop zone, and call it to a (RC) this unit is not on.
+  - **Timing:** When this unit is placed on (VC) | **Cost:** CB1, SB1
+    - **Effect:** You may pay the cost. If you do, look at five cards from the top of your deck, search for up to one card with the hollow ability from among them, reveal it to your opponent, put it into your hand, and shuffle your deck.

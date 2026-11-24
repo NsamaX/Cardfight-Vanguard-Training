@@ -1,0 +1,36 @@
+ids: ["G-FC03/049TH RR"]
+name: "Air Element, Sebreeze"
+format: [G]
+type: g-unit
+grade: 4
+power: "15000+"
+critical: 1
+skill: triple-drive
+race: "Elemental"
+clan: "Cray Elemental"
+abilities:
+  - kind: "STRIDE"
+    timing: "step(stride, own)"
+    cost: ["discard(n, grade-sum≥3)"]
+    effect: ["stride(self)"]
+  - kind: "ACT"
+    zone: "G zone"
+    cond: ["vc-grade=3 & G-faceup=0 & opp-vc-grade=2 & opp-no-ride-last-turn"]
+    cost: ["CB(2)", "discard(1)"]
+    effect: ["stride-from-G(self)"]
+  - kind: "CONT"
+    effect: ["all-clan(self)"]
+text: |
+  ### STRIDE
+
+  - **Timing:** Stride Step | **Cost:** Choose one or more cards with the sum of their grades being 3 or greater from your hand, and discard them
+    - **Effect:** STRIDE this card on your (VC) from face down.
+
+  ### ACT
+
+  - **Zone:** G zone | **Cost:** CB2, choose a card from your hand, and discard it
+    - **Effect:** If you have a grade 3 vanguard, the number of face up cards in your G zone is 0, your opponent's vanguard is grade 2, and no unit was placed on your opponent's (VC) during the ride phase of your opponent's preceding turn, STRIDE this card on your (VC) from face down.
+
+  ### CONT
+
+  - This card is from all clans and nations.

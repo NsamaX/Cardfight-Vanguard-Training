@@ -1,5 +1,5 @@
 // คะแนนสนามจากมุมมองของผู้เล่น p (หน่วย = การ์ด 1 ใบ) ใช้ตัดสินผลของการจำลองแต่ละรอบ
-import { BEHIND, FRONT, generationBreak, isSentinel, other, powerOf, type CardDB } from "../engine/rules";
+import { BEHIND, FRONT, canBoost, generationBreak, isSentinel, other, powerOf, type CardDB } from "../engine/rules";
 import type { GameState, PlayerId } from "../engine/types";
 import { keepValue, unitValue } from "./knowledge";
 import { isHidden } from "./view";
@@ -29,7 +29,7 @@ function side(db: CardDB, s: GameState, p: PlayerId): number {
     if (c !== "vc") v += unitValue(db, u);
     const b = BEHIND[c];
     const bu = b ? ps.circles[b] : undefined;
-    const boost = bu && db[bu.key].grade <= 1 && !bu.hollowed ? (db[bu.key].power ?? 0) : 0;
+    const boost = bu && canBoost(db[bu.key]) && !bu.hollowed ? (db[bu.key].power ?? 0) : 0;
     if (bu) v += unitValue(db, bu) * (boost ? 1 : 0.4);
     const col = (c === "vc" ? powerOf(db, ps, c) : db[u.key].power ?? 0) + boost;
     if (col >= oppVc) v += 0.25 + Math.min(2, Math.floor((col - oppVc) / 5000)) * 0.15;

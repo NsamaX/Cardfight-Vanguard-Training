@@ -1,0 +1,32 @@
+ids: ["G-CHB03/S12TH SP", "G-BT06/039TH SP"]
+name: "Tommy the Ghostie Brothers"
+format: [G]
+type: normal
+grade: 1
+power: 7000
+shield: 5000
+critical: 1
+skill: boost
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self, from=hand)"
+    cost: ["reveal(1, filter=grade-3)"]
+    effect: ["search(deck→hand, n≤1, filter=grade-3 & name(\"Nightrose\"))", "discard(1)"]
+  - kind: "CONT"
+    zone: "hand"
+    cond: ["while(stride-cost)"]
+    effect: ["grade(+2, self)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (RC) from hand | **Cost:** Choose a grade 3 card from your hand, and reveal it
+    - **Effect:** You may pay the cost. If you do, search your deck for up to one grade 3 card with "Nightrose" in its card name, reveal it, put it into your hand, shuffle your deck, choose a card from your hand, and discard it.
+
+  ### CONT
+
+  - **Zone:** hand
+    - **Effect:** While you are paying the cost for STRIDE, this card gets grade +2.
+notes: |
+  Two prints that differ only in art and card number. The ability text is identical, so they share one file.

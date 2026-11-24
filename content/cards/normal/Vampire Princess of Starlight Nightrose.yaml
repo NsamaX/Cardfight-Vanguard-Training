@@ -1,0 +1,34 @@
+ids: ["G-CHB03/002TH RLR"]
+name: "Vampire Princess of Starlight, Nightrose"
+format: [G]
+type: normal
+grade: 3
+power: 11000
+critical: 1
+skill: twin-drive
+race: "Vampire"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    zone: "VC/RC"
+    timing: "enter(RC, other-own, from=drop)"
+    cond: ["1/turn", "GB(2)", "own-turn"]
+    cost: ["SB(1)"]
+    effect: ["call(drop→RC, n=1, filter=grade-1, to=same-column)"]
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "stride(own)"
+    cond: ["own-turn"]
+    cost: ["CB(1)"]
+    effect: ["mill(≤3)", "call(drop→RC, n=1)", "power(+3000, called, until=turn-end, if=called-has-hollow)"]
+text: |
+  ### AUTO
+
+  - Hollow
+  - **Zone:** VC/RC | **Condition:** 1/Turn GB2 | **Timing:** During your turn, when your unit is placed on another (RC) from drop zone | **Cost:** SB1
+    - **Effect:** You may pay the cost. If you do, choose a grade 1 card from your drop zone, and call it to another (RC) in the same column as this unit.
+  - **Zone:** VC | **Timing:** During your turn, when your G unit STRIDEs | **Cost:** CB1
+    - **Effect:** You may pay the cost. If you do, put up to three cards from the top of your deck into your drop zone, choose a card from your drop zone, call it to (RC), and if that unit has the hollow ability, it gets Power+3000 until end of turn.

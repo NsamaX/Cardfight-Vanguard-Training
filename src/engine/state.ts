@@ -20,7 +20,7 @@ export function reset(inst: CardInstance, faceUp = true): CardInstance {
 
 export function takeFrom(list: CardInstance[], uid: string, what: string): CardInstance {
   const i = list.findIndex((c) => c.uid === uid);
-  if (i < 0) throw new Error(`ไม่พบการ์ดใน${what}`);
+  if (i < 0) throw new Error(`card not found in ${what}`);
   return list.splice(i, 1)[0];
 }
 
@@ -49,7 +49,7 @@ export function drawCard(s: GameState, p: PlayerId, out: Out): boolean {
 
 export const fieldUnits = (ps: PlayerState) => Object.values(ps.circles).filter((i): i is CardInstance => !!i);
 
-export const PILE_ZONES = ["hand", "guardian", "drop", "soul", "damage", "gZone", "bind", "deck"] as const;
+export const PILE_ZONES = ["hand", "guardian", "drop", "soul", "damage", "gZone", "bind", "removed", "deck"] as const;
 export type PileZone = (typeof PILE_ZONES)[number];
 
 export const circleOf = (s: GameState, p: PlayerId, uid: string): Circle | undefined =>
@@ -73,7 +73,7 @@ export function locate(s: GameState, uid: string): { player: PlayerId; inst: Car
 // เอาการ์ดออกจากโซนที่อยู่ (ไม่ใช่สนาม) เพื่อนำไปวางที่อื่น
 export function pull(s: GameState, uid: string): { inst: CardInstance; zone: string; player: PlayerId } {
   const at = locate(s, uid);
-  if (!at) throw new Error("ไม่พบการ์ด");
+  if (!at) throw new Error("card not found");
   const ps = s.players[at.player];
   if (at.zone === "circle") delete ps.circles[at.circle!];
   else if (at.zone === "heart") ps.heart = undefined;

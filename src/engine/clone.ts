@@ -19,7 +19,7 @@ export function cloneState(s: GameState): GameState {
     for (const k in p.circles) { const u = p.circles[k as keyof typeof circles]; if (u) circles[k as keyof typeof circles] = card(u); }
     const r: PlayerState = {
       ...p, circles, guardian: cards(p.guardian), hand: cards(p.hand), deck: cards(p.deck), drop: cards(p.drop),
-      soul: cards(p.soul), damage: cards(p.damage), gZone: cards(p.gZone), bind: cards(p.bind),
+      soul: cards(p.soul), damage: cards(p.damage), gZone: cards(p.gZone), bind: cards(p.bind), removed: cards(p.removed ?? []),
     };
     if (p.heart) r.heart = card(p.heart);
     return r;

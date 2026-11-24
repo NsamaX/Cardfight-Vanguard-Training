@@ -1,0 +1,20 @@
+ids: ["BT02/026TH R (Fighters Road Thailand 2018 stamp)"]
+name: "Chappie the Ghostie"
+format: [G]
+type: normal
+grade: 0
+power: 5000
+shield: 10000
+critical: 1
+skill: boost
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    effect: ["search(deck→drop, n≤1, filter=Granblue)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC)
+    - **Effect:** Search your deck for up to one <<Granblue>>, put it into your drop zone, and shuffle your deck.

@@ -1,0 +1,26 @@
+ids: ["G-TD08/007TH"]
+name: "Witch Doctor of the Rotten Sea, Negrorook"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Demon"
+clan: "Granblue"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "attack(self)"
+    cond: ["GB(1)"]
+    effect: ["power(+2000, self, until=battle-end)", "power(+5000, self, until=battle-end, if=self-hollowed)"]
+text: |
+  ### AUTO
+
+  - Hollow
+  - **Zone:** RC | **Condition:** GB1 | **Timing:** When this unit attacks
+    - **Effect:** This unit gets Power+2000 until end of that battle, and if this unit is hollowed, this unit gets Power+5000 until end of that battle.

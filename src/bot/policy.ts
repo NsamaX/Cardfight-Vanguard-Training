@@ -3,7 +3,7 @@
 import { gGuardianBlocked, usableActs } from "../engine/game";
 import { parseCode } from "../engine/code";
 import {
-  BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, strideCostGrade, criticalOf, driveOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, shieldOf, vcGrade,
+  BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost, canIntercept, strideCostGrade, criticalOf, driveOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, shieldOf, triggerPower, vcGrade,
   type CardDB,
 } from "../engine/rules";
 import { circleOf, locate } from "../engine/state";
@@ -149,7 +149,7 @@ function pressureVs(db: CardDB, s: GameState, p: PlayerId, oppVc: number, place:
     if (!u) continue;
     const back = BEHIND[c]!;
     const bu = at(back);
-    const boost = bu && db[bu.key].grade <= 1 ? db[bu.key].power ?? 0 : 0;
+    const boost = bu && canBoost(db[bu.key]) ? db[bu.key].power ?? 0 : 0;
     const base = c === "vc" || u === ps.circles[c] ? powerOf(db, ps, c) : db[u.key].power ?? 0;
     n += forced(base + boost, oppVc);
   }
@@ -167,12 +167,12 @@ export function callScore(db: CardDB, s: GameState, p: PlayerId, inst: CardInsta
   let gain = (pressure(db, s, p, { [to]: inst }) - now) * PER_SHIELD;
   if (FRONT.includes(to) && !ps.circles[BEHIND[to]!]) {
     // แนวหน้าที่ยังไม่มีตัวบูสท์: คิดรวมกับตัวบูสท์ที่ดีที่สุดบนมือ
-    const booster = ps.hand.filter((h) => h.uid !== inst.uid && !isG(db[h.key]) && db[h.key].grade <= 1 && !isSentinel(db[h.key]))
+    const booster = ps.hand.filter((h) => h.uid !== inst.uid && !isG(db[h.key]) && canBoost(db[h.key]) && !isSentinel(db[h.key]))
       .sort((a, b) => (db[b.key].power ?? 0) - (db[a.key].power ?? 0))[0];
     if (booster) gain = Math.max(gain, (pressure(db, s, p, { [to]: inst, [BEHIND[to]!]: booster }) - now) * PER_SHIELD - keepValue(db, s, p, booster));
   }
-  if (card.grade >= 2 && !FRONT.includes(to)) gain -= 1;
-  if (card.grade <= 1 && FRONT.includes(to)) gain -= 0.6;
+  if (!canBoost(card) && !FRONT.includes(to)) gain -= 1;
+  if (canBoost(card) && FRONT.includes(to)) gain -= 0.6;
   // แรงกดดันที่หายไปของตัวเดิมคิดอยู่ใน gain แล้ว เหลือแค่ค่าอื่นของยูนิท (เป็นตัวอินเตอร์เซปต์ ฯลฯ)
   const loss = old && !old.hollowed && !old.retireAtTurnEnd ? 0.35 : 0;
   // มือหลังคอลใบนี้ต้องยังพอกันการโจมตีเทิร์นหน้าที่โดนแล้วแพ้ (คู่แข่งสไตรด์ + แนวที่มี) ถ้าไม่พอ การ์ดใบนี้มีค่ามากขึ้น
@@ -217,7 +217,7 @@ function mainAction(db: CardDB, s: GameState, p: PlayerId): Action {
   for (const front of ["front_left", "front_right"] as Circle[]) {
     const back = SAME_COLUMN[front]!;
     const f = ps.circles[front], b = ps.circles[back];
-    if (b && db[b.key].grade >= 2 && (!f || db[f.key].grade <= 1)) return { type: "move", from: back, to: front };
+    if (b && !canBoost(db[b.key]) && (!f || canBoost(db[f.key]))) return { type: "move", from: back, to: front };
   }
   const best = rankedCalls(db, s, p)[0];
   if (best && best.score > 0) return best.action;
@@ -239,7 +239,7 @@ export function attackOptions(db: CardDB, s: GameState, p: PlayerId): Extract<Ac
     if (!u || u.rested) continue;
     const b = BEHIND[a]!;
     const bu = ps.circles[b];
-    const booster = bu && !bu.rested && db[bu.key].grade <= 1 ? b : undefined;
+    const booster = bu && !bu.rested && canBoost(db[bu.key]) ? b : undefined;
     for (const t of FRONT) if (opp.circles[t]) out.push({ type: "attack", attacker: a, target: t, booster });
   }
   return out;
@@ -277,10 +277,14 @@ function swingsOf(db: CardDB, s: GameState, p: PlayerId): Swing[] {
   const ps = s.players[p];
   const seen = new Set<Circle>();
   return attackOptions(db, s, p).filter((o) => (seen.has(o.attacker) ? false : (seen.add(o.attacker), true)))
-    .map((o) => ({ attacker: o.attacker, booster: o.booster, power: attackPower(db, ps, o.attacker, o.booster), crit: criticalOf(ps.circles[o.attacker]!) }));
+    .map((o) => ({ attacker: o.attacker, booster: o.booster, power: attackPower(db, ps, o.attacker, o.booster), crit: criticalOf(db, ps.circles[o.attacker]!) }));
 }
 
 // โอกาสเปิดทริกเกอร์ชนิดนี้อย่างน้อย 1 ใบจากการเช็ค n ใบ
+// Power สูงสุดที่ทริกเกอร์ชนิดนี้ให้ได้ (จากไฟล์การ์ด) ใช้ประมาณผลของทริกเกอร์ที่ยังไม่เปิด
+const strongestTrigger = (db: CardDB, kind: string) =>
+  Object.values(db).reduce((m, c) => (c.trigger === kind ? Math.max(m, triggerPower(c)) : m), 0);
+
 function chanceOf(db: CardDB, s: GameState, p: PlayerId, kind: string, n: number) {
   const d = deckOdds(db, s, p);
   return 1 - (triggerDist(d.size, d.count((c) => c.trigger === kind), n)[0] ?? 1);
@@ -379,7 +383,7 @@ function expectedHitCost(db: CardDB, s: GameState, p: PlayerId, kNeed: number): 
     for (let k = Math.max(0, kNeed); k <= drives; k++) total += pk(k) * loss;
     return total;
   }
-  const c = criticalOf(atk);
+  const c = criticalOf(db, atk);
   const own = deckOdds(db, s, p);
   const heal = d >= s.players[atkSide].damage.length && own.size ? own.count((x) => x.trigger === "heal") / own.size : 0;
   for (let k = Math.max(0, kNeed); k <= drives; k++) {
@@ -401,7 +405,7 @@ function guardItems(db: CardDB, s: GameState, p: PlayerId): GuardItem[] {
   }
   for (const c of ["front_left", "front_right"] as Circle[]) {
     const u = ps.circles[c];
-    if (u && c !== s.battle!.target && db[u.key].grade === 2) items.push({ intercept: c, shield: shieldOf(db, u), cost: unitValue(db, u) * 1.1 });
+    if (u && c !== s.battle!.target && canIntercept(db[u.key])) items.push({ intercept: c, shield: shieldOf(db, u), cost: unitValue(db, u) * 1.1 });
   }
   return items.sort((a, b) => b.shield - a.shield);
 }
@@ -466,16 +470,16 @@ function laterAttacks(db: CardDB, s: GameState, p: PlayerId): { need: number; cr
     if (!u || u.rested || c === s.battle!.attacker) continue;
     const back = BEHIND[c]!;
     const bu = atk.circles[back];
-    const boost = bu && !bu.rested && db[bu.key].grade <= 1 ? powerOf(db, atk, back) : 0;
+    const boost = bu && !bu.rested && canBoost(db[bu.key]) ? powerOf(db, atk, back) : 0;
     const need = powerOf(db, atk, c) + boost - def + 1;
-    if (need > 0) out.push({ need: Math.ceil(need / 5000) * 5000, crit: criticalOf(u) });
+    if (need > 0) out.push({ need: Math.ceil(need / 5000) * 5000, crit: criticalOf(db, u) });
   }
   // แวนการ์ดคู่แข่งที่กำลังตีอยู่เปิด Stand ได้ เรียร์การ์ดที่ตีไปแล้วจะตีได้อีกครั้ง
   const b = s.battle!;
   const vc = atk.circles.vc;
   if (b.attacker === "vc" && vc && chanceOf(db, s, s.turnPlayer, "stand", driveOf(db, vc)) >= 0.3) {
     const again = (["front_left", "front_right"] as Circle[]).map((c) => atk.circles[c]).filter((u) => u?.rested)
-      .map((u) => powerOf(db, atk, circleOf(s, s.turnPlayer, u!.uid)!) + 5000 - def + 1).sort((x, y) => y - x)[0];
+      .map((u) => powerOf(db, atk, circleOf(s, s.turnPlayer, u!.uid)!) + strongestTrigger(db, "stand") - def + 1).sort((x, y) => y - x)[0];
     if (again && again > 0) out.push({ need: Math.ceil(again / 5000) * 5000, crit: 1 });
   }
   return out;
@@ -515,7 +519,7 @@ export function guardPlans(db: CardDB, s: GameState, p: PlayerId): GuardPlan[] {
     return lethal.reduce((n, x) => n + x, 0) > cap ? SHORT_PENALTY : 0;
   };
   const idsOf = (picks: GuardItem[], extra: string[] = []) => new Set([...picks.map((x) => x.uid ?? x.intercept!), ...extra]);
-  const takeHits = b.target === "vc" && kNeedOf(0) === 0 && atk ? criticalOf(atk) : 0;
+  const takeHits = b.target === "vc" && kNeedOf(0) === 0 && atk ? criticalOf(db, atk) : 0;
   plans.push({ actions: [{ type: "end-guard" }], cost: expectedHitCost(db, s, p, kNeedOf(0)) + short(new Set(), false, d + takeHits), label: "take" });
   const toAction = (picks: GuardItem[]): Action => ({
     type: "guard", uids: picks.filter((x) => x.uid).map((x) => x.uid!), intercept: picks.filter((x) => x.intercept).map((x) => x.intercept!),
@@ -789,6 +793,9 @@ function selectTarget(db: CardDB, s: GameState, p: PlayerId): Action {
     }
     case "power": case "critical": case "shield": uids = top((i) => statTargetValue(db, s, p, i), c.max); break;
     case "swap": uids = []; break;
+    case "g-assist":
+      uids = c.prompt.key === "choice.gAssistPick" ? top((i) => searchValue(db, s, p, i), c.max) : top((i) => -keepValue(db, s, p, i), c.min);
+      break;
     default: uids = top(() => 0, Math.max(c.min, Math.min(1, c.max)));
   }
   if (uids.length < c.min) uids = [...uids, ...c.options.filter((u) => !uids.includes(u))].slice(0, c.min);
@@ -804,7 +811,7 @@ function statTargetValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstan
   if (c === "vc") return 2.5;
   if (FRONT.includes(c)) return 2;
   const front = FRONT.find((f) => BEHIND[f] === c);
-  return front && s.players[p].circles[front] && db[inst.key].grade <= 1 ? 1.5 : 0.2;
+  return front && s.players[p].circles[front] && canBoost(db[inst.key]) ? 1.5 : 0.2;
 }
 
 export function pickCircle(db: CardDB, s: GameState, p: PlayerId, options: Circle[]): Circle | undefined {
@@ -818,7 +825,7 @@ export function pickCircle(db: CardDB, s: GameState, p: PlayerId, options: Circl
     const occ = ps.circles[c];
     let v = 0;
     const isFront = FRONT.includes(c);
-    if (card.grade <= 1) {
+    if (canBoost(card)) {
       const front = FRONT.find((f) => BEHIND[f] === c);
       v += isFront ? 0.5 : front && ps.circles[front] ? (front === "vc" ? 3 : 2.5) : 1.5;
     } else v += isFront ? 3 : 0.2;
@@ -845,21 +852,21 @@ function triggerTarget(db: CardDB, s: GameState, p: PlayerId): Action {
   const ap = powerOf(db, ps, b.attacker);
   const dp = powerOf(db, opp, b.target) + opp.guardian.reduce((n, g) => n + shieldOf(db, g), 0);
   const blocked = b.noHit || !opp.circles[b.target];
-  // ยูนิทแถวหน้าที่ยังไม่โจมตี และ Power +5000 ทำให้แรงกดดันเพิ่ม
+  // ยูนิทแถวหน้าที่ยังไม่โจมตี และ Power จากทริกเกอร์ทำให้แรงกดดันเพิ่ม
   const oppVc = powerOf(db, opp, "vc");
   const waiting = (["front_left", "front_right"] as Circle[]).filter((c) => ps.circles[c] && !ps.circles[c]!.rested)
     .sort((x, y) => {
-      const gain = (c: Circle) => forced(attackPower(db, ps, c, BEHIND[c]) + 5000, oppVc) - forced(attackPower(db, ps, c, BEHIND[c]), oppVc);
+      const gain = (c: Circle) => forced(attackPower(db, ps, c, BEHIND[c]) + t.power, oppVc) - forced(attackPower(db, ps, c, BEHIND[c]), oppVc);
       return gain(y) - gain(x) || attackPower(db, ps, y, BEHIND[y]) - attackPower(db, ps, x, BEHIND[x]);
     });
   const willHitWith = (extra: number) => !blocked && ap + extra >= dp;
   if (t.kind === "stand") {
     const rested = (["front_left", "front_right"] as Circle[]).filter((c) => ps.circles[c]?.rested).sort((x, y) => powerOf(db, ps, y) - powerOf(db, ps, x))[0];
-    if (rested && b.attacker !== rested) return { type: "trigger-target", powerTo: willHitWith(0) || !willHitWith(5000) ? rested : b.attacker, extraTo: rested };
+    if (rested && b.attacker !== rested) return { type: "trigger-target", powerTo: willHitWith(0) || !willHitWith(t.power) ? rested : b.attacker, extraTo: rested };
   }
-  const powerTo: Circle = willHitWith(5000) && !willHitWith(0) ? b.attacker : waiting[0] ?? b.attacker;
+  const powerTo: Circle = willHitWith(t.power) && !willHitWith(0) ? b.attacker : waiting[0] ?? b.attacker;
   if (t.kind === "critical") {
-    const hits = willHitWith(powerTo === b.attacker ? 5000 : 0);
+    const hits = willHitWith(powerTo === b.attacker ? t.power : 0);
     const extraTo: Circle = hits && b.target === "vc" ? b.attacker : waiting[0] ?? b.attacker;
     return { type: "trigger-target", powerTo, extraTo };
   }

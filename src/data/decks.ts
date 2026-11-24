@@ -29,15 +29,21 @@ export function validateDeck(deck: Deck): Msg[] {
   if (heals > 4) errors.push(msg("deck.err.heals", { n: heals }));
   const sentinels = sumWhere(deck.main, (k) => isSentinel(card(k)));
   if (sentinels > 4) errors.push(msg("deck.err.sentinels", { n: sentinels }));
-  for (const [k, n] of Object.entries(deck.main)) {
-    if (n > 4) errors.push(msg("deck.err.copies", { card: card(k).name }));
+  // การ์ดชื่อเดียวกันนับรวมกันแม้รหัสต่างกัน (พิมพ์ซ้ำคนละชุด)
+  const overCopies = (r: Record<string, number>) => {
+    const byName = new Map<string, number>();
+    for (const [k, n] of Object.entries(r)) byName.set(card(k).name, (byName.get(card(k).name) ?? 0) + n);
+    for (const [name, n] of byName) if (n > 4) errors.push(msg("deck.err.copies", { card: name }));
+  };
+  overCopies(deck.main);
+  for (const k of Object.keys(deck.main)) {
     if (card(k).type.startsWith("g-")) errors.push(msg("deck.err.gInMain", { card: card(k).name }));
   }
   if (!deck.main[deck.starter] || card(deck.starter).grade !== 0) errors.push(msg("deck.err.starter"));
 
   if (total(deck.g_zone) > 16) errors.push(msg("deck.err.gZoneSize", { n: total(deck.g_zone) }));
-  for (const [k, n] of Object.entries(deck.g_zone)) {
-    if (n > 4) errors.push(msg("deck.err.copies", { card: card(k).name }));
+  overCopies(deck.g_zone);
+  for (const k of Object.keys(deck.g_zone)) {
     if (!card(k).type.startsWith("g-")) errors.push(msg("deck.err.notGInGZone", { card: card(k).name }));
   }
   return errors;

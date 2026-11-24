@@ -8,7 +8,7 @@ export type CardType = "normal" | "trigger" | "g-unit" | "g-guardian";
 
 export interface Ability {
   kind: AbilityKind;
-  zone?: string;       // "VC" | "RC" | "GC" | "VC/RC" | "มือ" | "G โซน"
+  zone?: string;       // "VC" | "RC" | "GC" | "VC/RC" | "hand" | "G zone"
   timing?: string;     // รหัสจังหวะ ดู vocabulary.md
   cond?: string[];
   cost?: string[];
@@ -25,12 +25,15 @@ export interface Card {
   grade: number;
   power?: number;      // G ยูนิทเก็บค่าที่พิมพ์ (15000) และ powerPlus = true
   powerPlus?: boolean;
-  shield?: number;
+  shield?: number;     // ไม่มีบนการ์ด (เกรด 3, G ยูนิท) = 0
+  critical?: number;
+  skill?: "boost" | "intercept" | "twin-drive" | "triple-drive";   // ไอคอนสกิลบนการ์ด
+  triggerPower?: number;   // Power บนไอคอนทริกเกอร์ (ช่อง trigger_power ในไฟล์การ์ด)
   race: string;
   clan: string;
   abilities: Ability[];
   image?: string;      // URL ของรูปใน public/images/ ถ้ามี
-  text: string;        // ข้อความความสามารถภาษาไทย (ช่อง text ของไฟล์การ์ด)
+  text: string;        // ข้อความความสามารถ (ช่อง text ของไฟล์การ์ด)
   source: string;      // path ของไฟล์ .yaml
 }
 
@@ -77,6 +80,7 @@ export interface PlayerState {
   damage: CardInstance[];
   gZone: CardInstance[];
   bind: CardInstance[];
+  removed: CardInstance[];   // นำออกจากเกม (เช่น คอสต์ G อาซิสต์)
 }
 
 // เหตุการณ์ในเกมที่ AUTO รอฟัง (ตรงกับรหัสจังหวะใน vocabulary.md)
@@ -151,7 +155,7 @@ export interface Battle {
   damageLeft: number;
   hit?: boolean;
   checkCard?: CardInstance;         // การ์ดที่เปิดเช็คอยู่ (ยังไม่ขึ้นมือ/ลงดาเมจ)
-  pendingTrigger?: { owner: PlayerId; kind: "critical" | "heal" | "stand" | "draw"; during: "drive" | "damage" };
+  pendingTrigger?: { owner: PlayerId; kind: "critical" | "heal" | "stand" | "draw"; during: "drive" | "damage"; power: number };
   noHit?: boolean;
   triggers?: { card: CardInstance; during: "drive" | "damage"; done: boolean }[];   // ทริกเกอร์ที่เปิดได้ในการต่อสู้นี้ (แสดงบนแถบการต่อสู้)
 }

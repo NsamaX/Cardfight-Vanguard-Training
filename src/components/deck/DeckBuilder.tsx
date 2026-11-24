@@ -10,7 +10,7 @@ import { CardView } from "../CardView";
 const FILTERS = ["All", "0", "1", "2", "3", "G"] as const;
 type Filter = (typeof FILTERS)[number];
 
-const byGradeThenName = (a: string, b: string) => db[a].grade - db[b].grade || db[a].name.localeCompare(db[b].name, "th");
+const byGradeThenName = (a: string, b: string) => db[a].grade - db[b].grade || db[a].name.localeCompare(db[b].name, "en");
 
 // สร้าง/แก้เด็ค: ซ้ายคือคลังการ์ด (คลิกเพื่อใส่) ขวาคือรายการในเด็ค (คลิกเพื่อเอาออก, ★ ตั้งแวนการ์ดเริ่มต้น)
 export function DeckBuilder({ initial, onDone, onCancel }: { initial: Deck; onDone: (d: Deck) => void; onCancel: () => void }) {

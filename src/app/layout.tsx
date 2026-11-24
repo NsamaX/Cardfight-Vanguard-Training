@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Vanguard G Practice" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="th">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

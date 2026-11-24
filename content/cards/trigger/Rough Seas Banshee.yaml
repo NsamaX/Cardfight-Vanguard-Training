@@ -1,0 +1,24 @@
+ids: ["PR/0632TH"]
+name: "Rough Seas Banshee"
+format: [G]
+type: trigger
+trigger: critical
+grade: 0
+power: 4000
+shield: 10000
+critical: 1
+skill: boost
+trigger_power: 5000
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "ACT"
+    zone: "RC"
+    cond: ["vc-clan(Granblue)"]
+    cost: ["soul-in(self)"]
+    effect: ["draw(≤1)"]
+text: |
+  ### ACT
+
+  - **Zone:** RC | **Cost:** Put this unit into your soul
+    - **Effect:** If you have a <<Granblue>> vanguard, draw up to one card.

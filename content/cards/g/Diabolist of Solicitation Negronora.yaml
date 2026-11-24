@@ -1,0 +1,29 @@
+ids: ["G-FC04/043TH RRR"]
+name: "Diabolist of Solicitation, Negronora"
+format: [G]
+type: g-guardian
+grade: 4
+shield: 15000
+critical: 1
+race: "Ghost"
+clan: "Granblue"
+abilities:
+  - kind: "G GUARDIAN"
+    timing: "step(guard, opp)"
+    cost: ["discard(1, filter=heal)"]
+    effect: ["call(G→GC, self)"]
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    cond: ["GB(1)"]
+    cost: ["SB(1)", "flip-G-up(1, filter=G-GUARDIAN)"]
+    effect: ["call(drop→GC, n=2, filter=different-grades)"]
+text: |
+  ### G GUARDIAN
+
+  - **Timing:** Opponent Turn's Guard Step | **Cost:** Choose a card with [Heal] from your hand, and discard it
+    - **Effect:** Call this card to your (GC) from face down.
+
+  ### AUTO
+
+  - **Condition:** GB1 | **Timing:** When this unit is placed on (GC) | **Cost:** SB1, choose a face down G GUARDIAN from your G zone, and turn it face up
+    - **Effect:** You may pay the cost. If you do, choose two cards of different grades from your drop zone, and you may call them to (GC).
