@@ -199,8 +199,9 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (fieldChoice) { if (unit && fieldChoice.options.includes(unit.uid)) toggleChoicePick(unit.uid); return; }
     if (choice || ordering) return;
     const mine = p === actor;
+    // ทริกเกอร์: คลิกการ์ดทริกเกอร์ก่อน แล้วจึงเลือกยูนิทรับผลได้
     if (mine && mode?.kind === "trigger" && trig) {
-      if (!unit) return;
+      if (!unit || !trigArmed) return;
       if (trig.kind === "critical" || trig.kind === "stand") {
         if (!mode.powerTo) {
           const canStand = Object.entries(s.players[p].circles).some(([rc, u]) => rc !== "vc" && u?.rested);
@@ -259,6 +260,44 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (choice?.kind !== "cards") return;
     setChoicePicks((ps) => ps.includes(uid) ? ps.filter((x) => x !== uid) : ps.length >= choice.max ? [...ps.slice(1), uid] : [...ps, uid]);
     setInspect(uid);
+  }
+
+  // คลิกการ์ดบน GC ของตัวเองระหว่างรอป้องกัน: ถอนการ์ดใบนั้นกลับที่เดิม (มือ หรือ RC ที่อินเตอร์เซปต์มา)
+  // ทำโดยกลับไปก่อนวางใบนั้น แล้วเล่น action ที่ตามมาซ้ำโดยตัดใบนั้นออก (ความสามารถที่เกิดจากใบนั้นหายไปด้วย)
+  function unguard(uid: string): boolean {
+    if (readOnly || botTurn || s.awaiting?.kind !== "guard" || !actor) return false;
+    if (!s.players[actor].guardian.some((g) => g.uid === uid)) return false;
+    let i = past.length - 1;
+    while (i >= 0 && past[i].s.players[actor].guardian.some((g) => g.uid === uid)) i--;
+    if (i < 0) return false;
+    const base = past[i];
+    const circle = (Object.entries(base.s.players[actor].circles) as [Circle, CardInstance | undefined][]).find(([, u]) => u?.uid === uid)?.[0];
+    const redo: RecordedAction[] = [];
+    for (const r of actions.slice(base.actions.length)) {
+      const a = r.action;
+      if (a.type !== "guard" || r.player !== actor) { redo.push(r); continue; }
+      const next = { ...a, uids: a.uids.filter((u) => u !== uid), intercept: a.intercept?.filter((c) => c !== circle) };
+      if (next.uids.length || next.intercept?.length) redo.push({ ...r, action: next });
+    }
+    let cur: Snapshot = base;
+    const snaps: Snapshot[] = [];
+    try {
+      for (const r of redo) {
+        snaps.push(cur);
+        const res = apply(db, cur.s, r.player, r.action);
+        cur = { s: res.state, log: cur.log.concat(res.events.map((e) => ({ ...e, turn: res.state.turn }))), actions: cur.actions.concat(r) };
+      }
+    } catch (e) {
+      if (e instanceof RuleError) { setError(msg("err.unguard")); return true; }
+      throw e;
+    }
+    setPast(past.slice(0, i).concat(snaps));
+    setFuture([]);
+    setS(cur.s);
+    setLog(cur.log);
+    setActions(cur.actions);
+    clearUi();
+    return true;
   }
 
   // ปิดความสามารถที่เพิ่งเปิด: กลับไปก่อนคลิกการ์ด (ไม่นับเป็นก้าวที่ redo ได้)
@@ -382,14 +421,14 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     inspectedOf,
     setHover,
     closeInspect: (p: PlayerId) => setInspectUids((i) => ({ ...i, [p]: undefined })),
-    isTarget: (p: PlayerId, c: Circle) => isTarget({ s, db, actor, choice, sel, mode }, p, c),
+    isTarget: (p: PlayerId, c: Circle) => (mode?.kind !== "trigger" || trigArmed) && isTarget({ s, db, actor, choice, sel, mode }, p, c),
     // เปลี่ยนการ์ดบนมือตอนเริ่มเกม (ครั้งเดียวต่อผู้เล่น): ไม่เลือกการ์ด = เก็บมือเดิม
     mulligan: !botTurn && !readOnly && s.awaiting?.kind === "mulligan" && mode?.kind === "mulligan"
       ? { picks: mode.picks.length, confirm: () => act({ type: "mulligan", returnUids: mode.picks }) }
       : undefined,
     undo: past.length && !readOnly ? () => travel(true) : undefined,
     redo: future.length && !readOnly ? () => travel(false) : undefined,
-    act, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
+    act, unguard, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
     canNext: !botTurn && !readOnly && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
     botTurn, hideBotHand: !!bot,
     actions, readOnly,

@@ -327,6 +327,7 @@ export const ja: Dict = {
   "err.guardStep": "ガードできるのはガードステップ中のアタックされた側のみです",
   "err.intercept": "インターセプトできるのはアタックされていない前列のグレード2のみです",
   "err.gGuardGrade3": "Gガーディアンはお互いのヴァンガードがグレード3以上のときのみ使えます",
+  "err.unguard": "後の選択がこのカードに関係しているため戻せません",
   "err.gGuardLimit": "Gゾーンの表向きのGガーディアンは3枚までです",
   "err.gGuardNeedHeal": "捨てるためのヒールアイコンのカードが手札に必要です",
   "err.gGuardNeedG": "Gゾーンの裏向きのGガーディアンを選んでください",

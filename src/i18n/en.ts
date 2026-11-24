@@ -330,6 +330,7 @@ export const en = {
   "err.guardStep": "Only the attacked player can guard, during the guard step",
   "err.intercept": "Only front-row grade 2 units that aren't being attacked can intercept",
   "err.gGuardGrade3": "G guardians require both vanguards to be grade 3 or higher",
+  "err.unguard": "This card can't be taken back because later choices depended on it",
   "err.gGuardLimit": "No more than 3 face-up G guardians may be in the G zone",
   "err.gGuardNeedHeal": "You need a card with a Heal icon in hand to discard",
   "err.gGuardNeedG": "Pick a face-down G guardian in the G zone",

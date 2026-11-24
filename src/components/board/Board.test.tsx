@@ -201,6 +201,32 @@ describe("หน้าสนาม", () => {
     autoDecline = true;
   });
 
+  it("ป้องกันแล้วคลิกการ์ดบน GC เพื่อถอนกลับที่เดิม (มือ หรือ RC ที่อินเตอร์เซปต์มา)", () => {
+    const s = createGame(db, { seed: 11, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    const me = s.players.me, bot = s.players.bot;
+    Object.assign(s, { mulliganDone: ["me", "bot"], turn: 4, turnPlayer: "bot", phase: "battle", step: "guard",
+      battle: { attacker: "vc", target: "vc", drivesLeft: 0, damageLeft: 0 } });
+    me.circles = { vc: inst(s, TOMMY), front_left: inst(s, GUN) };
+    me.hand = [inst(s, BONE)];
+    bot.circles = { vc: inst(s, TOMMY) };
+    s.awaiting = { player: "me", kind: "guard", prompt: { key: "prompt.guard" } };
+    render(s);
+
+    rawClick(handCard("me", db[BONE].name));
+    rawClick(button("Yes"));
+    rawClick(slots(1)[0]);                                         // อินเตอร์เซปต์จากหน้าซ้าย
+    const gc = () => [...host.querySelectorAll(".bside.me .card")];
+    expect(gc()).toHaveLength(2);
+    expect(handCard("me", db[BONE].name)).toBeUndefined();
+
+    rawClick(gc().find((c) => c.getAttribute("title") === db[BONE].name));
+    expect(handCard("me", db[BONE].name)).toBeTruthy();
+    expect(gc()).toHaveLength(1);
+    rawClick(gc()[0]);
+    expect(gc()).toHaveLength(0);
+    expect(slots(1)[0].querySelector(".card")!.getAttribute("title")).toBe(db[GUN].name);
+  });
+
   it("เปิด G โซนแล้วการ์ดคว่ำแสดงเป็นรูปการ์ดได้ และแผงขวาแสดงข้อความความสามารถ", () => {
     const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
     render(s);

@@ -203,8 +203,8 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 /* ยูนิทที่ถูกโจมตี: แดงคู่กับตัวโจมตี (เหลือง = สิ่งที่คลิกได้ เช่น อินเตอร์เซปต์) */
 .slot.aimed { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
 .slot.active { border: 2px solid var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
-/* ยูนิทในการต่อสู้ที่มีความสามารถรอหรือคลิกได้ (เช่น เนโครโบนตอนจบการต่อสู้) แสดงขอบเหลืองแทนขอบแดง */
-.slot.atk.source, .slot.atk.target, .slot.aimed.source, .slot.aimed.target { border-color: var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
+/* ยูนิทในการต่อสู้ที่มีความสามารถรอ (เช่น เนโครโบนตอนจบการต่อสู้) แสดงขอบเหลืองแทนขอบแดง ตัวโจมตีที่เลือกรับผลทริกเกอร์ได้ยังเป็นขอบแดง */
+.slot.atk.source, .slot.aimed.source, .slot.aimed.target { border-color: var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
 .zone-slot.source, .damage.source, .card.source { outline: 3px solid var(--hi); outline-offset: 2px; }
 .zone-slot.active, .damage.active, .card.active { outline: 3px solid var(--act); outline-offset: 2px; }
 .badge.source { border-color: var(--hi); background: var(--hi); color: var(--inv); }
@@ -247,25 +247,34 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 
 /* แถบการต่อสู้ + ปุ่มถัดไป */
 /* คอลัมน์ซ้ายสุด/ขวาสุดกว้างเท่าคอลัมน์ข้างสนาม (G โซน/ดาเมจ, กองการ์ด) ตรงกันพอดี */
-.mid { position: relative; grid-area: mid; height: 90px; display: grid; grid-template-columns: calc(var(--card-h) + 4px) minmax(0, 1fr) calc(var(--card-h) + 4px); align-items: center; column-gap: 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.mid { position: relative; z-index: 2; grid-area: mid; height: 90px; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: calc(var(--card-h) + 4px) minmax(0, 1fr) calc(var(--card-h) + 4px); align-items: center; column-gap: 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 /* ปุ่มซ้าย/ขวากว้างเท่าการ์ดหนึ่งใบ ชิดขอบเดียวกับการ์ดในคอลัมน์นั้น (ซ้ายชิดซ้าย ขวาชิดขวา) */
 .mid-history { display: flex; gap: 4px; width: calc(var(--card-w) + 2px); }
 .mid-history .icon-btn { flex: 1; width: auto; }
 .mid-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; }
 .mid-actions .btn { width: calc(var(--card-w) + 2px); min-width: 0; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mid-main { min-width: 0; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center; gap: 14px; }
-.mid-center { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
-.mid-center .steps { display: flex; gap: 6px; }
+/* กลางแถบ: แบ่งสองซีกเท่ากัน ตัวเลขบอทชิดเส้นกลางจากซ้ายบน ตัวเลขเราชิดเส้นกลางจากขวาล่าง ข้อความ/ปุ่มอยู่ระหว่างกลาง
+   ตัวเลขไม่ขยับตามความยาวข้อความ การ์ดของแต่ละฝั่งอยู่ด้านนอก */
+.mid-main { min-width: 0; height: 100%; display: flex; justify-content: center; gap: 14px; }
+.mid-center { flex: 0 1 auto; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; row-gap: 2px; align-content: center; justify-items: center; }
+.mid-center > .prompt, .mid-center > .steps { grid-column: 1 / -1; }
+.mid-center .steps { display: flex; gap: 6px; margin-top: 4px; }
 .mid-center .steps:empty { display: none; }
 .mid-center .prompt { min-width: 0; max-width: min(520px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
 .mid-center .prompt.long { white-space: normal; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-/* ตัวเลขโจมตี (ซ้าย) / ป้องกัน (ขวา) ชิดปุ่มกลาง การ์ดเช็คและการ์ดบน GC เป็นรูปเล็กด้านนอก */
-.bside { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
-.bside.atk { justify-content: flex-end; }
-.bside .big { font-family: "IBM Plex Mono", monospace; font-size: 19px; font-weight: 600; }
-.bside .ico { width: 18px; height: 18px; flex: none; }
-.bside .card { height: 44px; width: 30px; }
-.bside .card .grade { display: none; }
+.num { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.num.bot { grid-column: 1; justify-self: end; color: #e5484d; }   /* สีเดียวกับออร่าเทิร์น: บอท = แดง เรา = ฟ้า */
+.num.me { grid-column: 2; justify-self: start; color: #3b9eff; }
+.num .big { font-family: "IBM Plex Mono", monospace; font-size: 19px; font-weight: 600; }
+.num .ico { width: 18px; height: 18px; flex: none; }
+/* การ์ดขนาดเท่าบนสนาม ล้นแถบขึ้นลงได้แต่ไม่ดันความสูงแถบ ถ้าที่ไม่พอการ์ดซ้อนกัน (ใบที่ใกล้กลางเห็นเต็ม) */
+.bside { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: center; }
+.bside.bot { justify-content: flex-end; }
+.bside.me { flex-direction: row-reverse; justify-content: flex-end; }
+.bside > span { flex: 0 1 calc(var(--card-w) + 6px); min-width: 0; }
+.bside > span:last-child { flex: none; }
+.bside.me > span:last-child { flex: 0 1 calc(var(--card-w) + 6px); }
+.bside.me > span:first-child { flex: none; }
 .res-tag { padding: 1px 7px; border-radius: 4px; background: var(--ink); color: var(--inv); font-size: 11px; font-weight: 600; margin-left: 6px; }
 /* มือชิดขอบจอ แถวละ 10 ใบ ถ้าที่ไม่พอการ์ดจะซ้อนกัน แถวถัดไปลอยซ้อนเข้าหากลางสนาม */
 .hand { position: relative; z-index: 3; min-width: 0; padding-top: 6px; min-height: calc(var(--card-h) + 6px); }

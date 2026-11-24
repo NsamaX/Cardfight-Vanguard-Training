@@ -13,7 +13,7 @@ import { loadUserDecks, saveUserDecks } from "../../lib/deckStore";
 import { DeckPanel } from "../deck/DeckPanel";
 import { CardHover } from "../CardView";
 import { Inspector } from "../Inspector";
-import { BattleSide } from "./BattleBar";
+import { BattleNum, BattleSide } from "./BattleBar";
 import { CursorTip } from "./CursorTip";
 import { ChoiceModal, PileModal } from "./CardModals";
 import { DamageZone } from "./DamageZone";
@@ -138,7 +138,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {stack("bot")}
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)} />)}
         <div className="mid">
-          {/* ซ้ายสุด: ย้อนกลับ/ไปหน้า | กลาง: Power ฝ่ายโจมตี + ข้อความคำถาม + ปุ่มขั้นตอนเกม + Shield ฝ่ายตั้งรับ | ขวาสุด: ปุ่มตอบคำถามของความสามารถ */}
+          {/* ซ้ายสุด: ย้อนกลับ/ไปหน้า | กลาง: การต่อสู้ฝั่งบอท | ข้อความคำถาม + ปุ่มขั้นตอนเกม / การต่อสู้ฝั่งเรา | ขวาสุด: ปุ่มตอบความสามารถและการป้องกัน */}
           <div className="mid-history">
             {started && !deckOpen && !view && <>
               <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
@@ -146,8 +146,9 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             </>}
           </div>
           <div className="mid-main">
-            {deckOpen ? <div /> : <BattleSide side="atk" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} />}
+            {deckOpen ? <div /> : <BattleSide p="bot" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} />}
             <div className="mid-center">
+              {!deckOpen && <BattleNum p="bot" s={s} preview={board.guardPreview} />}
               {started && !deckOpen && board.botTurn && <span className="prompt">{t("ui.botThinking")}</span>}
               {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
               <div className="steps">
@@ -161,12 +162,13 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
                   const label = typeof q.label === "string" ? q.label : t(q.label);
                   return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
                 })}
-                {showNext && next !== "next.noMoreGuard" && (
+                {showNext && next !== "next.noMoreGuard" && (board.canNext || !s.battle) && (   /* ระหว่างการต่อสู้ ปุ่มที่กดไม่ได้ไม่แสดง */
                   <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
                 )}
               </div>
+              {!deckOpen && <BattleNum p="me" s={s} preview={board.guardPreview} />}
             </div>
-            {deckOpen ? <div /> : <BattleSide side="def" s={s} preview={board.guardPreview} lightOf={board.lightOf} onInspect={board.setInspect} />}
+            {deckOpen ? <div /> : <BattleSide p="me" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} />}
           </div>
           <div className="mid-actions">
             {started && !deckOpen && !board.mulligan && question && !question.step && question.buttons.map((q) => {
