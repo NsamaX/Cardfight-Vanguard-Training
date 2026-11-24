@@ -37,13 +37,14 @@ export const phaseIndex = (s: GameState) => PHASES.findIndex((p) => p.phase === 
 // key = "phase:step" ของสถานะตอนนั้น
 const stepKey = (s: GameState) => `${s.phase}:${s.step ?? ""}`;
 const NEXT_LABEL: Record<string, MsgKey> = {
-  "ride:ride": "next.toStride", "ride:stride": "next.toMain", "main:": "next.toBattle", "battle:attack": "next.endTurn",
-  "battle:guard": "next.noMoreGuard",
+  "ride:ride": "next.toStride", "ride:stride": "btn.none", "main:": "next.toBattle", "battle:attack": "next.endTurn",
+  "battle:guard": "next.noMoreGuard", "draw:": "next.toRide",
 };
 export function nextLabel(db: CardDB, s: GameState): MsgKey | undefined {
-  if (s.awaiting?.kind === "guard") return NEXT_LABEL["battle:guard"];
-  if (s.awaiting?.kind !== "next-phase") return undefined;
-  if (stepKey(s) === "ride:ride" && !bothVanguardsGrade3(db, s)) return NEXT_LABEL["ride:stride"];   // ไม่มีสไตรด์สเต็ป
+  if (s.awaiting?.kind === "guard" || (s.awaiting?.kind === "order-queue" && s.battle && s.step === "guard")) return NEXT_LABEL["battle:guard"];
+  if (s.awaiting?.kind !== "next-phase" && s.awaiting?.kind !== "order-queue") return undefined;
+  if (stepKey(s) === "ride:ride" && !bothVanguardsGrade3(db, s)) return "next.toMain";   // ไม่มีสไตรด์สเต็ป
+  if (stepKey(s) === "ride:stride" && s.strodeThisTurn) return "next.toMain";                // สไตรด์แล้ว ไม่ใช่การข้าม
   if (stepKey(s) === "main:" && s.turn === 1) return NEXT_LABEL["battle:attack"];                     // เทิร์นแรกไม่มีแบทเทิล
   return NEXT_LABEL[stepKey(s)];
 }
@@ -129,7 +130,8 @@ export function sourcePiles(s: GameState, uids: string[]): Record<PlayerId, Set<
 export function groupByTurn(log: LogEntry[]): { turn: number; items: LogEntry[] }[] {
   const turns: { turn: number; items: LogEntry[] }[] = [];
   for (const e of log) {
-    if (turns.at(-1)?.turn !== e.turn) turns.push({ turn: e.turn, items: [] });
+    const turn = e.code === "mulligan" ? 0 : e.turn;   // เปลี่ยนการ์ดบนมือของผู้เล่นคนที่สองเกิดตอนเกมเริ่ม (เทิร์น 1) แต่เป็นการเตรียมเกม
+    if (turns.at(-1)?.turn !== turn) turns.push({ turn, items: [] });
     turns.at(-1)!.items.push(e);
   }
   return turns;

@@ -13,7 +13,7 @@ interface Props {
   lightOf: (uid: string) => Light;        // ขอบเหลือง/ส้มของการ์ดที่มีความสามารถรอ/กำลังทำงาน
   soulLight: Light;
   atkCircles: Circle[];                   // ตัวโจมตี/บูสท์ ที่เลือกอยู่หรือกำลังโจมตี (ขอบแดง)
-  aimedCircles: Circle[];                 // ยูนิทที่ถูกโจมตีอยู่ (ขอบเหลือง)
+  aimedCircles: Circle[];                 // ยูนิทที่ถูกโจมตีอยู่ (ขอบแดง)
   bonus: Partial<Record<Circle, number>>; // Power จากบูสท์ที่เลือกไว้ (แสดงล่วงหน้า)
   isTarget: (c: Circle) => boolean;
   onCircle: (c: Circle) => void;
@@ -34,7 +34,10 @@ export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atk
           return (
             <div key={c} className={`slot ${c === "vc" ? "vc" : ""} ${isTarget(c) ? "target" : ""} ${(unit && lightOf(unit.uid)) ?? ""} ${atkCircles.includes(c) ? "atk" : ""} ${aimedCircles.includes(c) ? "aimed" : ""}`} onClick={() => onCircle(c)}>
               <span className="lbl">{c === "vc" ? "VC" : "RC"}</span>
-              {c === "vc" && ps.heart && <span className="heart"><CardView inst={ps.heart} noRotate /></span>}
+              {c === "vc" && ps.heart && (lightOf(ps.heart.uid)
+                // ฮาร์ทที่มีความสามารถรอ (เช่น ไนท์โรส "เมื่อ G ยูนิทสไตรด์") โผล่ออกมาให้คลิกแยกจาก G ยูนิทได้
+                ? <span className="heart soul-peek lit" onClick={(e) => { e.stopPropagation(); onCard(ps.heart!.uid); }}><CardView inst={ps.heart} noRotate light={lightOf(ps.heart.uid)} /></span>
+                : <span className="heart"><CardView inst={ps.heart} noRotate /></span>)}
               {c === "vc" && soulCard && (
                 <span className="soul-peek" onClick={(e) => { e.stopPropagation(); onCard(soulCard.uid); }}>
                   <CardView inst={soulCard} noRotate light={lightOf(soulCard.uid)} />

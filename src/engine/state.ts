@@ -5,6 +5,9 @@ import type { CardInstance, Circle, GameEvent, GameState, PlayerId, PlayerState 
 
 export const playerMsg = (p: PlayerId): Msg => msg(`player.${p}`);
 
+// ป้ายความสามารถในคำถาม: แสดงแค่ชนิด เช่น "[AUTO]" ไม่แสดงชื่อการ์ด (การ์ดต้นทางมีขอบสีอยู่แล้ว)
+export const abilityTag = (label: string) => label.match(/\[[^\]]+\]$/)?.[0] ?? label;
+
 export type Out = GameEvent[];
 
 // ล้างสถานะเมื่อการ์ดย้ายโซน (ตามกฎ การ์ดที่ย้ายโซนถือเป็นการ์ดใหม่)

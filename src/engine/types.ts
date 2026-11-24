@@ -183,7 +183,7 @@ export type Action =
   | { type: "end-guard" }
   | { type: "call-g-guardian"; gUid: string; discardUid: string }
   | { type: "activate"; cardUid: string; abilityIndex: number }
-  | { type: "order-queue"; index: number }
+  | { type: "order-queue"; index: number; ask?: boolean }   // ask = ถามคอสต์/ตัวเลือกแบบ "ได้" ก่อน (ไม่ถือว่ากดยืนยันแล้ว)
   | { type: "decline-queue"; index: number }
   | { type: "pass-queue" }
   | { type: "select-target"; uids: string[]; to?: Circle }

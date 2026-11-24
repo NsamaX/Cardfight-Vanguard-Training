@@ -10,7 +10,7 @@ import {
   vcGrade,
   type CardDB,
 } from "./rules";
-import { drawCard, ev, fieldUnits, locate, name, playerMsg, reset, takeFrom, win, type Out } from "./state";
+import { abilityTag, drawCard, ev, fieldUnits, locate, name, playerMsg, reset, takeFrom, win, type Out } from "./state";
 import type { Action, CardInstance, Choice, GameEvent, GameState, PlayerId, PlayerState } from "./types";
 
 export interface NewGame {
@@ -121,7 +121,7 @@ function selectTarget(_db: CardDB, s: GameState, p: PlayerId, a: Extract<Action,
 
 // ใช้ความสามารถที่รออยู่ (ผู้เล่นกดใช้แล้ว จึงไม่ถามคอสต์ซ้ำ)
 function orderQueue(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "order-queue" }>, out: Out) {
-  startResolving(db, s, queuedEntry(s, p, a.index), out, true);
+  startResolving(db, s, queuedEntry(s, p, a.index), out, !a.ask);
 }
 
 function queuedEntry(s: GameState, p: PlayerId, index: number) {
@@ -602,7 +602,7 @@ export function refreshAwaiting(s: GameState) {
   }
   const r = s.resolving;
   if (r?.choice) {
-    s.awaiting = { player: r.owner, kind: CHOICE_ACTION[r.choice.kind], prompt: msg("prompt.ability", { label: r.label, prompt: r.choice.prompt }), choice: r.choice };
+    s.awaiting = { player: r.owner, kind: CHOICE_ACTION[r.choice.kind], prompt: msg("prompt.ability", { label: abilityTag(r.label), prompt: r.choice.prompt }), choice: r.choice };
     return;
   }
   const qp = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.queue.some((e) => e.owner === q));

@@ -175,8 +175,11 @@ main {
 .slot.target, .slot.source { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
 /* ความสามารถ: ขอบเหลือง = รอให้คลิกเลือก, ขอบส้ม = เลือกอยู่/กำลังทำงาน (การ์ดในกอง/ดาเมจ/โซล ไฮไลต์ทั้งโซน) */
 .slot.atk { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
-.slot.aimed { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
+/* ยูนิทที่ถูกโจมตี: แดงคู่กับตัวโจมตี (เหลือง = สิ่งที่คลิกได้ เช่น อินเตอร์เซปต์) */
+.slot.aimed { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
 .slot.active { border: 2px solid var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
+/* ยูนิทในการต่อสู้ที่มีความสามารถรอหรือคลิกได้ (เช่น เนโครโบนตอนจบการต่อสู้) แสดงขอบเหลืองแทนขอบแดง */
+.slot.atk.source, .slot.atk.target, .slot.aimed.source, .slot.aimed.target { border-color: var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
 .zone-slot.source, .damage.source, .card.source { outline: 3px solid var(--hi); outline-offset: 2px; }
 .zone-slot.active, .damage.active, .card.active { outline: 3px solid var(--act); outline-offset: 2px; }
 .badge.source { border-color: var(--hi); background: var(--hi); color: var(--inv); }
@@ -188,6 +191,7 @@ main {
 .side.bot .soul-count { top: calc(100% + 4px); }
 .heart { position: absolute; transform: translate(6px, -6px); opacity: .55; pointer-events: none; }
 .soul-peek { position: absolute; transform: translateX(calc(var(--card-w) * -.45)); }
+.heart.lit { opacity: 1; pointer-events: auto; }
 
 /* การ์ด */
 .card { position: relative; height: var(--card-h); width: var(--card-w); flex: none; border: 1px solid var(--ink); border-radius: 5px; overflow: hidden; padding: 0; cursor: pointer; background: var(--card) repeating-linear-gradient(135deg, var(--soft) 0 3px, transparent 3px 7px); text-align: left; transition: transform .2s; display: block; }
@@ -216,10 +220,12 @@ main {
 
 
 /* แถบการต่อสู้ + ปุ่มถัดไป */
-.mid .history { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 6px; }
+.mid-side { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.mid .history, .mid .actions { display: flex; gap: 6px; flex: none; }
 .mid-center { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
-.mid-center .prompt { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
-.mid { position: relative; grid-area: mid; height: 54px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 14px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0 4px; }
+.mid-center .prompt { min-width: 0; max-width: min(520px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
+.mid-center .prompt.long { white-space: normal; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mid { position: relative; grid-area: mid; height: 54px; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center; gap: 14px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0 12px; }
 /* ตัวเลขโจมตี (ซ้าย) / ป้องกัน (ขวา) ชิดปุ่มกลาง การ์ดเช็คและการ์ดบน GC เป็นรูปเล็กด้านนอก */
 .bside { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
 .bside.atk { justify-content: flex-end; }

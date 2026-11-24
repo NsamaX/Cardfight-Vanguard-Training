@@ -379,3 +379,18 @@ describe("Shield", () => {
     expect(shieldOf(db, card(start(), K.bone))).toBe(5000);
   });
 });
+
+describe("เปิดความสามารถที่รออยู่แบบถามก่อน (ask)", () => {
+  it("Hollow: ask = ถามว่าจะติดฮอลโล่ว์ไหม ไม่ติดเองทันที", () => {
+    let s = advanceTo(start(), "main");
+    place(s, "me", "vc", K.mist);
+    const rook = toHand(s, "me", "G-TD08/007TH");
+    s = apply(db, s, "me", { type: "call", uid: rook.uid, to: "front_left" }).state;
+    const i = s.queue.findIndex((e) => e.uid === rook.uid);
+    s = apply(db, s, "me", { type: "order-queue", index: i, ask: true }).state;
+    expect(s.awaiting?.choice?.kind).toBe("yesno");
+    expect(s.players.me.circles.front_left!.hollowed).toBe(false);
+    s = apply(db, s, "me", { type: "choose", option: "yes" }).state;
+    expect(s.players.me.circles.front_left!.hollowed).toBe(true);
+  });
+});

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { VanguardBot } from "../../bot";
 import { cardByKey as db } from "../../data/cards";
 import { presetDecks } from "../../data/decks";
@@ -138,13 +138,16 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {stack("bot")}
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)} />)}
         <div className="mid">
-          {started && !deckOpen && !view && (
-            <div className="history">
-              <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
-              <button className="btn icon-btn" disabled={!board.redo} onClick={board.redo} title={t("btn.redo")} aria-label={t("btn.redo")}><ArrowIcon flip /></button>
-            </div>
-          )}
-          {deckOpen ? <div /> : <BattleSide side="atk" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} />}
+          {/* ซ้าย: ปุ่มย้อนกลับ + Power ฝ่ายโจมตี / ขวา: Shield ฝ่ายตั้งรับ + ปุ่มตอบคำถาม (ข้อความกลางหดหรือขึ้นบรรทัดใหม่แทนการทับ) */}
+          <div className="mid-side">
+            {started && !deckOpen && !view ? (
+              <div className="history">
+                <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
+                <button className="btn icon-btn" disabled={!board.redo} onClick={board.redo} title={t("btn.redo")} aria-label={t("btn.redo")}><ArrowIcon flip /></button>
+              </div>
+            ) : <div />}
+            {deckOpen ? <div /> : <BattleSide side="atk" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} />}
+          </div>
           <div className="mid-center">
             {view?.center}
             {deckOpen && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
@@ -153,18 +156,22 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
               <button className="btn primary" onClick={board.mulligan.confirm}>{t(board.mulligan.picks ? "btn.change" : "btn.ready")}</button>
             )}
             {started && !deckOpen && board.botTurn && <span className="prompt">{t("ui.botThinking")}</span>}
-            {started && !deckOpen && !board.mulligan && question && <>
-              {question.prompt && <span className="prompt" title={t(question.prompt)}>{t(question.prompt)}</span>}
-              {question.buttons.map((q) => {
-                const label = typeof q.label === "string" ? q.label : t(q.label);
-                return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
-              })}
-            </>}
+            {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
             {started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view && (
               <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
             )}
           </div>
-          {deckOpen ? <div /> : <BattleSide side="def" s={s} preview={board.guardPreview} lightOf={board.lightOf} onInspect={board.setInspect} />}
+          <div className="mid-side">
+            {deckOpen ? <div /> : <BattleSide side="def" s={s} preview={board.guardPreview} lightOf={board.lightOf} onInspect={board.setInspect} />}
+            {started && !deckOpen && !board.mulligan && question && question.buttons.length > 0 ? (
+              <div className="actions">
+                {question.buttons.map((q) => {
+                  const label = typeof q.label === "string" ? q.label : t(q.label);
+                  return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
+                })}
+              </div>
+            ) : <div />}
+          </div>
         </div>
         {side("me")}
         {tray("me")}
@@ -195,4 +202,24 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
       </aside>
     </div>
   );
+}
+
+// ข้อความคำถามกลางแถบ: ยาวเกินบรรทัดเดียว ขึ้นบรรทัดที่สองและตัวเล็กลง
+// วัดใหม่ทุกครั้งที่ข้อความเปลี่ยนหรือพื้นที่ตรงกลางเปลี่ยน (เช่น เริ่มการต่อสู้แล้วมีตัวเลขสองข้าง)
+function PromptText({ text }: { text: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.classList.remove("long");
+      el.classList.toggle("long", el.scrollWidth > el.clientWidth);
+    };
+    fit();
+    if (typeof ResizeObserver === "undefined" || !el.parentElement) return;
+    const ro = new ResizeObserver(fit);
+    ro.observe(el.parentElement);
+    return () => ro.disconnect();
+  }, [text]);
+  return <span ref={ref} className="prompt" title={text}>{text}</span>;
 }

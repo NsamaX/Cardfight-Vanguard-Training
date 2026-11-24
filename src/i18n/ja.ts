@@ -56,6 +56,7 @@ export const ja: Dict = {
 
   "btn.yes": "はい",
   "btn.no": "いいえ",
+  "btn.cancel": "キャンセル",
   "btn.none": "選ばない",
   "btn.stride": "ストライド",
   "btn.pickCards": "カードを選ぶ",
@@ -72,6 +73,7 @@ export const ja: Dict = {
   "btn.undo": "元に戻す",
   "btn.redo": "やり直す",
   "btn.minimize": "最小化",
+  "next.toRide": "ライドフェイズへ →",
   "next.toStride": "ストライドステップへ →",
   "next.toMain": "メインフェイズへ →",
   "next.toBattle": "バトルフェイズへ →",

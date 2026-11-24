@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { Bot } from "../bot/types";
 import { cardByKey as db } from "../data/cards";
 import { apply, gGuardianBlocked, usableActs } from "../engine/game";
-import { locate, playerMsg } from "../engine/state";
+import { abilityTag, locate, playerMsg } from "../engine/state";
 import { msg, type Msg } from "../i18n/msg";
 import { fmt } from "../lib/format";
 import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, strideCostGrade } from "../engine/rules";
@@ -33,6 +33,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [choicePicks, setChoicePicks] = useState<string[]>([]);
   const [error, setError] = useState<Msg>();
   const [focus, setFocus] = useState<string>();
+  const [opened, setOpened] = useState(false);                                           // เพิ่งคลิกการ์ดเปิดความสามารถที่รออยู่: คำถามแรกกด Cancel ย้อนกลับได้
   const [trigArmed, setTrigArmed] = useState(false);
   const [choiceMin, setChoiceMin] = useState(false);                                    // ย่อหน้าต่างเลือกการ์ดไว้ดูสนาม                                    // คลิกการ์ดทริกเกอร์แล้ว เมาส์แสดงผลที่จะให้                                         // การ์ดที่คลิกเลือกความสามารถที่รออยู่
 
@@ -49,9 +50,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   // ระหว่างความสามารถทำงานและรอคำตอบ การ์ดต้นทางเป็นขอบส้ม
   const queued = ordering ? s.queue.filter((e) => e.owner === actor) : [];
   const acts = usableActs(db, s);                                                       // ACT ที่กดใช้ได้ในเมนเฟส
-  const focused = queued.find((e) => e.uid === focus);
-  const focusedAct = focused ? undefined : acts.find((a) => a.uid === focus);
-  const active = focused || focusedAct ? [focus!] : choice && s.resolving ? [s.resolving.uid] : [];
+  const focusedAct = acts.find((a) => a.uid === focus);
+  const active = focusedAct ? [focus!] : choice && s.resolving ? [s.resolving.uid] : [];
   const sources = [...queued, ...acts].map((e) => e.uid).filter((u) => !active.includes(u));
   const waitingPiles = sourcePiles(s, sources), activePiles = sourcePiles(s, active);
 
@@ -70,11 +70,14 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (trig && mode?.kind !== "trigger") setMode({ kind: "trigger" });
   }, [s, mode, trig]);
 
-  // คลิกการ์ดที่ไหนก็ได้: แสดงรายละเอียด และถ้ามีความสามารถรออยู่ เลือกการ์ดนั้น
+  // คลิกการ์ดที่ไหนก็ได้: แสดงรายละเอียด ถ้ามีความสามารถรออยู่ เปิดคำถามแรกของความสามารถนั้น (Cancel = ปิด ความสามารถยังรออยู่)
+  // ACT ในเมนเฟสยังถามก่อนใช้ เพราะคลิกดูการ์ดบนสนามอย่างเดียวก็ได้
   function setInspect(uid: string) {
     const f = findCard(s, uid);
     if (f) setInspectUids((i) => ({ ...i, [f.player]: uid }));
-    setFocus([...queued, ...acts].some((e) => e.uid === uid) ? uid : undefined);
+    const i = queued.findIndex((e) => e.uid === uid);
+    if (i >= 0 && !botTurn && !readOnly) { act({ type: "order-queue", index: i, ask: true }); setOpened(true); return; }
+    setFocus(acts.some((e) => e.uid === uid) ? uid : undefined);
   }
 
   function inspectedOf(p: PlayerId) {
@@ -151,6 +154,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
 
   function clearUi() {
     setFocus(undefined);
+    setOpened(false);
     setSel(null);
     setMode(null);
     setChoicePicks([]);
@@ -257,33 +261,43 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     setInspect(uid);
   }
 
-  // คำถามในแถบกลาง: ความสามารถที่คลิกเลือก (ใช่/ไม่) หรือคำถามระหว่างความสามารถทำงาน (ใช่/ไม่ เลือกผล เลือกช่อง)
+  // ปิดความสามารถที่เพิ่งเปิด: กลับไปก่อนคลิกการ์ด (ไม่นับเป็นก้าวที่ redo ได้)
+  function cancelOpened() {
+    const prev = past.at(-1);
+    if (!prev) return;
+    setPast(past.slice(0, -1));
+    setS(prev.s);
+    setLog(prev.log);
+    setActions(prev.actions);
+    clearUi();
+  }
+
+  // คำถามแรกของความสามารถที่เพิ่งคลิกเปิด: ปุ่มไม่ใช้/ข้าม เปลี่ยนเป็น Cancel
   function question(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
-    const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label, cost: cost.join(", ") }) : msg("q.use", { label });
+    const q = baseQuestion();
+    if (!opened || !s.resolving || !choice) return q;
+    const cancel = { label: msg("btn.cancel"), onClick: cancelOpened };
+    const keep = (q?.buttons ?? []).filter((b) => typeof b.label === "string" || (b.label.key !== "btn.no" && b.label.key !== "btn.none"));
+    return { prompt: q?.prompt ?? s.awaiting?.prompt, buttons: [...keep, cancel] };
+  }
+
+  // คำถามในแถบกลาง: ความสามารถที่คลิกเลือก (ใช่/ไม่) หรือคำถามระหว่างความสามารถทำงาน (ใช่/ไม่ เลือกผล เลือกช่อง)
+  function baseQuestion(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
+    const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label: abilityTag(label), cost: cost.join(", ") }) : msg("q.use", { label: abilityTag(label) });
     const yes = msg("btn.yes"), no = msg("btn.no");
     if (botTurn || readOnly) return undefined;
-    if (focused) {
-      const i = queued.indexOf(focused);
-      const buttons = [{ label: yes, onClick: () => act({ type: "order-queue", index: i }) }];
-      if (focused.optional) buttons.push({ label: no, onClick: () => act({ type: "decline-queue", index: i }) });
-      return { prompt: useQ(focused.label, focused.ability.cost ?? []), buttons };
-    }
     if (focusedAct) {
       return { prompt: useQ(focusedAct.label, focusedAct.cost), buttons: [
         { label: yes, onClick: () => act({ type: "activate", cardUid: focusedAct.uid, abilityIndex: focusedAct.index }) },
         { label: no, onClick: () => setFocus(undefined) },
       ] };
     }
-    // สไตรด์สเต็ป: ใช่ = เลือก G ยูนิทจาก G โซน + การ์ดบนมือที่จะทิ้ง (หลายใบ เกรดรวม 3 ขึ้นไป) / ไม่ = ไปเมนเฟส
-    if (striding && mode?.kind !== "stride") return { buttons: [
-      { label: yes, onClick: () => setMode({ kind: "stride", picks: [] }) },
-      { label: no, onClick: next },
-    ] };
+    // สไตรด์สเต็ป: ตรงกลางเป็นปุ่ม Skip (ไปเมนเฟส) สไตรด์ = กด G โซน เลือก G ยูนิท แล้วเลือกการ์ดบนมือที่จะทิ้ง (เกรดรวม 3 ขึ้นไป)
     if (striding && mode?.kind === "stride") {
       const gs = mode.picks.reduce((n, u) => n + strideCostGrade(db[findCard(s, u)!.inst.key]), 0);
       const g = mode.gUid && db[findCard(s, mode.gUid)!.inst.key].name;
       const gUid = mode.gUid, discardUids = mode.picks;
-      const buttons = [{ label: no, onClick: () => setMode(null) }];
+      const buttons = [{ label: msg("btn.cancel"), onClick: () => setMode(null) }];
       if (gUid && gs >= 3) buttons.unshift({ label: msg("btn.stride"), onClick: () => act({ type: "stride", gUid, discardUids }) });
       return { prompt: msg("q.stride", { g: g ?? msg("q.pickGUnit"), n: gs }), buttons };
     }
@@ -315,13 +329,13 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (choice?.kind === "option") return { prompt, buttons: choice.options.map((o) => ({ label: o, onClick: () => act({ type: "choose", option: o }) })) };
   }
 
-  // ปุ่มถัดไป: ถ้ามีความสามารถรออยู่ ถือว่าไม่ใช้ (แบบบังคับทำเองตามลำดับ) แล้วไปเฟสถัดไปต่อถ้ายังอยู่สเต็ปเดิม
+  // ปุ่มเปลี่ยนเฟส: ถ้ามีความสามารถรออยู่ ถือว่าไม่ใช้ (แบบบังคับทำเองตามลำดับ) แล้วไปต่อถ้ายังอยู่สเต็ปเดิม
   function next() {
     if (s.awaiting?.kind === "guard") { act({ type: "end-guard" }); return; }
     if (!ordering) { act({ type: "next-phase" }); return; }
     const at = `${s.turn}:${s.phase}:${s.step}`;
-    act({ type: "pass-queue" }, (st) =>
-      st.awaiting?.kind === "next-phase" && `${st.turn}:${st.phase}:${st.step}` === at ? { type: "next-phase" } : undefined);
+    act({ type: "pass-queue" }, (st) => `${st.turn}:${st.phase}:${st.step}` !== at ? undefined
+      : st.awaiting?.kind === "next-phase" ? { type: "next-phase" } : st.awaiting?.kind === "guard" ? { type: "end-guard" } : undefined);
   }
 
   return {
@@ -329,7 +343,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     lightOf: (uid: string): Light =>
       trig && uid === s.battle?.checkCard?.uid ? (trigArmed ? "active" : "source")
       : fieldChoice?.options.includes(uid) ? (choicePicks.includes(uid) ? "active" : "source")
-      : mode?.kind === "stride" && s.players[actor!]?.gZone.some((g) => g.uid === uid && !g.faceUp && db[g.key].type === "g-unit") ? (mode.gUid === uid ? "active" : "source")
+      : (striding || mode?.kind === "stride") && s.players[actor!]?.gZone.some((g) => g.uid === uid && !g.faceUp && db[g.key].type === "g-unit") ? (mode?.kind === "stride" && mode.gUid === uid ? "active" : "source")
       : active.includes(uid) ? "active" : sources.includes(uid) ? "source" : undefined,
     // ทริกเกอร์: คลิกการ์ดที่เปิดเช็คแล้วเมาส์บอกผลที่จะให้ (Power ของทริกเกอร์ก่อน แล้ว Critical/Stand) ยูนิทที่เลือกรับ Power แสดงค่าล่วงหน้า
     clickCheck: (uid: string) => { setInspect(uid); if (trig && uid === s.battle?.checkCard?.uid) setTrigArmed(true); },
@@ -344,7 +358,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       ? { text: msg(`tip.${fieldChoice.bonus.stat}`, { v: `${fieldChoice.bonus.value > 0 ? "+" : ""}${fmt(fieldChoice.bonus.value)}` }), kind: fieldChoice.bonus.stat === "critical" ? "cri" : "pow" }
       : undefined,
     fieldChoice: !!fieldChoice, choiceMin, setChoiceMin,
-    pileLight: (p: PlayerId, zone: string): Light => mode?.kind === "stride" && p === actor && zone === "gZone" ? (mode.gUid ? "active" : "source") : (activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) ? "source" : undefined), choice, ordering, trig, guarding, mode, choicePicks, pile,
+    pileLight: (p: PlayerId, zone: string): Light => (striding || mode?.kind === "stride") && !botTurn && !readOnly && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "active" : "source") : (activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) ? "source" : undefined), choice, ordering, trig, guarding, mode, choicePicks, pile,
     selUid: sel?.kind === "hand" ? sel.uid : sel?.kind === "circle" ? s.players[sel.player].circles[sel.circle]?.uid : undefined,
     // ยูนิทที่เลือกโจมตี/บูสท์ (ขอบแดง) และ Power ที่จะได้จากบูสท์
     // การต่อสู้ที่ประกาศแล้ว: ตัวโจมตี/บูสท์ขอบแดง เป้าหมายขอบเหลือง (ฝั่งป้องกันเห็นว่าโดนอะไรโจมตีใคร)
