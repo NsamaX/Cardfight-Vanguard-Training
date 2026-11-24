@@ -1,6 +1,7 @@
 // ข้อมูลที่บอทเห็นได้ตามกฎ และการเติมข้อมูลที่ซ่อนอยู่ด้วยการสุ่มเพื่อจำลองล่วงหน้า (determinization)
 // บอทรู้รายการเด็คของทั้งสองฝั่ง (เด็คที่เลือกในโปรแกรม) แต่ไม่รู้ลำดับกองการ์ด มือของคู่แข่ง และ G โซนที่คว่ำของคู่แข่ง
 import { cloneState } from "../engine/clone";
+import { deckCombos, type DeckCombos } from "./combos";
 import { nextRandom, shuffle } from "../engine/rng";
 import { PLAYERS, isG, other, type CardDB } from "../engine/rules";
 import { PILE_ZONES } from "../engine/state";
@@ -70,11 +71,16 @@ export interface Reads {
 export interface Intel {
   pools: Record<PlayerId, { main: Map<string, number>; g: Map<string, number> }>;
   reads: Reads;
+  combos: Record<PlayerId, DeckCombos>;
 }
 const INTEL = new WeakMap<GameState, Intel>();
 export const intelOf = (s: GameState) => INTEL.get(s);
 export function attachPools(db: CardDB, view: GameState, decks: Record<PlayerId, Deck>, reads: Reads = { oppPassive: 0, oppRevealedG3: false }) {
-  INTEL.set(view, { pools: { me: unseenPool(db, view, "me", decks.me).pool, bot: unseenPool(db, view, "bot", decks.bot).pool }, reads });
+  INTEL.set(view, {
+    pools: { me: unseenPool(db, view, "me", decks.me).pool, bot: unseenPool(db, view, "bot", decks.bot).pool },
+    reads,
+    combos: { me: deckCombos(db, decks.me), bot: deckCombos(db, decks.bot) },
+  });
 }
 
 // การ์ดที่อาจอยู่ในกองของ p: กองมองเห็น = กองจริง, กองซ่อน = การ์ดที่ยังไม่ปรากฏ (นับจากรายการเด็ค)

@@ -9,6 +9,7 @@ import { VanguardBot } from "./index";
 import { estimateDefense, nextTurnNeed } from "./intel";
 import { damageCost, lethalGap, policy, triggerDist } from "./policy";
 import { attachPools, deckOdds, determinize, HIDDEN, viewFor, withHidden } from "./view";
+import { affordable, analyze, deckCombos, shieldForced } from "./combos";
 
 const deck = presetDecks.find((d) => d.id === "nightrose-sample")!;
 const decks = { me: deck, bot: deck };
@@ -261,4 +262,71 @@ describe("บอทเล่นกันเอง", () => {
       expect(r.winner, `seed ${seed}`).toBeDefined();
     }
   }, 60000);
+});
+
+describe("คอมโบของเด็ค", () => {
+  it("หาคอมโบจากโค้ดความสามารถ จัดประเภท และเก็บชิ้นส่วนบนมือ", () => {
+    const r = analyze(db, deck);
+    const nightroseG = r.combos.find((c) => c.steps[0].key === "PR/0686TH" && c.steps[1]?.key === "PR/0256TH");
+    expect(nightroseG?.kind).toBe("finisher");
+    expect(nightroseG?.steps[1].at).toBe("drop");
+    expect(r.combos.find((c) => c.steps[0].key === "G-CP08/S11TH")?.kind).toBe("defense");
+    expect(r.combos.every((c) => c.score === c.value / c.difficulty)).toBe(true);
+    expect(r.handPiece.get("G-CHB03/S12TH")).toBeGreaterThan(0);
+  });
+
+  it("เก็บทรัพยากร การโจมตี การป้องกัน การขัดขวางของคอมโบ", () => {
+    const r = analyze(db, deck);
+    const cannon = r.combos.find((c) => c.steps[0].key === "PR/0686TH" && c.steps[1]?.key === "G-BT06/087TH" && c.steps.length === 2)!.profile;
+    expect(cannon).toMatchObject({ cb: 2, cbNeed: 2, gb: 1, flipG: 1, draw: 1, disrupt: { ownTurn: 1, oppTurn: 0 } });
+    expect(cannon.attacks.some((a) => a.crit === 2)).toBe(true);
+    const grunash = r.combos.find((c) => c.steps.every((s) => s.key === "G-TD08/014TH") && c.profile.cc > 0)!.profile;
+    expect(grunash).toMatchObject({ cc: 2, gb: 1, cb: 0 });
+    const nora = r.combos.find((c) => c.steps[0].key === "G-FC04/043TH" && c.steps.length === 2)!.profile;
+    expect(nora.shield).toBeGreaterThan(15000);
+    expect(nora).toMatchObject({ sb: 1, flipG: 1, gb: 1 });
+    // การโจมตีที่ไม่ถึงแวนการ์ดคู่แข่งไม่บังคับให้ใช้การ์ด
+    expect(shieldForced({ ...cannon, attacks: [{ power: 9000, crit: 1 }, { power: 16000, crit: 1 }] }, 11000)).toBe(10000);
+    expect(affordable(cannon, { cb: 1, sb: 0, gb: 1, gFaceDown: 2, deck: 20 })).toBe(false);
+    expect(affordable(cannon, { cb: 2, sb: 0, gb: 1, gFaceDown: 2, deck: 20 })).toBe(true);
+    expect(affordable(cannon, { cb: 2, sb: 0, gb: 1, gFaceDown: 2, deck: 1 })).toBe(false);
+  });
+
+  it("เด็คเดิมใช้คอมโบที่บันทึกไว้ เด็คที่ถูกแก้คิดใหม่", () => {
+    const a = deckCombos(db, deck);
+    expect(deckCombos(db, { ...deck })).toBe(a);
+    const edited = { ...deck, main: { ...deck.main, "PR/0256TH": 1 } };
+    expect(deckCombos(db, edited)).not.toBe(a);
+  });
+
+  it("เปลี่ยนมือ: ไรด์ไม่ถึงเกรด 3 = เลือกใหม่ เก็บแค่เส้นไรด์ (ไม่เก็บชิ้นส่วนคอมโบอื่น)", () => {
+    const xdb = withHidden(db);
+    let checked = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const s = createGame(db, { seed, decks, firstPlayer: "bot" });
+      const hand = s.players.bot.hand;
+      const grades = new Set(hand.filter((h) => [1, 2, 3].includes(db[h.key].grade)).map((h) => db[h.key].grade));
+      if (grades.size === 3) continue;
+      checked++;
+      const v = viewFor(s, "bot");
+      attachPools(xdb, v, decks);
+      const a = policy(xdb, v, "bot") as Extract<ReturnType<typeof policy>, { type: "mulligan" }>;
+      expect(hand.length - a.returnUids.length).toBe(grades.size);
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it("เปลี่ยนมือ: เก็บเส้นทางไรด์ไว้เสมอ", () => {
+    const xdb = withHidden(db);
+    for (let seed = 1; seed <= 20; seed++) {
+      const s = createGame(db, { seed, decks, firstPlayer: "bot" });
+      const v = viewFor(s, "bot");
+      attachPools(xdb, v, decks);
+      const a = policy(xdb, v, "bot") as Extract<ReturnType<typeof policy>, { type: "mulligan" }>;
+      const kept = s.players.bot.hand.filter((h) => !a.returnUids.includes(h.uid));
+      for (const g of [1, 2, 3]) {
+        if (s.players.bot.hand.some((h) => db[h.key].grade === g)) expect(kept.some((h) => db[h.key].grade === g)).toBe(true);
+      }
+    }
+  });
 });

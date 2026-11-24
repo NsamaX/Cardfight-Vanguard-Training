@@ -12,7 +12,7 @@ import { distinctByKey, ownQueue, tryApply } from "./actions";
 import { CB_VALUE, DAMAGE_COST, evaluate } from "./eval";
 import { dropCallPayoff, handCallPayoff, hollowPayoff, keepValue, rideScore, shieldIn, strideScore, unitValue } from "./knowledge";
 import { estimateDefense, nextTurnNeed, unitThreat } from "./intel";
-import { deckOdds, isHidden } from "./view";
+import { deckOdds, intelOf, isHidden } from "./view";
 
 export function policy(db: CardDB, s: GameState, p: PlayerId): Action {
   const d = s.awaiting!;
@@ -28,23 +28,39 @@ export function policy(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "next-phase" };
 }
 
-// ---------- เปลี่ยนการ์ดบนมือ: เก็บเส้นทางไรด์เกรด 1-2-3 อย่างละใบ ----------
+// ---------- เปลี่ยนการ์ดบนมือ: เก็บเส้นทางไรด์เกรด 1-2-3 อย่างละใบ + ชิ้นส่วนของคอมโบที่ทำง่ายและคุ้มค่า ----------
+
+// เก็บชิ้นส่วนคอมโบที่คะแนน (ความคุ้ม / ความยาก) ไม่ต่ำกว่าสัดส่วนนี้ของชิ้นส่วนที่ดีที่สุดของเด็ค
+const KEEP_PIECE = 0.75;
 
 function mulligan(db: CardDB, s: GameState, p: PlayerId): Action {
   const hand = s.players[p].hand;
+  const piece = intelOf(s)?.combos[p].handPiece;
+  const pieceScore = (key: string) => piece?.get(key) ?? 0;
+  const bar = Math.max(0, ...(piece?.values() ?? [])) * KEEP_PIECE;
   const keep = new Set<string>();
   for (const g of [1, 2, 3]) {
-    const pick = hand.filter((c) => db[c.key].grade === g && !isG(db[c.key])).sort((a, b) => rideScore(db[b.key]) - rideScore(db[a.key]))[0];
+    const pick = hand.filter((c) => db[c.key].grade === g && !isG(db[c.key]))
+      .sort((a, b) => rideScore(db[b.key]) + pieceScore(b.key) - rideScore(db[a.key]) - pieceScore(a.key))[0];
     if (pick) keep.add(pick.uid);
   }
   const lineDone = keep.size === 3;
-  const back = hand.filter((c) => {
+  // เลือกการ์ดเริ่มต้นจากคอมโบ → ไรด์ถึงเกรด 3 ได้ไหม → ไม่ได้: เลือกใหม่โดยไม่เก็บชิ้นส่วนคอมโบนอกเส้นไรด์ (คืนกองเพิ่มเพื่อหาเกรดที่ขาด)
+  const choose = (keepPieces: boolean) => hand.filter((c) => {
     if (keep.has(c.uid)) return false;
     const card = db[c.key];
+    if (piece) {
+      if (keepPieces && bar > 0 && pieceScore(c.key) >= bar) return false;
+      return !(card.trigger && lineDone);
+    }
     if (card.grade === 3) return true;
     if (card.trigger) return !lineDone;
     return false;
   });
+  const canRideToG3 = (back: CardInstance[]) =>
+    [1, 2, 3].every((g) => hand.some((c) => !back.includes(c) && !isG(db[c.key]) && db[c.key].grade === g));
+  let back = choose(true);
+  if (!canRideToG3(back)) back = choose(false);
   return { type: "mulligan", returnUids: back.map((c) => c.uid) };
 }
 
