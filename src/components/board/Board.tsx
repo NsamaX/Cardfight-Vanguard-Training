@@ -8,7 +8,6 @@ import type { Deck, GameState, PlayerId } from "../../engine/types";
 import { useBoard } from "../../hooks/useBoard";
 import { useT } from "../../i18n/react";
 import { nextLabel, type LogEntry, type Zone } from "../../lib/board";
-import { saveReplay } from "../../replay/store";
 import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { loadUserDecks, saveUserDecks } from "../../lib/deckStore";
 import { DeckPanel } from "../deck/DeckPanel";
@@ -62,15 +61,12 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const [showReplays, setShowReplays] = useState(false);
   const [record] = useState(() => ({ id: newId(), createdAt: new Date().toISOString() }));
 
-  // replay ของเกมนี้ บันทึกลงเบราว์เซอร์ทุกครั้งที่มี action (ย้อนกลับแล้ว action ที่ย้อนทิ้งก็หายจาก replay)
+  // replay ของเกมนี้ ณ ตอนนี้ (บันทึกเมื่อกดปุ่มใน Replays เท่านั้น; action ที่ย้อนทิ้งไม่อยู่ใน replay)
   const replay = (): Replay => ({
     version: 1, ...record, title: `${decks.me.name} vs ${decks.bot.name}`,
     seed: initial.seed, firstPlayer: initial.firstPlayer, decks, start: base?.start, bot: settings.bot,
     actions: [...(base?.actions ?? []), ...board.actions], winner: board.s.winner, turn: board.s.turn,
   });
-  useEffect(() => {
-    if (started && !view && board.actions.length) saveReplay(replay());
-  }, [board.actions]);
   const [userDecks, setUserDecks] = useState(loadUserDecks);
   function saveDeck(d: Deck) {
     const next = userDecks.some((x) => x.id === d.id) ? userDecks.map((x) => (x.id === d.id ? d : x)) : [...userDecks, d];
@@ -182,7 +178,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {hand("me")}
         <PileModal board={board} />
         <ChoiceModal board={board} />
-        {showReplays && <ReplayModal current={replay} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
+        {showReplays && <ReplayModal current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
         {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={onApplySettings} onClose={() => setShowSettings(false)} />}
         {board.error && <div className="toast">{t(board.error)}</div>}
         {(board.trigTip ?? board.choiceTip) && <CursorTip text={t((board.trigTip ?? board.choiceTip)!.text)} kind={(board.trigTip ?? board.choiceTip)!.kind} />}

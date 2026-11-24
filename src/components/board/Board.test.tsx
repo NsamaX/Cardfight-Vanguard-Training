@@ -247,12 +247,15 @@ describe("หน้าสนาม", () => {
     }
   });
 
-  it("replay: บันทึกเกมเองทุกก้าว แล้วเปิดดูทีละก้าวได้ (เห็นมือทั้งสองฝั่ง)", () => {
+  it("replay: ไม่บันทึกเอง กดบันทึกใน Replays แล้วเปิดดูทีละก้าวได้ (เห็นมือทั้งสองฝั่ง)", () => {
     localStorage.clear();
     const s = createGame(db, { seed: 4, firstPlayer: "me", decks: { me: deck, bot: deck } });
     render(s);
     click(button("Ready"));
     click(button("Ready"));
+    expect(loadReplays()).toHaveLength(0);
+    click(button("Replays"));
+    click(button("Save this game"));
     const saved = loadReplays();
     expect(saved).toHaveLength(1);
     expect(saved[0].actions.map((a) => a.action.type)).toEqual(["mulligan", "mulligan"]);
@@ -260,6 +263,9 @@ describe("หน้าสนาม", () => {
     const tl = replayTimeline(db, saved[0]);
     act(() => root.render(<ReplayViewer tl={tl} decks={saved[0].decks} settings={{ seed: 4, firstPlayer: "me" }} onContinue={() => {}} onClose={() => {}} />));
     expect(host.textContent).toContain("Step 0/2");
+    expect(host.querySelector(".replay-bar .speed")!.textContent).toBe("1x");
+    rawClick(host.querySelector('[aria-label="Faster"]'));
+    expect(host.querySelector(".replay-bar .speed")!.textContent).toBe("2x");
     rawClick(host.querySelector('[aria-label="Last step"]'));
     expect(host.textContent).toContain("Step 2/2");
     expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");

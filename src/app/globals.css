@@ -315,5 +315,6 @@ main {
 .replay-foot { display: flex; flex-direction: column; gap: 8px; }
 .replay-status { display: flex; align-items: center; gap: 8px; }
 .replay-status .pos { flex: 1; min-width: 0; height: 32px; display: flex; align-items: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.replay-bar .speed { min-width: 32px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-variant-numeric: tabular-nums; }
 .replay-bar { display: flex; gap: 4px; }
 .replay-bar .btn { flex: 1; min-width: 0; padding: 0; }
