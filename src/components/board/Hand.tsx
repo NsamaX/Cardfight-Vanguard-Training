@@ -8,10 +8,9 @@ const PER_ROW = 10;
 const DEAL_GAP_MS = 90;   // แจกหลายใบพร้อมกัน (เริ่มเกม/เปลี่ยนการ์ด) ทยอยทีละใบ
 
 // มือชิดขอบจอ แถวละไม่เกิน 10 ใบ (ถ้าที่ไม่พอการ์ดจะซ้อนกัน) ใบที่ 11 ขึ้นไปอยู่แถวหลัง โผล่ 30% ชี้เมาส์แล้วเด้งให้เห็นเต็มใบ
-export function Hand({ p, away, hidden, cards, seen, selUid, lightOf, picks, onClick, onHover }: {
+export function Hand({ p, hidden, cards, seen, selUid, lightOf, picks, onClick, onHover }: {
   p: PlayerId;
   hidden?: boolean;                                // มือของบอท: แสดงหลังการ์ด
-  away: boolean;                                   // ไม่ใช่ตาของฝั่งนี้: มือเลื่อนออกนอกจอครึ่งใบ
   cards: CardInstance[];
   seen: Map<string, Spot>;                         // ตำแหน่งบนกระดานก่อนหน้า: การ์ดที่เข้ามือบินมาจากที่เดิม (ไม่เห็นที่เดิมก็บินจากกองการ์ด)
   selUid?: string;
@@ -58,7 +57,7 @@ export function Hand({ p, away, hidden, cards, seen, selUid, lightOf, picks, onC
     </div>
   );
   return (
-    <div className={`hand ${p} ${away ? "away" : ""}`}>
+    <div className={`hand ${p}`}>
       {rows.length > 0 && row(rows[0], 0)}
       {rows.length > 1 && <div className="hand-more">{rows.slice(1).map((r, i) => row(r, i + 1))}</div>}
     </div>

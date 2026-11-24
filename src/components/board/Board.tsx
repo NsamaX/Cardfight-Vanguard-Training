@@ -107,7 +107,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     />
   );
   const hand = (p: PlayerId) => (
-    <Hand p={p} away={p !== s.turnPlayer && p !== actor} hidden={p === "bot" && board.hideBotHand} cards={s.players[p].hand} seen={seen} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
+    <Hand p={p} hidden={p === "bot" && board.hideBotHand} cards={s.players[p].hand} seen={seen} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
   );
   // ข้างสนาม: ฝั่งเรา G โซน+ดาเมจอยู่ซ้าย กองการ์ด+ดรอป+ไบนด์อยู่ขวา ฝั่งบอทหมุนกลับหัว
   const open = (p: PlayerId, zone: Zone) => () => board.setPile({ player: p, zone });
@@ -136,7 +136,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {tray("bot")}
         {stack("bot")}
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)} />)}
-        <div className="mid">
+        <div className={`mid${started ? ` turn-${s.turnPlayer}` : ""}`}>
           {/* ซ้าย: ปุ่มย้อนกลับ + Power ฝ่ายโจมตี / ขวา: Shield ฝ่ายตั้งรับ + ปุ่มตอบคำถาม (ข้อความกลางหดหรือขึ้นบรรทัดใหม่แทนการทับ) */}
           <div className="mid-side">
             {started && !deckOpen && !view ? (
