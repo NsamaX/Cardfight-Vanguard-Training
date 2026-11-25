@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { cardByKey as db, cards } from "../../data/cards";
+import { cardByKey as db, cards, putCard } from "../../data/cards";
 import { countCards, validateDeck } from "../../data/decks";
 import { sleeveUrl, sleeves } from "../../data/sleeves";
-import type { Deck } from "../../engine/types";
+import type { Card, Deck } from "../../engine/types";
 import { useT } from "../../i18n/react";
+import { USER_SOURCE, saveUserCard } from "../../lib/cardStore";
 import { G_ZONE_SIZE, MAIN_SIZE, MAX_COPIES, addCard, byGradeThenName, copiesIn, coverCard, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
 import { CardView } from "../CardView";
+import { CardEditor, emptyCard } from "./CardEditor";
 
 const FILTERS = ["All", "0", "1", "2", "3", "G"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -26,7 +28,15 @@ export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, on
   const [deck, setDeck] = useState(initial);
   const [filter, setFilter] = useState<Filter>("All");
   const [query, setQuery] = useState("");
+  const [cardEdit, setCardEdit] = useState<Card | null>(null);
   const t = useT();
+
+  function saveCard(c: Card) {
+    if (!saveUserCard(c)) return false;
+    putCard(c);
+    setCardEdit(null);
+    return true;
+  }
 
   const pool = cards
     .filter((c) => filter === "All" || (filter === "G" ? c.type.startsWith("g-") : !c.type.startsWith("g-") && c.grade === Number(filter)))
@@ -57,12 +67,14 @@ export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, on
           <input className="search" placeholder={t("deck.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         <div className="collection">
+          <button className="new-card" onClick={() => setCardEdit(emptyCard())}>{t("cardEd.new")}</button>
           {pool.map((c) => {
             const n = copiesIn(deck, c.key);
             return (
               <div key={c.key} className={`collect ${n >= MAX_COPIES ? "full" : ""}`}>
                 <CardView inst={displayInstance(c.key)} mark onClick={() => setDeck(addCard(deck, c.key))} />
                 <span className="copies">{n > 0 ? `x${n}` : ""}</span>
+                {c.source === USER_SOURCE && <button className="btn edit-card" title={t("cardEd.edit")} onClick={() => setCardEdit(c)}>✎</button>}
               </div>
             );
           })}
@@ -106,6 +118,7 @@ export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, on
           </div>
         </div>
       </div>
+      {cardEdit && <CardEditor initial={cardEdit} onSave={saveCard} onCancel={() => setCardEdit(null)} />}
     </div>
   );
 }

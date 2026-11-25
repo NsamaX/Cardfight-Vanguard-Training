@@ -17,6 +17,7 @@ export function DeckList({ decks, currentId, onOpen, onEdit, onDuplicate, onUse,
   const t = useT();
   return (
     <div className="deck-list">
+      <button className="deck-tile new" onClick={onNew}>{t("deck.new")}</button>
       {decks.map((d) => {
         const errors = validateDeck(d);
         const cover = coverCard(d);
@@ -34,7 +35,6 @@ export function DeckList({ decks, currentId, onOpen, onEdit, onDuplicate, onUse,
           </div>
         );
       })}
-      <button className="deck-tile new" onClick={onNew}>{t("deck.new")}</button>
     </div>
   );
 }

@@ -27,3 +27,11 @@ function toCard({ power, trigger_power, ...file }: CardFile): Card {
 export const cards: Card[] = (content.cards as unknown as CardFile[]).map(toCard);
 
 export const cardByKey: Record<string, Card> = Object.fromEntries(cards.map((c) => [c.key, c]));
+
+// การ์ดที่ผู้เล่นสร้างในโปรแกรม (lib/cardStore.ts) เพิ่มเข้าคลังเดียวกันตอนเปิดโปรแกรมและตอนบันทึก
+export function putCard(c: Card) {
+  const i = cards.findIndex((x) => x.key === c.key);
+  if (i >= 0) cards[i] = c;
+  else cards.push(c);
+  cardByKey[c.key] = c;
+}

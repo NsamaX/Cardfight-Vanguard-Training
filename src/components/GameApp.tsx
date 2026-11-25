@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { cardByKey as db } from "../data/cards";
+import { cardByKey as db, putCard } from "../data/cards";
 import { presetDecks } from "../data/decks";
+import { loadUserCards } from "../lib/cardStore";
 import { loadUserDecks } from "../lib/deckStore";
 import { createGame } from "../engine/game";
 import type { Deck, GameState, PlayerId } from "../engine/types";
@@ -44,8 +45,9 @@ export function GameApp() {
   }
 
   // สุ่มในเบราว์เซอร์หลังโหลดหน้า ค่าที่ render จาก server จะได้ไม่ขัดกับฝั่งเบราว์เซอร์
-  // เด็คตัวอย่างที่ผู้เล่นแก้ไว้ใช้ฉบับที่แก้
+  // เด็คตัวอย่างที่ผู้เล่นแก้ไว้ใช้ฉบับที่แก้ การ์ดที่ผู้เล่นสร้างต้องเข้าคลังก่อนเด็คใดจะอ้างถึง
   useEffect(() => {
+    loadUserCards().forEach(putCard);
     const first = loadUserDecks().find((d) => d.id === presetDecks[0].id) ?? presetDecks[0];
     start({ seed: "random", firstPlayer: "me", bot: "normal" }, { me: first, bot: first });
   }, []);

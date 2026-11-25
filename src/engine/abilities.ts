@@ -137,9 +137,9 @@ function collectTriggers(db: CardDB, s: GameState) {
   }
 }
 
-// AUTO ที่ผู้เล่นเลือกไม่ใช้ได้: มีคอสต์ หรือผลแรกเป็นแบบ "ได้" (ผู้เริ่มต้นคอลตัวเอง, เลือกติดฮอลโล่ว์)
+// AUTO ที่ผู้เล่นเลือกไม่ใช้ได้: ตั้ง optional ไว้ มีคอสต์ หรือผลแรกเป็นแบบ "ได้" (ผู้เริ่มต้นคอลตัวเอง, เลือกติดฮอลโล่ว์)
 const MAY_FIRST = /^(call\(self→RC\)|hollow\(self\))$/;
-export const isOptional = (ab: Ability) => !!ab.cost?.length || MAY_FIRST.test(ab.effect[0] ?? "");
+export const isOptional = (ab: Ability) => !!ab.optional || !!ab.cost?.length || MAY_FIRST.test(ab.effect[0] ?? "");
 
 // ---------- วงรอบหลัก ----------
 

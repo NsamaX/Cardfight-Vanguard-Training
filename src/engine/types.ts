@@ -13,6 +13,7 @@ export interface Ability {
   cond?: string[];
   cost?: string[];
   effect: string[];
+  optional?: boolean;  // AUTO ที่เลือกไม่ใช้ได้แม้ไม่มีคอสต์ (การ์ดที่สร้างในโปรแกรม)
 }
 
 export interface Card {
