@@ -1,11 +1,8 @@
-import { cardByKey as db } from "../../data/cards";
 import { countCards, validateDeck } from "../../data/decks";
 import type { Deck } from "../../engine/types";
 import { useT } from "../../i18n/react";
-import { G_ZONE_SIZE, MAIN_SIZE, displayInstance } from "../../lib/deckEdit";
+import { G_ZONE_SIZE, MAIN_SIZE, byGradeThenName, displayInstance } from "../../lib/deckEdit";
 import { CardView } from "../CardView";
-
-const byGradeThenName = (a: string, b: string) => db[a].grade - db[b].grade || db[a].name.localeCompare(db[b].name, "en");
 
 // ดูการ์ดในเด็ค: Back กลับรายการ / Delete หรือ Reset (เด็คตัวอย่างที่ถูกแก้) / Edit เข้าหน้าแก้เด็ค / Use ใช้เด็คนี้กับฝั่งนี้ (เด็คที่ผิดกฎใช้ไม่ได้)
 export function DeckView({ deck, current, onBack, onEdit, onUse, removeLabel, onRemove }: {
@@ -19,7 +16,8 @@ export function DeckView({ deck, current, onBack, onEdit, onUse, removeLabel, on
 }) {
   const errors = validateDeck(deck);
   const t = useT();
-  const cards = (zone: Record<string, number>) => Object.keys(zone).sort(byGradeThenName).map((k) => (
+  // เมนเด็คเรียงตามเกรด G โซนเรียงตามที่ลากจัดไว้
+  const cards = (zone: Record<string, number>) => (zone === deck.main ? Object.keys(zone).sort(byGradeThenName) : Object.keys(zone)).map((k) => (
     <div key={k} className="collect">
       <CardView inst={displayInstance(k)} mark />
       <span className="copies">x{zone[k]}{deck.starter === k ? " ★" : ""}</span>

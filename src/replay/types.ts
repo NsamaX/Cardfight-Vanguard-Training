@@ -15,7 +15,7 @@ export interface Replay {
   firstPlayer: PlayerId;
   decks: Record<PlayerId, Deck>;
   start?: GameState;      // เกมที่เล่นต่อจาก replay แบบ states: เริ่มจากสนามนี้แทนการเริ่มเกมใหม่
-  bot?: BotLevel | "off";
+  bot?: BotLevel | "off";   // "off" = replay เก่าจากโหมดคุมเองทั้งสองฝั่ง (เลิกใช้แล้ว)
   actions: RecordedAction[];
   winner?: PlayerId;
   turn: number;

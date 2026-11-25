@@ -103,7 +103,6 @@ export const ja: Dict = {
   "settings.seedRandom": "毎ゲームシードをランダムにする",
   "settings.language": "言語",
   "settings.bot": "ボット",
-  "bot.off": "オフ（両方を自分で操作）",
   "bot.normal": "Normal",
   "bot.hard": "Hard",
   "bot.nightmare": "Nightmare",

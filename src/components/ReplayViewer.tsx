@@ -55,7 +55,7 @@ export function ReplayViewer({ tl, decks, settings, onContinue, onClose }: {
 
   return (
     <Board
-      initial={s} started settings={{ ...settings, bot: "off" }} decks={decks} deckOpen={false} onDeckOpen={noop}
+      initial={s} started settings={settings} decks={decks} deckOpen={false} onDeckOpen={noop}
       onStart={noop} onNewGame={noop} onApplySettings={noop} onSwapDecks={noop} onPickDeck={noop} onDeckChanged={noop}
       view={{ log: tl.log.slice(0, tl.logAt[step]), action, foot }}
     />

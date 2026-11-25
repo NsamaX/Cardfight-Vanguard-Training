@@ -10,7 +10,7 @@ export const randomSeed = () => Math.floor(Math.random() * 1e9);
 export interface GameSettings {
   seed: number | "random";
   firstPlayer: PlayerId | "random";
-  bot?: BotLevel | "off";     // ไม่ระบุ = ปิด (คุมเองทั้งสองฝั่ง)
+  bot?: BotLevel;             // ไม่ระบุ = Normal
 }
 
 export function resolveSettings(s: GameSettings): { seed: number; firstPlayer: PlayerId } {
@@ -46,7 +46,7 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
   const [firstRandom, setFirstRandom] = useState(settings.firstPlayer === "random");
   const [seed, setSeed] = useState(settings.seed === "random" ? current.seed : settings.seed);
   const [seedRandom, setSeedRandom] = useState(settings.seed === "random");
-  const [bot, setBot] = useState(settings.bot ?? "off");
+  const [bot, setBot] = useState<BotLevel>(settings.bot ?? "normal");
   const { locale, setLocale, t } = useI18n();
 
   return (
@@ -60,8 +60,8 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
           </select>
         </label>
         <label>{t("settings.bot")}
-          <select value={bot} onChange={(e) => setBot(e.target.value as BotLevel | "off")}>
-            {(["off", ...BOT_LEVELS] as const).map((l) => <option key={l} value={l}>{t(`bot.${l}`)}</option>)}
+          <select value={bot} onChange={(e) => setBot(e.target.value as BotLevel)}>
+            {BOT_LEVELS.map((l) => <option key={l} value={l}>{t(`bot.${l}`)}</option>)}
           </select>
         </label>
         <label>{t("settings.first")}

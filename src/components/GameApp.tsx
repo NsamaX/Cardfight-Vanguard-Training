@@ -84,6 +84,7 @@ export function GameApp() {
         onApplySettings={(s) => start(s, decks)}
         onSwapDecks={() => start(settings, { me: decks.bot, bot: decks.me }, current)}
         onPickDeck={(p, d) => start(settings, { ...decks, [p]: d })}
+        onDeckReordered={(d) => setGame((g) => g && { ...g, decks: { me: g.decks.me.id === d.id ? d : g.decks.me, bot: g.decks.bot.id === d.id ? d : g.decks.bot } })}
         onDeckChanged={(d) => {
           if (decks.me.id !== d.id && decks.bot.id !== d.id) return;
           start(settings, { me: decks.me.id === d.id ? d : decks.me, bot: decks.bot.id === d.id ? d : decks.bot });

@@ -39,6 +39,19 @@ export function removeCard(deck: Deck, key: string): Deck {
   return withStarter({ ...deck, [zone]: n > 1 ? { ...rest, [key]: n - 1 } : rest });
 }
 
+// เรียงการ์ดในเด็คตามเกรด (0 → 3) แล้วตามชื่อ
+export const byGradeThenName = (a: string, b: string) => cardByKey[a].grade - cardByKey[b].grade || cardByKey[a].name.localeCompare(cardByKey[b].name, "en");
+
+// ย้ายการ์ด G ใบ from ไปไว้ตำแหน่งของ to (ลำดับใน g_zone คือลำดับที่แสดงทั้งในเกมและหน้าเด็ค)
+export function moveG(deck: Deck, from: string, to: string): Deck {
+  const keys = Object.keys(deck.g_zone);
+  const at = keys.indexOf(to);
+  if (from === to || at < 0 || !keys.includes(from)) return deck;
+  const next = keys.filter((k) => k !== from);
+  next.splice(at, 0, from);
+  return { ...deck, g_zone: Object.fromEntries(next.map((k) => [k, deck.g_zone[k]])) };
+}
+
 export const setStarter = (deck: Deck, key: string): Deck => ({ ...deck, starter: key });
 
 // การ์ดที่ไม่ได้อยู่ในเกม ใช้แสดงผลด้วย CardView

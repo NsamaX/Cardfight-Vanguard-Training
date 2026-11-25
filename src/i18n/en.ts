@@ -106,7 +106,6 @@ export const en = {
   "settings.seedRandom": "Random seed every game",
   "settings.language": "Language",
   "settings.bot": "Bot",
-  "bot.off": "Off (control both sides)",
   "bot.normal": "Normal",
   "bot.hard": "Hard",
   "bot.nightmare": "Nightmare",

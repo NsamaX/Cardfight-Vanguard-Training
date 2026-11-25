@@ -36,7 +36,7 @@ export function ReplayModal({ current, onOpen, onClose }: { current?: () => Repl
             <div key={r.id} className="replay-row">
               <span className="replay-info">
                 <b>{result(r)} · {t("replay.turn", { n: r.turn })}</b>
-                <span className="mute">{new Date(r.createdAt).toLocaleString()} · {r.bot && r.bot !== "off" ? t(`bot.${r.bot}`) : t("bot.off")}</span>
+                <span className="mute">{new Date(r.createdAt).toLocaleString()}{r.bot && r.bot !== "off" && ` · ${t(`bot.${r.bot}`)}`}</span>
               </span>
               <button className="btn" onClick={() => onOpen(r)}>{t("replay.view")}</button>
               <button className="btn" onClick={() => download(fileName(r), r)} title={t("replay.download")} aria-label={t("replay.download")}>↓</button>

@@ -10,6 +10,7 @@ import { useT } from "../../i18n/react";
 import { nextLabel, type LogEntry, type Zone } from "../../lib/board";
 import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { loadUserDecks, saveUserDecks } from "../../lib/deckStore";
+import { moveG } from "../../lib/deckEdit";
 import { DeckPanel } from "../deck/DeckPanel";
 import { CardHover } from "../CardView";
 import { Inspector } from "../Inspector";
@@ -36,7 +37,7 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, base, view, onOpenReplay }: {
+export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, onDeckReordered, base, view, onOpenReplay }: {
   initial: GameState;
   started: boolean;            // false = รอกด Start (ยังไม่แจกการ์ด)
   onStart: () => void;
@@ -49,12 +50,13 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   onSwapDecks: () => void;
   onPickDeck: (p: PlayerId, d: Deck) => void;
   onDeckChanged: (d: Deck) => void;  // เด็คถูกแก้/คืนค่า ฝั่งที่ใช้เด็คนี้อยู่ต้องได้ฉบับใหม่
+  onDeckReordered?: (d: Deck) => void;   // ลำดับ G โซนเปลี่ยน: เปลี่ยนเด็คโดยไม่เริ่มเกมใหม่
   base?: { start?: GameState; actions: RecordedAction[] };   // เกมที่เล่นต่อจาก replay: ก้าวก่อนหน้าที่ต้องรวมไว้ใน replay ของเกมนี้
   view?: { log: LogEntry[]; action: ReactNode; foot: ReactNode };   // หน้าดูย้อนหลัง: แสดงสนามอย่างเดียว action = ช่องขวาของแถบกลาง, foot = ล่างแผงขวา
   onOpenReplay?: (src: ReplaySource) => void;
 }) {
   // บอทเริ่มคิดเมื่อกด Start แล้ว (หน้าสนามถูกสร้างใหม่ทุกเกม บอทจึงเริ่มจำใหม่ทุกเกม)
-  const bot = useMemo(() => (started && !view && settings.bot && settings.bot !== "off" ? new VanguardBot(db, settings.bot, decks) : undefined), [started, view, settings.bot, decks]);
+  const bot = useMemo(() => (started && !view ? new VanguardBot(db, settings.bot ?? "normal", decks) : undefined), [started, view, settings.bot]);   // ลำดับ G โซนเปลี่ยนไม่ต้องสร้างบอทใหม่ (เปลี่ยนเด็คจริงจะเริ่มหน้าสนามใหม่อยู่แล้ว)
   const board = useBoard(initial, bot, view && { log: view.log });
   const t = useT();
   const [showSettings, setShowSettings] = useState(false);
@@ -73,6 +75,14 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     setUserDecks(next);
     saveUserDecks(next);
     onDeckChanged(d);
+  }
+  function reorderG(p: PlayerId, from: string, to: string) {
+    const d = moveG(decks[p], from, to);
+    if (d === decks[p]) return;
+    const next = userDecks.some((x) => x.id === d.id) ? userDecks.map((x) => (x.id === d.id ? d : x)) : [...userDecks, d];
+    setUserDecks(next);
+    saveUserDecks(next);
+    onDeckReordered?.(d);
   }
   function deleteDeck(id: string) {
     const next = userDecks.filter((x) => x.id !== id);
@@ -184,7 +194,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {tray("me")}
         {stack("me")}
         {hand("me")}
-        <PileModal board={board} />
+        <PileModal board={board} started={started} decks={decks} onMoveG={onDeckReordered && reorderG} />
         <ChoiceModal board={board} />
         {showReplays && <ReplayModal current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
         {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={onApplySettings} onClose={() => setShowSettings(false)} />}

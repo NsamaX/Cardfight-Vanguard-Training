@@ -4,13 +4,11 @@ import { countCards, validateDeck } from "../../data/decks";
 import { sleeveUrl, sleeves } from "../../data/sleeves";
 import type { Deck } from "../../engine/types";
 import { useT } from "../../i18n/react";
-import { G_ZONE_SIZE, MAIN_SIZE, MAX_COPIES, addCard, copiesIn, coverCard, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
+import { G_ZONE_SIZE, MAIN_SIZE, MAX_COPIES, addCard, byGradeThenName, copiesIn, coverCard, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
 import { CardView } from "../CardView";
 
 const FILTERS = ["All", "0", "1", "2", "3", "G"] as const;
 type Filter = (typeof FILTERS)[number];
-
-const byGradeThenName = (a: string, b: string) => db[a].grade - db[b].grade || db[a].name.localeCompare(db[b].name, "en");
 
 // สร้าง/แก้เด็ค: ซ้ายคือคลังการ์ด (คลิกเพื่อใส่) ขวาคือรายการในเด็ค (คลิกเพื่อเอาออก, ★ ตั้งแวนการ์ดเริ่มต้น)
 export function DeckBuilder({ initial, onDone, onCancel }: { initial: Deck; onDone: (d: Deck) => void; onCancel: () => void }) {
@@ -27,7 +25,8 @@ export function DeckBuilder({ initial, onDone, onCancel }: { initial: Deck; onDo
   const cover = coverCard(deck);
   const triggers = Object.entries(deck.main).reduce((n, [k, v]) => n + (db[k].type === "trigger" ? v : 0), 0);
 
-  const rows = (zone: Record<string, number>) => Object.keys(zone).sort(byGradeThenName).map((k) => (
+  // เมนเด็คเรียงตามเกรด G โซนเรียงตามที่ลากจัดไว้ในหน้าสนาม
+  const rows = (zone: Record<string, number>) => (zone === deck.main ? Object.keys(zone).sort(byGradeThenName) : Object.keys(zone)).map((k) => (
     <div key={k} className="deck-row" style={db[k].image ? { backgroundImage: `url(${db[k].image})` } : undefined} onClick={() => setDeck(removeCard(deck, k))}>
       <span className="g">{db[k].type.startsWith("g-") ? "G" : db[k].grade}</span>
       <span className="n">{db[k].name}</span>
@@ -64,7 +63,7 @@ export function DeckBuilder({ initial, onDone, onCancel }: { initial: Deck; onDo
           <label className="deck-cover" title={t("deck.cover")} style={cover && db[cover].image ? { backgroundImage: `url(${db[cover].image})` } : undefined}>
             <select value={deck.cover && cover === deck.cover ? cover : ""} onChange={(e) => setDeck({ ...deck, cover: e.target.value || undefined })}>
               <option value="">{t("deck.coverAuto")}</option>
-              {[...Object.keys(deck.main).sort(byGradeThenName), ...Object.keys(deck.g_zone).sort(byGradeThenName)].map((k) => <option key={k} value={k}>{db[k].name}</option>)}
+              {[...Object.keys(deck.main).sort(byGradeThenName), ...Object.keys(deck.g_zone)].map((k) => <option key={k} value={k}>{db[k].name}</option>)}
             </select>
           </label>
         </div>

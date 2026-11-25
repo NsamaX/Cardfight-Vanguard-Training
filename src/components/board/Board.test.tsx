@@ -24,7 +24,7 @@ afterEach(() => { act(() => root.unmount()); host.remove(); });
 const inst = (s: GameState, key: string): CardInstance =>
   ({ uid: "t" + s.nextUid++, key, rested: false, faceUp: true, hollowed: false, mods: [], usedThisTurn: [] });
 
-function render(s: GameState) { act(() => root.render(<Board initial={s} started onStart={() => {}} settings={{ seed: s.seed, firstPlayer: s.firstPlayer }} decks={{ me: deck, bot: deck }} deckOpen={false} onDeckOpen={() => {}}
+function render(s: GameState, started = true) { act(() => root.render(<Board initial={s} started={started} onStart={() => {}} settings={{ seed: s.seed, firstPlayer: s.firstPlayer }} decks={{ me: deck, bot: deck }} deckOpen={false} onDeckOpen={() => {}}
   onNewGame={() => {}} onApplySettings={() => {}} onSwapDecks={() => {}} onPickDeck={() => {}} onDeckChanged={() => {}} />)); }
 let autoDecline = true;
 function rawClick(el: Element | undefined | null) {
@@ -54,6 +54,8 @@ const modalCard = (name: string) => [...host.querySelectorAll(".modal .card")].f
 const slots = (side: 0 | 1) => host.querySelectorAll(".side")[side].querySelectorAll(".slot");   // 0 = บอท, 1 = คุณ
 const handCard = (side: "me" | "bot", name: string) =>
   [...host.querySelectorAll(`.hand.${side} .card`)].find((c) => c.getAttribute("title") === name);
+// ให้บอทเล่นจนถึงตาคุณ (ต้องเปิด fake timers ก่อน render)
+async function botPlays() { await act(async () => { await vi.advanceTimersByTimeAsync(5000); }); }
 const pill = () => host.querySelector(".pill")!.textContent!;
 
 // 3 เทสต์ที่ skip ใช้ปุ่มในแถบคำสั่ง (.command) และป้ายสถานะ (.pill) ซึ่งถูกลบออกแล้ว รอระบบ action แบบใหม่แล้วค่อยแก้ให้ใช้ได้
@@ -236,22 +238,38 @@ describe("หน้าสนาม", () => {
     expect(host.querySelector(".insp-pane.me")!.textContent).toMatch(/STRIDE|G GUARDIAN/);
   });
 
-  it("กด Ready ทั้งสองฝั่ง (คุณคุมบอทด้วย) จากนั้นเลือกการ์ดเกรด 1 แล้วคลิก VC เพื่อไรด์ได้ และเข้าเมนเฟสเอง", () => {
-    const s = createGame(db, { seed: 7, firstPlayer: "me", decks: { me: deck, bot: deck } });
-    s.players.me.circles.vc = { ...inst(s, "PR/0740TH"), faceUp: false };   // แวนการ์ดเกรด 0 ที่ไม่มีความสามารถตอนถูกไรด์ทับ
-    s.players.me.hand.push(inst(s, BONE));
-    render(s);
-    click(button("Ready"));
-    expect(host.querySelector(".ph.on")!.textContent).toBe("START");   // ยังรอบอทเลือกเปลี่ยนการ์ด
-    click(button("Ready"));
-    expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
-    expect(button("To main phase")).toBeTruthy();                         // แวนการ์ดไม่ถึงเกรด 3 กดถัดไปจะข้ามสไตรด์
-    click(handCard("me", db[BONE].name));
-    expect(handCard("me", db[BONE].name)!.classList.contains("sel")).toBe(true);
-    click(slots(1)[1]);
-    expect(slots(1)[1].querySelector(":scope > .card")!.getAttribute("title")).toBe(db[BONE].name);
-    expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
-    expect(button("End turn")).toBeTruthy();                         // เทิร์นแรกไม่มีแบทเทิลเฟส
+  it("กด Ready แล้วบอทเปลี่ยนการ์ดเอง จากนั้นเลือกการ์ดเกรด 1 แล้วคลิก VC เพื่อไรด์ได้ และเข้าเมนเฟสเอง", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = createGame(db, { seed: 7, firstPlayer: "me", decks: { me: deck, bot: deck } });
+      s.players.me.circles.vc = { ...inst(s, "PR/0740TH"), faceUp: false };   // แวนการ์ดเกรด 0 ที่ไม่มีความสามารถตอนถูกไรด์ทับ
+      s.players.me.hand.push(inst(s, BONE));
+      render(s);
+      click(button("Ready"));
+      expect(host.querySelector(".ph.on")!.textContent).toBe("START");   // ยังรอบอทเลือกเปลี่ยนการ์ด
+      await botPlays();
+      expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
+      expect(button("To main phase")).toBeTruthy();                         // แวนการ์ดไม่ถึงเกรด 3 กดถัดไปจะข้ามสไตรด์
+      click(handCard("me", db[BONE].name));
+      expect(handCard("me", db[BONE].name)!.classList.contains("sel")).toBe(true);
+      click(slots(1)[1]);
+      expect(slots(1)[1].querySelector(":scope > .card")!.getAttribute("title")).toBe(db[BONE].name);
+      expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
+      expect(button("End turn")).toBeTruthy();                         // เทิร์นแรกไม่มีแบทเทิลเฟส
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ก่อนกด Start เปิดดูกองการ์ดของเราได้ทั้งเด็ค แต่กองการ์ดบอทยังคว่ำ", () => {
+    const s = createGame(db, { seed: 2, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    s.players.me.deck.unshift(...s.players.me.hand.splice(0));
+    render(s, false);
+    rawClick(host.querySelector(".stack.me .deck .zone-slot"));
+    expect(host.querySelectorAll(".modal .card")).toHaveLength(s.players.me.deck.length);
+    rawClick(host.querySelector(".modal button"));
+    rawClick(host.querySelector(".stack.bot .deck .zone-slot"));
+    expect(host.querySelectorAll(".modal .card")).toHaveLength(0);
   });
 
   it("เล่นกับบอท: มือบอทคว่ำ ตาบอทไม่มีปุ่มให้กดแทน และบอทเปลี่ยนการ์ดเองแล้วถึงตาคุณ", async () => {
@@ -273,12 +291,14 @@ describe("หน้าสนาม", () => {
     }
   });
 
-  it("replay: ไม่บันทึกเอง กดบันทึกใน Replays แล้วเปิดดูทีละก้าวได้ (เห็นมือทั้งสองฝั่ง)", () => {
+  it("replay: ไม่บันทึกเอง กดบันทึกใน Replays แล้วเปิดดูทีละก้าวได้ (เห็นมือทั้งสองฝั่ง)", async () => {
     localStorage.clear();
     const s = createGame(db, { seed: 4, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    vi.useFakeTimers();
     render(s);
     click(button("Ready"));
-    click(button("Ready"));
+    await botPlays();
+    vi.useRealTimers();
     expect(loadReplays()).toHaveLength(0);
     click(button("Replays"));
     click(button("Save this game"));

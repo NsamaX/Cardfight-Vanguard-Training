@@ -1,6 +1,8 @@
 import type { BoardModel } from "../../hooks/useBoard";
 import { useT } from "../../i18n/react";
+import type { Deck, PlayerId } from "../../engine/types";
 import { findCard } from "../../lib/board";
+import { byGradeThenName } from "../../lib/deckEdit";
 import { Modal, ModalCard } from "../Modal";
 
 // หน้าต่างเลือกการ์ดเมื่อความสามารถถาม
@@ -26,17 +28,28 @@ export function ChoiceModal({ board }: { board: BoardModel }) {
   );
 }
 
-// หน้าต่างดูการ์ดในโซน (G โซนคลิกเพื่อสไตรด์/คอล G การ์เดี้ยนได้) กองการ์ดดูได้เฉพาะตอนดูย้อนหลัง เรียงจากใบบนสุด
-export function PileModal({ board }: { board: BoardModel }) {
+// หน้าต่างดูการ์ดในโซน (G โซนคลิกเพื่อสไตรด์/คอล G การ์เดี้ยนได้) เรียงจากใบบนสุด
+// กองการ์ดดูได้ตอนดูย้อนหลัง และกองของเราก่อนกด Start (เรียงตามเกรดแบบหน้าเด็ค ไม่บอกลำดับที่จะจั่ว)
+// G โซนเรียงตามลำดับในเด็ค ลากการ์ดไปวางบนใบอื่นเพื่อเปลี่ยนลำดับ (onMoveG บันทึกลงเด็ค)
+export function PileModal({ board, started, decks, onMoveG }: { board: BoardModel; started: boolean; decks: Record<PlayerId, Deck>; onMoveG?: (p: PlayerId, from: string, to: string) => void }) {
   const { s, pile, setPile, clickPileCard } = board;
   const t = useT();
   if (!pile) return null;
-  const list = s.players[pile.player][pile.zone];
+  const preview = pile.zone === "deck" && !started && pile.player === "me";
+  const gOrder = Object.keys(decks[pile.player].g_zone);
+  const rank = (key: string) => { const i = gOrder.indexOf(key); return i < 0 ? gOrder.length : i; };
+  const list = preview ? [...s.players.me.deck].sort((a, b) => byGradeThenName(a.key, b.key))
+    : pile.zone === "gZone" ? [...s.players[pile.player].gZone].sort((a, b) => rank(a.key) - rank(b.key))
+    : s.players[pile.player][pile.zone];
+  const p = pile.player;
+  const drop = pile.zone === "gZone" && onMoveG && !board.readOnly
+    ? (to: string) => (uid: string) => { const from = list.find((c) => c.uid === uid)?.key; if (from) onMoveG(p, from, to); }
+    : undefined;
   const close = () => setPile(null);
   return (
     <Modal title={t("modal.pile", { zone: { key: `pile.${pile.zone}` }, n: list.length })} onClose={close}>
-      {pile.zone === "deck" && !board.readOnly ? <span className="mute">{t("modal.deckHidden")}</span> : list.map((c) => (
-        <ModalCard key={c.uid} inst={c} light={board.lightOf(c.uid)} onClick={() => clickPileCard(pile.player, pile.zone, c)} />
+      {pile.zone === "deck" && !board.readOnly && !preview ? <span className="mute">{t("modal.deckHidden")}</span> : list.map((c) => (
+        <ModalCard key={c.uid} inst={c} light={board.lightOf(c.uid)} onClick={() => clickPileCard(pile.player, pile.zone, c)} onDrop={drop?.(c.key)} />
       ))}
     </Modal>
   );
