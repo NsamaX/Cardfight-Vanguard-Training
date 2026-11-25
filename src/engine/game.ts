@@ -58,7 +58,7 @@ export function createGame(db: CardDB, opts: NewGame): GameState {
 
 // ---------- จุดเข้า ----------
 
-const ANSWERS: Action["type"][] = ["choose", "select-target", "order-queue", "decline-queue", "pass-queue"];
+export const ANSWERS: Action["type"][] = ["choose", "select-target", "order-queue", "decline-queue", "pass-queue"];
 
 export function apply(db: CardDB, state: GameState, player: PlayerId, action: Action): Result {
   if (state.winner) throw new RuleError("err.gameOver");

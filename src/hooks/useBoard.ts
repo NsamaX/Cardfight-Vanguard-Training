@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import type { Bot } from "../bot/types";
 import { cardByKey as db } from "../data/cards";
-import { apply, gGuardianBlocked, usableActs } from "../engine/game";
+import { ANSWERS, apply, gGuardianBlocked, usableActs } from "../engine/game";
 import { abilityTag, locate, playerMsg } from "../engine/state";
 import { msg, type Msg } from "../i18n/msg";
 import { fmt } from "../lib/format";
@@ -51,6 +51,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   // ความสามารถที่รอผู้เล่น: การ์ดขอบเหลือง (sources) คลิกแล้วเป็นขอบส้ม (active) และถามว่าจะใช้ไหม
   // ระหว่างความสามารถทำงานและรอคำตอบ การ์ดต้นทางเป็นขอบส้ม
   const queued = ordering ? s.queue.filter((e) => e.owner === actor) : [];
+  // ความสามารถที่รออยู่เป็นแบบเลือกใช้ทั้งหมด: ผู้เล่นทำอย่างอื่นต่อได้ (คอล ย้าย ใช้ ACT) ถือว่าไม่ใช้
+  const skippable = queued.length > 0 && queued.every((e) => e.optional);
   const acts = usableActs(db, s);                                                       // ACT ที่กดใช้ได้ในเมนเฟส
   const focusedAct = acts.find((a) => a.uid === focus);
   const active = focusedAct ? [focus!] : choice && s.resolving ? [s.resolving.uid] : [];
@@ -95,10 +97,20 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   function act(action: Action, then?: (st: GameState) => Action | undefined, fromBot = false) {
     if (!actor || readOnly || botTurn !== fromBot) return;
     try {
-      const r = apply(db, s, actor, action);
+      const done: RecordedAction[] = [];
+      const events = [];
+      let base = s;
+      if (skippable && !ANSWERS.includes(action.type)) {
+        const r0 = apply(db, s, actor, { type: "pass-queue" });
+        base = r0.state;
+        events.push(...r0.events);
+        done.push({ player: actor, action: { type: "pass-queue" } });
+      }
+      const r = apply(db, base, actor, action);
       let st = r.state;
-      const entries = r.events.map((e) => ({ ...e, turn: st.turn }));
-      const done: RecordedAction[] = [{ player: actor, action }];
+      events.push(...r.events);
+      const entries = events.map((e) => ({ ...e, turn: st.turn }));
+      done.push({ player: actor, action });
       const follow = then?.(st);
       if (follow && st.awaiting) {
         try {
@@ -174,7 +186,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     setInspect(inst.uid);
     if (botTurn) return;
     if (actor && p !== actor) { setError(msg("err.turnOf", { player: playerMsg(actor) })); return; }
-    if (choice || ordering) return;
+    if (choice || (ordering && !skippable) || queued.some((e) => e.uid === inst.uid)) return;
     if (guarding && mode?.kind !== "gguard") {
       const picks = mode?.kind === "guard" ? mode.picks : [];
       const next = picks.includes(inst.uid) ? picks.filter((u) => u !== inst.uid) : picks.concat(inst.uid);
@@ -203,7 +215,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       return;
     }
     if (fieldChoice) { if (unit && fieldChoice.options.includes(unit.uid)) toggleChoicePick(unit.uid); return; }
-    if (choice || ordering) return;
+    if (choice || (ordering && !skippable) || (unit && queued.some((e) => e.uid === unit.uid))) return;
     const mine = p === actor;
     // ทริกเกอร์: คลิกการ์ดทริกเกอร์ก่อน แล้วจึงเลือกยูนิทรับผลได้
     if (mine && mode?.kind === "trigger" && trig) {

@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cardByKey as db } from "../../data/cards";
 import { countCards, presetDecks } from "../../data/decks";
-import { createGame } from "../../engine/game";
+import { createGame, refreshAwaiting } from "../../engine/game";
 import type { CardInstance, GameState } from "../../engine/types";
 import { replayTimeline } from "../../replay/play";
 import { loadReplays } from "../../replay/store";
@@ -227,6 +227,26 @@ describe("หน้าสนาม", () => {
     rawClick(gc()[0]);
     expect(gc()).toHaveLength(0);
     expect(slots(1)[0].querySelector(".card")!.getAttribute("title")).toBe(db[GUN].name);
+  });
+
+  it("คอลแล้วมีความสามารถแบบเลือกใช้รออยู่ (ฮอลโล่ว์) ยังคอลใบอื่นต่อได้ในเมนเฟส โดยถือว่าไม่ใช้", () => {
+    const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    const g3 = Object.keys(deck.main).find((k) => db[k].grade === 3 && db[k].type === "normal")!;
+    Object.assign(s, { mulliganDone: ["me", "bot"], turn: 3, turnPlayer: "me", phase: "main", step: "main" });
+    s.players.me.circles = { vc: inst(s, g3) };
+    s.players.me.hand = [inst(s, GUN), inst(s, BONE)];
+    refreshAwaiting(s);
+    render(s);
+
+    rawClick(handCard("me", db[GUN].name));
+    rawClick(slots(1)[0]);
+    expect(slots(1)[0].classList.contains("source")).toBe(true);   // ฮอลโล่ว์รอเลือกอยู่ (ขอบเหลือง)
+    rawClick(handCard("me", db[BONE].name));
+    rawClick(slots(1)[2]);
+    expect(slots(1)[0].querySelector(".card")!.getAttribute("title")).toBe(db[GUN].name);
+    expect(slots(1)[2].querySelector(".card")!.getAttribute("title")).toBe(db[BONE].name);
+    expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
+    expect(slots(1)[0].classList.contains("source")).toBe(false);   // ฮอลโล่ว์ถูกข้ามไปแล้ว
   });
 
   it("เปิด G โซนแล้วการ์ดคว่ำแสดงเป็นรูปการ์ดได้ และแผงขวาแสดงข้อความความสามารถ", () => {
