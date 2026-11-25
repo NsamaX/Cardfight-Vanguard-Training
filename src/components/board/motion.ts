@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 
 export const MOVE_MS = 400;
 export const MOVE_EASE = "cubic-bezier(.2,.7,.2,1)";
+export const FLIP_MS = 200;
 export const DEAL_GAP_MS = 90;   // หลายใบเข้ามือ/กลับเข้ากองพร้อมกัน (เริ่มเกม/เปลี่ยนการ์ด) ทยอยทีละใบ
 
 // จุดกึ่งกลางของการ์ดบนจอ turned = วางแนวนอน (เรสต์/ดาเมจ)
@@ -40,19 +41,34 @@ function fly(el: HTMLElement, from: Spot, to: Spot, look: HTMLElement = el, dela
   anim.finished.then(done, done);
 }
 
+// พลิกการ์ดที่อยู่กับที่จากคว่ำเป็นหงาย: ครึ่งแรกหลังการ์ดหดจนเหลือแนวตั้ง ครึ่งหลังหน้าการ์ดกางออก
+// ระหว่างครึ่งแรกวางหลังการ์ดทับหน้าการ์ดไว้ชั่วคราว
+function flip(el: HTMLElement) {
+  const back = document.createElement("span");
+  back.className = "back";
+  el.appendChild(back);
+  el.animate([{ transform: "scaleX(1)" }, { transform: "scaleX(0)" }], { duration: FLIP_MS / 2, easing: "ease-in" }).finished.then(() => {
+    back.remove();
+    el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: FLIP_MS / 2, easing: "ease-out" });
+  }, () => back.remove());
+}
+
 // จำตำแหน่งการ์ดทุกใบ (ตาม uid) ทุกครั้งที่ state เปลี่ยน ใบที่ตำแหน่งเปลี่ยนจะบินไปที่ใหม่
 // การ์ดในมือให้ Hand เลื่อนเอง (ใช้ตำแหน่งที่จำไว้นี้เป็นจุดเริ่มของการ์ดที่เข้ามือ) การ์ดในหน้าต่างไม่นับ
 // การ์ดจากมือกลับเข้ากอง: เงาเป็นหน้าตาตอนอยู่ในมือ และทยอยบินทีละใบจากซ้ายไปขวาแบบตอนจั่ว
+// ยูนิทที่หงายขึ้นโดยไม่ย้ายที่ (แวนการ์ดตอนเริ่มเกม) พลิกให้เห็น
 export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown) {
   const seen = useRef(new Map<string, Spot>()).current;
   const inHand = useRef(new Map<string, HTMLElement>()).current;   // สำเนาการ์ดในมือรอบก่อน (ตัวจริงหายไปแล้วเมื่อออกจากมือ)
+  const faceDown = useRef(new Set<string>()).current;
   useLayoutEffect(() => {
     const main = root.current;
     if (!main) return;
     const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const prev = new Map(seen), prevHand = new Map(inHand);
+    const prev = new Map(seen), prevHand = new Map(inHand), prevDown = new Set(faceDown);
     seen.clear();
     inHand.clear();
+    faceDown.clear();
     const toDeck: { el: HTMLElement; from: Spot; now: Spot; look: HTMLElement }[] = [];
     for (const el of main.querySelectorAll<HTMLElement>("[data-uid]")) {
       const uid = el.dataset.uid!;
@@ -65,7 +81,10 @@ export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown)
         const moving = el.closest(".hand-slot")?.getAnimations?.() ?? [];
         if (moving.length) Promise.all(moving.map((a) => a.finished)).then(() => { if (seen.get(uid) === now && el.isConnected) seen.set(uid, spotOf(el.getBoundingClientRect())); }, () => {});
       }
+      const down = !!el.querySelector(":scope > .back");
+      if (down) faceDown.add(uid);
       const from = prev.get(uid);
+      if (!still && prevDown.has(uid) && !down && el.closest(".slot") && from && Math.abs(from.x - now.x) < 1 && Math.abs(from.y - now.y) < 1 && typeof el.animate === "function") flip(el);
       if (still || !from || !(el.classList.contains("card") || el.closest(".deck")) || el.closest(".hand") || typeof el.animate !== "function") continue;
       if (Math.abs(from.x - now.x) < 1 && Math.abs(from.y - now.y) < 1) continue;
       const look = prevHand.get(uid);
