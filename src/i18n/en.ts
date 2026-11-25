@@ -118,6 +118,7 @@ export const en = {
   "cardEd.textHint": "The card's real ability text",
   "cardEd.needName": "Enter a card name",
   "cardEd.storageFull": "Browser storage is full (try a smaller image)",
+  "cardEd.writeFailed": "Couldn't write the card file (only works under npm run dev)",
   "cardEd.save": "Save",
   "log.setupTurn": "Setup",
   "log.turnLabel": "TURN {n}",

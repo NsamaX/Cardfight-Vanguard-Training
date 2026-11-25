@@ -1,4 +1,5 @@
 import type { Card } from "../engine/types";
+import { loadUserCards } from "../lib/cardStore";
 import content from "./content.json";
 
 // การ์ดทุกใบจาก content/cards/*/*.yaml (แปลงเป็น JSON โดย scripts/gen-content.mjs) เพิ่มการ์ดใหม่ = เพิ่มไฟล์ .yaml แล้วรีสตาร์ต dev server
@@ -28,10 +29,13 @@ export const cards: Card[] = (content.cards as unknown as CardFile[]).map(toCard
 
 export const cardByKey: Record<string, Card> = Object.fromEntries(cards.map((c) => [c.key, c]));
 
-// การ์ดที่ผู้เล่นสร้างในโปรแกรม (lib/cardStore.ts) เพิ่มเข้าคลังเดียวกันตอนเปิดโปรแกรมและตอนบันทึก
+// การ์ดที่ผู้เล่นสร้างในโปรแกรม (lib/cardStore.ts) เพิ่มเข้าคลังเดียวกันตอนโหลดโมดูลและตอนบันทึก
+// (โหลดที่นี่ ไม่ใช่ใน component เพราะเมื่อแก้การ์ดในคลัง content.json ถูกแปลงใหม่ และโมดูลนี้ถูกโหลดซ้ำ)
 export function putCard(c: Card) {
   const i = cards.findIndex((x) => x.key === c.key);
   if (i >= 0) cards[i] = c;
   else cards.push(c);
   cardByKey[c.key] = c;
 }
+
+if (typeof window !== "undefined") loadUserCards().forEach(putCard);

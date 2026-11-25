@@ -115,6 +115,7 @@ export const ja: Dict = {
   "cardEd.textHint": "カードに書かれた能力の文章",
   "cardEd.needName": "カード名を入力してください",
   "cardEd.storageFull": "ブラウザの保存領域がいっぱいです（小さい画像を試してください）",
+  "cardEd.writeFailed": "カードファイルを書き込めません（npm run dev のときのみ使えます）",
   "cardEd.save": "保存",
   "log.setupTurn": "準備",
   "log.turnLabel": "TURN {n}",

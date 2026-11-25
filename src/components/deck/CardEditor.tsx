@@ -1,6 +1,8 @@
 import { useState, type ChangeEvent } from "react";
 import { cards } from "../../data/cards";
+import { isOptional } from "../../engine/abilities";
 import type { Ability, AbilityKind, Card, CardType } from "../../engine/types";
+import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
 import { USER_SOURCE } from "../../lib/cardStore";
 
@@ -32,7 +34,7 @@ const templates = (pick: (a: Ability) => string[] | undefined) =>
   [...new Set(cards.filter((c) => c.source !== USER_SOURCE).flatMap((c) => c.abilities.flatMap((a) => pick(a) ?? [])).map(templateOf))].sort();
 
 const toDraft = (a: Ability): Draft => ({
-  kind: a.kind === "AUTO" && a.optional ? "AUTO+" : a.kind,
+  kind: a.kind === "AUTO" && isOptional(a) ? "AUTO+" : a.kind,
   zone: a.zone,
   timing: a.timing ?? "",
   cond: a.cond ?? [],
@@ -47,7 +49,8 @@ function toAbility(d: Draft): Ability {
   if (d.timing) ability.timing = d.timing;
   if (d.cond.some(Boolean)) ability.cond = d.cond.filter(Boolean);
   if (d.cost.some(Boolean)) ability.cost = d.cost.filter(Boolean);
-  if (d.kind === "AUTO+") ability.optional = true;
+  // มีคอสต์หรือผลแรกเป็นแบบ "ได้" ก็เลือกใช้ได้อยู่แล้ว ไม่ต้องเขียน optional ลงไฟล์
+  if (d.kind === "AUTO+" && !isOptional(ability)) ability.optional = true;
   return ability;
 }
 
@@ -91,11 +94,13 @@ async function shrink(file: File): Promise<string> {
   return canvas.toDataURL("image/webp", 0.85);
 }
 
-export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSave: (c: Card) => boolean; onCancel: () => void }) {
+export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSave: (c: Card) => Promise<MsgKey | null>; onCancel: () => void }) {
   const [card, setCard] = useState(initial);
   const [powerText, setPowerText] = useState(initial.power != null ? `${initial.power}${initial.powerPlus ? "+" : ""}` : "");
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.abilities.map(toDraft));
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const library = initial.source !== USER_SOURCE;
   const t = useT();
   const [codes] = useState(() => ({
     timing: templates((a) => (a.timing ? [a.timing] : undefined)),
@@ -122,7 +127,7 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
     }
   }
 
-  function save() {
+  async function save() {
     if (!card.name.trim()) return setError(t("cardEd.needName"));
     const power = powerText.trim();
     const out: Card = {
@@ -136,17 +141,22 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
       text: card.text.trim(),
       abilities: drafts.map(toAbility),
     };
-    if (!onSave(out)) setError(t("cardEd.storageFull"));
+    setSaving(true);
+    const err = await onSave(out);
+    setSaving(false);
+    if (err) setError(t(err));
   }
 
   return (
     <div className="veil card-ed-veil" onClick={onCancel}>
       <div className="card-ed" onClick={(e) => e.stopPropagation()}>
         <div className="card-ed-info">
-          <label className="card-ed-img" title={t("cardEd.image")}>
-            {card.image ? <img src={card.image} alt="" /> : <span className="mute">{t("cardEd.image")}</span>}
-            <input type="file" accept="image/*" onChange={upload} />
-          </label>
+          {library
+            ? <div className="card-ed-img fixed">{card.image && <img src={card.image} alt="" />}</div>
+            : <label className="card-ed-img" title={t("cardEd.image")}>
+                {card.image ? <img src={card.image} alt="" /> : <span className="mute">{t("cardEd.image")}</span>}
+                <input type="file" accept="image/*" onChange={upload} />
+              </label>}
           <label className="fld wide"><span>{t("cardEd.name")}</span><input value={card.name} onChange={(e) => set("name", e.target.value)} /></label>
           <label className="fld"><span>{t("cardEd.type")}</span>
             <select value={card.type} onChange={(e) => set("type", e.target.value as CardType)}>
@@ -176,7 +186,7 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
           <label className="fld wide"><span>{t("cardEd.text")}</span>
             <textarea rows={10} value={card.text} placeholder={t("cardEd.textHint")} onChange={(e) => set("text", e.target.value)} />
           </label>
-          <span className="mute mono code">{card.key}</span>
+          <span className="mute mono code">{library ? card.source : card.key}</span>
         </div>
 
         <div className="card-ed-skills">
@@ -215,7 +225,7 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
         <div className="card-ed-foot">
           {error && <span className="err">{error}</span>}
           <button className="btn" onClick={onCancel}>{t("deck.cancel")}</button>
-          <button className="btn primary" onClick={save}>{t("cardEd.save")}</button>
+          <button className="btn primary" disabled={saving} onClick={save}>{t("cardEd.save")}</button>
         </div>
       </div>
     </div>

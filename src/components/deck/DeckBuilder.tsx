@@ -3,6 +3,7 @@ import { cardByKey as db, cards, putCard } from "../../data/cards";
 import { countCards, validateDeck } from "../../data/decks";
 import { sleeveUrl, sleeves } from "../../data/sleeves";
 import type { Card, Deck } from "../../engine/types";
+import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
 import { USER_SOURCE, saveUserCard } from "../../lib/cardStore";
 import { G_ZONE_SIZE, MAIN_SIZE, MAX_COPIES, addCard, byGradeThenName, copiesIn, coverCard, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
@@ -31,11 +32,17 @@ export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, on
   const [cardEdit, setCardEdit] = useState<Card | null>(null);
   const t = useT();
 
-  function saveCard(c: Card) {
-    if (!saveUserCard(c)) return false;
+  // การ์ดที่สร้างเองเก็บในเบราว์เซอร์ การ์ดในคลังเขียนกลับลงไฟล์ .yaml
+  async function saveCard(c: Card): Promise<MsgKey | null> {
+    if (c.source === USER_SOURCE) {
+      if (!saveUserCard(c)) return "cardEd.storageFull";
+    } else {
+      const res = await fetch("/api/cards", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }).catch(() => null);
+      if (!res?.ok) return "cardEd.writeFailed";
+    }
     putCard(c);
     setCardEdit(null);
-    return true;
+    return null;
   }
 
   const pool = cards
@@ -74,7 +81,7 @@ export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, on
               <div key={c.key} className={`collect ${n >= MAX_COPIES ? "full" : ""}`}>
                 <CardView inst={displayInstance(c.key)} mark onClick={() => setDeck(addCard(deck, c.key))} />
                 <span className="copies">{n > 0 ? `x${n}` : ""}</span>
-                {c.source === USER_SOURCE && <button className="btn edit-card" title={t("cardEd.edit")} onClick={() => setCardEdit(c)}>✎</button>}
+                <button className="btn edit-card" title={t("cardEd.edit")} onClick={() => setCardEdit(c)}>✎</button>
               </div>
             );
           })}
