@@ -51,13 +51,13 @@ export function ReplayViewer({ tl, decks, settings, onContinue, onClose }: {
       <button className="btn" onClick={() => setSpeed(speed + 1)} disabled={speed === SPEEDS.length - 1} title={t("replay.faster")} aria-label={t("replay.faster")}>+</button>
     </div>
   </>;
-  const center = <button className="btn primary" disabled={!!s.winner} onClick={() => onContinue(step)}>{t("replay.continue")}</button>;
+  const action = <button className="btn primary" disabled={!!s.winner} onClick={() => onContinue(step)}>{t("replay.continue")}</button>;
 
   return (
     <Board
       initial={s} started settings={{ ...settings, bot: "off" }} decks={decks} deckOpen={false} onDeckOpen={noop}
       onStart={noop} onNewGame={noop} onApplySettings={noop} onSwapDecks={noop} onPickDeck={noop} onDeckChanged={noop}
-      view={{ log: tl.log.slice(0, tl.logAt[step]), center, foot }}
+      view={{ log: tl.log.slice(0, tl.logAt[step]), action, foot }}
     />
   );
 }

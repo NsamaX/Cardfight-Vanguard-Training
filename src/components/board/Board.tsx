@@ -50,7 +50,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   onPickDeck: (p: PlayerId, d: Deck) => void;
   onDeckChanged: (d: Deck) => void;  // เด็คถูกแก้/คืนค่า ฝั่งที่ใช้เด็คนี้อยู่ต้องได้ฉบับใหม่
   base?: { start?: GameState; actions: RecordedAction[] };   // เกมที่เล่นต่อจาก replay: ก้าวก่อนหน้าที่ต้องรวมไว้ใน replay ของเกมนี้
-  view?: { log: LogEntry[]; center: ReactNode; foot: ReactNode };   // หน้าดูย้อนหลัง: แสดงสนามอย่างเดียว center = กลางแถบกลาง, foot = ล่างแผงขวา
+  view?: { log: LogEntry[]; action: ReactNode; foot: ReactNode };   // หน้าดูย้อนหลัง: แสดงสนามอย่างเดียว action = ช่องขวาของแถบกลาง, foot = ล่างแผงขวา
   onOpenReplay?: (src: ReplaySource) => void;
 }) {
   // บอทเริ่มคิดเมื่อกด Start แล้ว (หน้าสนามถูกสร้างใหม่ทุกเกม บอทจึงเริ่มจำใหม่ทุกเกม)
@@ -152,7 +152,6 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
               {started && !deckOpen && board.botTurn && <span className="prompt">{t("ui.botThinking")}</span>}
               {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
               <div className="steps">
-                {view?.center}
                 {deckOpen && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
                 {!started && !deckOpen && <button className="btn primary" onClick={onStart}>{t("btn.start")}</button>}
                 {started && !deckOpen && board.mulligan && (
@@ -171,6 +170,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             {deckOpen ? <div /> : <BattleSide p="me" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} />}
           </div>
           <div className="mid-actions">
+            {view?.action}
             {started && !deckOpen && !board.mulligan && question && !question.step && question.buttons.map((q) => {
               const label = typeof q.label === "string" ? q.label : t(q.label);
               return <button key={label} className="btn primary" onClick={q.onClick} title={label}>{label}</button>;

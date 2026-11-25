@@ -134,7 +134,7 @@ export const en = {
   "replay.faster": "Faster",
   "replay.pos": "Step {i}/{n} · Turn {turn}",
   "replay.broken": "The app's rules changed after this game was recorded; it replays up to the last step shown",
-  "replay.continue": "Play from here",
+  "replay.continue": "Resume",
   "replay.close": "Close replay",
   "tip.power": "{v}",
   "tip.critical": "Critical {v}",

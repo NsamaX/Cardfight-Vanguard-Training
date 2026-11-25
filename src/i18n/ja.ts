@@ -131,7 +131,7 @@ export const ja: Dict = {
   "replay.faster": "速く",
   "replay.pos": "{i}/{n}手 · ターン{turn}",
   "replay.broken": "記録後にルールが変更されたため、表示されている最後の手まで再生できます",
-  "replay.continue": "ここから続ける",
+  "replay.continue": "再開",
   "replay.close": "リプレイを閉じる",
   "tip.power": "{v}",
   "tip.critical": "クリティカル {v}",
