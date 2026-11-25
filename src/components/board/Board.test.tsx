@@ -273,6 +273,28 @@ describe("หน้าสนาม", () => {
     expect(host.querySelectorAll(".modal .card")).toHaveLength(countCards(deck.main));
   });
 
+  it("เปลี่ยนการ์ดบนมือ: การ์ดที่เลือกกลับเข้ากองก่อน แล้วจึงจั่วใหม่", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = createGame(db, { seed: 3, firstPlayer: "me", decks: { me: deck, bot: deck } });
+      render(s);
+      const deckCount = () => host.querySelectorAll(".stack.me .deck .back").length;
+      const before = deckCount();
+      rawClick(host.querySelectorAll(".hand.me .card")[0]);
+      rawClick(host.querySelectorAll(".hand.me .card")[1]);
+      rawClick(button("Change"));
+      expect(host.querySelectorAll(".hand.me .card")).toHaveLength(3);
+      expect(deckCount()).toBe(before + 2);
+      await act(async () => { await vi.advanceTimersByTimeAsync(400); });
+      expect(host.querySelectorAll(".hand.me .card")).toHaveLength(3);   // ใบที่สองยังบินไม่ถึงกอง
+      await act(async () => { await vi.advanceTimersByTimeAsync(90); });
+      expect(host.querySelectorAll(".hand.me .card")).toHaveLength(5);
+      expect(deckCount()).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("กด Start: แวนการ์ดเริ่มต้นไปที่ VC ก่อน แล้วจึงจั่ว 5 ใบ", async () => {
     vi.useFakeTimers();
     try {
@@ -300,7 +322,7 @@ describe("หน้าสนาม", () => {
       expect(botHand.every((c) => c.getAttribute("title") === "Face-down card")).toBe(true);
       expect(button("Ready")).toBeUndefined();
       expect(host.textContent).toContain("Bot is thinking");
-      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
       expect(host.querySelector(".log")!.textContent).toContain("Bot redrew");
       expect(button("Ready")).toBeTruthy();
     } finally {

@@ -40,6 +40,7 @@ export function GZoneRow({ ps, toward, light, onOpen, onInspect }: {
 const PILE_BADGE = { bind: "badge.bind", deck: "badge.deck", drop: "badge.drop" } as const;
 
 // ไบนด์ / กองการ์ด / ดรอป: ป้ายจำนวนเหนือช่อง (แบบ GB/SB) + ใบบนสุด (กองการ์ดแสดงหลังการ์ด) คลิกเพื่อดูทั้งโซน
+// กองการ์ดวางหลังการ์ดทุกใบซ้อนกัน (ใบบนสุดอยู่หน้า) การ์ดที่เข้า/ออกจากกองจึงบินจากและไปที่กองได้
 export function PileSlot({ ps, zone, light, onOpen }: { ps: PlayerState; zone: keyof typeof PILE_BADGE; light: Light; onOpen: () => void }) {
   const list = ps[zone];
   const top = list.at(-1);
@@ -47,7 +48,7 @@ export function PileSlot({ ps, zone, light, onOpen }: { ps: PlayerState; zone: k
   return (
     <div className={`pile-group ${zone}`} onClick={onOpen}>
       <span className="badge">{t(PILE_BADGE[zone])} {list.length}</span>
-      <div className={`zone-slot ${light ?? ""}`}>{top && (zone === "deck" ? <span className="back" data-uid={list[0].uid} /> : <CardView inst={top} noRotate plain />)}</div>
+      <div className={`zone-slot ${light ?? ""}`}>{top && (zone === "deck" ? list.slice().reverse().map((c) => <span key={c.uid} className="back" data-uid={c.uid} />) : <CardView inst={top} noRotate plain />)}</div>
     </div>
   );
 }

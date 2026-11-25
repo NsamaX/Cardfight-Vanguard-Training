@@ -9,7 +9,8 @@ import { fmt } from "../lib/format";
 import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, strideCostGrade } from "../engine/rules";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
-import { canBoost, canIntercept, columnOf, findCard, isTarget, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
+import { DEAL_GAP_MS, MOVE_MS } from "../components/board/motion";
+import { canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
 
 const BOT_DELAY_MS = 450;   // เว้นจังหวะระหว่างการกระทำของบอท ให้มองตามทัน
 
@@ -35,6 +36,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [focus, setFocus] = useState<string>();
   const [opened, setOpened] = useState(false);                                           // เพิ่งคลิกการ์ดเปิดความสามารถที่รออยู่: คำถามแรกกด Cancel ย้อนกลับได้
   const [trigArmed, setTrigArmed] = useState(false);
+  const [staged, setStaged] = useState(false);                                          // กำลังแสดงก้าวกลาง (การ์ดกลับเข้ากองก่อนจั่วใหม่): ย้อนกลับ/ไปหน้าไม่ได้
   const [choiceMin, setChoiceMin] = useState(false);                                    // ย่อหน้าต่างเลือกการ์ดไว้ดูสนาม                                    // คลิกการ์ดทริกเกอร์แล้ว เมาส์แสดงผลที่จะให้                                         // การ์ดที่คลิกเลือกความสามารถที่รออยู่
 
   const actor = s.awaiting?.player;
@@ -112,7 +114,11 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       setFuture([]);
       setLog(log.concat(entries));
       setActions(actions.concat(done));
-      setS(st);
+      if (action.type === "mulligan" && action.returnUids.length) {
+        setS(returningToDeck(s, actor, action.returnUids));
+        setStaged(true);
+        setTimeout(() => { setS(st); setStaged(false); }, MOVE_MS + (action.returnUids.length - 1) * DEAL_GAP_MS);   // จั่วใหม่เมื่อใบสุดท้ายถึงกอง
+      } else setS(st);
       clearUi();
     } catch (e) {
       if (e instanceof RuleError) setError(e.msg); else throw e;
@@ -426,8 +432,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     mulligan: !botTurn && !readOnly && s.awaiting?.kind === "mulligan" && mode?.kind === "mulligan"
       ? { picks: mode.picks.length, confirm: () => act({ type: "mulligan", returnUids: mode.picks }) }
       : undefined,
-    undo: past.length && !readOnly ? () => travel(true) : undefined,
-    redo: future.length && !readOnly ? () => travel(false) : undefined,
+    undo: past.length && !readOnly && !staged ? () => travel(true) : undefined,
+    redo: future.length && !readOnly && !staged ? () => travel(false) : undefined,
     act, unguard, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
     canNext: !botTurn && !readOnly && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
     botTurn, hideBotHand: !!bot,

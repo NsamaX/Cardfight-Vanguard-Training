@@ -16,6 +16,16 @@ export function undealt(state: GameState, starterOnVc: boolean): GameState {
   return s;
 }
 
+// ก้าวกลางของการเปลี่ยนการ์ดบนมือ: การ์ดที่เลือกกลับเข้ากองก่อน (ยังไม่จั่วใหม่) ไม่มีใครต้องตอบอะไรระหว่างนี้
+export function returningToDeck(state: GameState, p: PlayerId, uids: string[]): GameState {
+  const s = structuredClone(state);
+  s.awaiting = undefined;
+  const ps = s.players[p];
+  ps.deck.push(...ps.hand.filter((c) => uids.includes(c.uid)));
+  ps.hand = ps.hand.filter((c) => !uids.includes(c.uid));
+  return s;
+}
+
 export type Zone = "deck" | "drop" | "soul" | "damage" | "gZone" | "bind";
 export type Sel =
   | { kind: "hand"; player: PlayerId; uid: string }

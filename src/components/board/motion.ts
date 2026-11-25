@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 
 export const MOVE_MS = 400;
 export const MOVE_EASE = "cubic-bezier(.2,.7,.2,1)";
+export const DEAL_GAP_MS = 90;   // หลายใบเข้ามือ/กลับเข้ากองพร้อมกัน (เริ่มเกม/เปลี่ยนการ์ด) ทยอยทีละใบ
 
 // จุดกึ่งกลางของการ์ดบนจอ turned = วางแนวนอน (เรสต์/ดาเมจ)
 export interface Spot { x: number; y: number; turned: boolean }
@@ -11,10 +12,12 @@ const flights = new WeakMap<HTMLElement, HTMLElement>();
 
 // การ์ดที่ย้ายที่บนกระดาน: ซ่อนตัวจริงไว้ แล้วให้เงาของมันบินจากตำแหน่งเดิมมาที่ใหม่
 // เงาอยู่ใน body จึงไม่ถูกขอบของโซนต้นทาง/ปลายทางตัดและลอยเหนือการ์ดอื่น
-function fly(el: HTMLElement, from: Spot, to: Spot) {
+// look: หน้าตาของเงา (ไม่ระบุ = หน้าตาของการ์ดที่ที่ใหม่) delay: รอก่อนออกบิน ระหว่างรอเงาค้างอยู่ที่เดิม
+function fly(el: HTMLElement, from: Spot, to: Spot, look: HTMLElement = el, delay = 0) {
   const w = el.offsetWidth, h = el.offsetHeight;
-  const ghost = el.cloneNode(true) as HTMLElement;
+  const ghost = look.cloneNode(true) as HTMLElement;
   ghost.removeAttribute("data-uid");
+  ghost.classList.remove("sel", "picked", "source", "active");
   ghost.classList.add("ghost");
   const css = getComputedStyle(el);
   for (const v of ["--sleeve", "--g-sleeve"]) ghost.style.setProperty(v, css.getPropertyValue(v));
@@ -27,7 +30,7 @@ function fly(el: HTMLElement, from: Spot, to: Spot) {
   const anim = ghost.animate([
     { transform: `translate(${from.x - to.x}px, ${from.y - to.y}px)${turn(from.turned)}` },
     { transform: `translate(0px, 0px)${turn(to.turned)}` },
-  ], { duration: MOVE_MS, easing: MOVE_EASE, fill: "forwards" });
+  ], { duration: MOVE_MS, delay, easing: MOVE_EASE, fill: "both" });
   const done = () => {
     ghost.remove();
     if (flights.get(el) !== ghost) return;
@@ -39,24 +42,37 @@ function fly(el: HTMLElement, from: Spot, to: Spot) {
 
 // จำตำแหน่งการ์ดทุกใบ (ตาม uid) ทุกครั้งที่ state เปลี่ยน ใบที่ตำแหน่งเปลี่ยนจะบินไปที่ใหม่
 // การ์ดในมือให้ Hand เลื่อนเอง (ใช้ตำแหน่งที่จำไว้นี้เป็นจุดเริ่มของการ์ดที่เข้ามือ) การ์ดในหน้าต่างไม่นับ
+// การ์ดจากมือกลับเข้ากอง: เงาเป็นหน้าตาตอนอยู่ในมือ และทยอยบินทีละใบจากซ้ายไปขวาแบบตอนจั่ว
 export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown) {
   const seen = useRef(new Map<string, Spot>()).current;
+  const inHand = useRef(new Map<string, HTMLElement>()).current;   // สำเนาการ์ดในมือรอบก่อน (ตัวจริงหายไปแล้วเมื่อออกจากมือ)
   useLayoutEffect(() => {
     const main = root.current;
     if (!main) return;
     const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const prev = new Map(seen);
+    const prev = new Map(seen), prevHand = new Map(inHand);
     seen.clear();
+    inHand.clear();
+    const toDeck: { el: HTMLElement; from: Spot; now: Spot; look: HTMLElement }[] = [];
     for (const el of main.querySelectorAll<HTMLElement>("[data-uid]")) {
       const uid = el.dataset.uid!;
       if (seen.has(uid) || el.closest(".veil")) continue;
       const now = spotOf(el.getBoundingClientRect());
       seen.set(uid, now);
+      if (el.closest(".hand")) {
+        inHand.set(uid, el.cloneNode(true) as HTMLElement);
+        // การ์ดที่เพิ่งเข้ามือยังเลื่อนอยู่ (ตำแหน่งที่วัดได้ยังเป็นที่เดิม): วัดใหม่เมื่อเลื่อนเสร็จ
+        const moving = el.closest(".hand-slot")?.getAnimations?.() ?? [];
+        if (moving.length) Promise.all(moving.map((a) => a.finished)).then(() => { if (seen.get(uid) === now && el.isConnected) seen.set(uid, spotOf(el.getBoundingClientRect())); }, () => {});
+      }
       const from = prev.get(uid);
-      if (still || !from || !el.classList.contains("card") || el.closest(".hand") || typeof el.animate !== "function") continue;
+      if (still || !from || !(el.classList.contains("card") || el.closest(".deck")) || el.closest(".hand") || typeof el.animate !== "function") continue;
       if (Math.abs(from.x - now.x) < 1 && Math.abs(from.y - now.y) < 1) continue;
-      fly(el, from, now);
+      const look = prevHand.get(uid);
+      if (look && el.closest(".deck")) toDeck.push({ el, from, now, look });
+      else fly(el, from, now, look);
     }
+    toDeck.sort((a, b) => a.from.x - b.from.x).forEach((f, i) => fly(f.el, f.from, f.now, f.look, i * DEAL_GAP_MS));
   }, [dep]);
   return seen;
 }

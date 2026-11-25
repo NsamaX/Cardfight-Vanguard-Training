@@ -2,10 +2,9 @@ import { useLayoutEffect, useRef } from "react";
 import type { CardInstance, PlayerId } from "../../engine/types";
 import type { Light } from "../../lib/board";
 import { CardView } from "../CardView";
-import { MOVE_EASE, MOVE_MS, type Spot } from "./motion";
+import { DEAL_GAP_MS, MOVE_EASE, MOVE_MS, type Spot } from "./motion";
 
 const PER_ROW = 10;
-const DEAL_GAP_MS = 90;   // แจกหลายใบพร้อมกัน (เริ่มเกม/เปลี่ยนการ์ด) ทยอยทีละใบ
 
 // มือชิดขอบจอ แถวละไม่เกิน 10 ใบ (ถ้าที่ไม่พอการ์ดจะซ้อนกัน) ใบที่ 11 ขึ้นไปอยู่แถวหลัง โผล่ 30% ชี้เมาส์แล้วเด้งให้เห็นเต็มใบ
 export function Hand({ p, hidden, cards, seen, selUid, lightOf, picks, onClick, onHover }: {
