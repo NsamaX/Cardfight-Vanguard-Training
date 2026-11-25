@@ -196,7 +196,7 @@ describe("หน้าสนาม", () => {
 
     expect(slots(0)[5].querySelector(".card")).toBeNull();        // เรียร์การ์ดหน้าซ้ายของบอทถูกยิง
     expect(slots(1)[0].textContent).toContain("Hollow");
-    expect(slots(1)[4].querySelector(".card")!.getAttribute("title")).toBe(db[TOMMY].name);
+    expect(slots(1)[1].querySelector(".card")!.getAttribute("title")).toBe(db[TOMMY].name);
     expect(host.querySelector(".side .damage")).toBeTruthy();
     expect(host.querySelectorAll(".side")[1].querySelectorAll(".pip.up")).toHaveLength(2);
     expect(host.querySelector(".log")!.textContent).toContain("No hit");
@@ -261,15 +261,32 @@ describe("หน้าสนาม", () => {
     }
   });
 
-  it("ก่อนกด Start เปิดดูกองการ์ดของเราได้ทั้งเด็ค แต่กองการ์ดบอทยังคว่ำ", () => {
+  it("ก่อนกด Start VC ว่างและเปิดดูกองการ์ดของเราได้ทั้งเด็ค แต่กองการ์ดบอทยังคว่ำ", () => {
     const s = createGame(db, { seed: 2, firstPlayer: "me", decks: { me: deck, bot: deck } });
-    s.players.me.deck.unshift(...s.players.me.hand.splice(0));
     render(s, false);
+    expect(slots(1)[1].querySelector(".card")).toBeNull();
+    expect(host.querySelectorAll(".hand.me .card")).toHaveLength(0);
     rawClick(host.querySelector(".stack.me .deck .zone-slot"));
-    expect(host.querySelectorAll(".modal .card")).toHaveLength(s.players.me.deck.length);
+    expect(host.querySelectorAll(".modal .card")).toHaveLength(countCards(deck.main));
     rawClick(host.querySelector(".modal button"));
     rawClick(host.querySelector(".stack.bot .deck .zone-slot"));
     expect(host.querySelectorAll(".modal .card")).toHaveLength(0);
+  });
+
+  it("กด Start: แวนการ์ดเริ่มต้นไปที่ VC ก่อน แล้วจึงจั่ว 5 ใบ", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = createGame(db, { seed: 2, firstPlayer: "me", decks: { me: deck, bot: deck } });
+      render(s, false);
+      render(s, true);
+      expect(slots(1)[1].querySelector(".card")!.getAttribute("title")).toBe("Face-down card");   // แวนการ์ดเริ่มต้นวางคว่ำ
+      expect(host.querySelectorAll(".hand.me .card")).toHaveLength(0);
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(host.querySelectorAll(".hand.me .card")).toHaveLength(5);
+      expect(button("Ready")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("เล่นกับบอท: มือบอทคว่ำ ตาบอทไม่มีปุ่มให้กดแทน และบอทเปลี่ยนการ์ดเองแล้วถึงตาคุณ", async () => {

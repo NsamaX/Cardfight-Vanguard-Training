@@ -7,7 +7,7 @@ import { generationBreak } from "../../engine/rules";
 import type { Deck, GameState, PlayerId } from "../../engine/types";
 import { useBoard } from "../../hooks/useBoard";
 import { useT } from "../../i18n/react";
-import { nextLabel, type LogEntry, type Zone } from "../../lib/board";
+import { nextLabel, undealt, type LogEntry, type Zone } from "../../lib/board";
 import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { loadUserDecks, saveUserDecks } from "../../lib/deckStore";
 import { moveG } from "../../lib/deckEdit";
@@ -21,7 +21,7 @@ import { DamageZone } from "./DamageZone";
 import { FieldSide } from "./FieldSide";
 import { Hand } from "./Hand";
 import { LogPanel } from "./LogPanel";
-import { useCardFlight } from "./motion";
+import { MOVE_MS, useCardFlight } from "./motion";
 import { PhaseTrack } from "./PhaseTrack";
 import { ReplayModal } from "./ReplayModal";
 import { SettingsDialog, type GameSettings } from "./SettingsDialog";
@@ -38,8 +38,8 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, onDeckReordered, base, view, onOpenReplay }: {
-  initial: GameState;
-  started: boolean;            // false = รอกด Start (ยังไม่แจกการ์ด)
+  initial: GameState;          // สนามหลังแจกการ์ด
+  started: boolean;            // false = รอกด Start (แสดงสนามที่ยังไม่แจกการ์ด)
   onStart: () => void;
   settings: GameSettings;
   decks: Record<PlayerId, Deck>;
@@ -57,7 +57,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
 }) {
   // บอทเริ่มคิดเมื่อกด Start แล้ว (หน้าสนามถูกสร้างใหม่ทุกเกม บอทจึงเริ่มจำใหม่ทุกเกม)
   const bot = useMemo(() => (started && !view ? new VanguardBot(db, settings.bot ?? "normal", decks) : undefined), [started, view, settings.bot]);   // ลำดับ G โซนเปลี่ยนไม่ต้องสร้างบอทใหม่ (เปลี่ยนเด็คจริงจะเริ่มหน้าสนามใหม่อยู่แล้ว)
-  const board = useBoard(initial, bot, view && { log: view.log });
+  const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log });
   const t = useT();
   const [showSettings, setShowSettings] = useState(false);
   const [showReplays, setShowReplays] = useState(false);
@@ -96,6 +96,14 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const { s, actor, mode, selUid, picks } = board;
   const mainRef = useRef<HTMLElement>(null);
   const seen = useCardFlight(mainRef, s);
+  // กด Start: แวนการ์ดเริ่มต้นออกจากกองไปที่ VC ก่อน แล้วจึงจั่ว 5 ใบ (ไม่มีตัวจับเวลาให้ยกเลิก เพราะหน้าสนามรอกด Start ได้ครั้งเดียว)
+  const dealPending = useRef(!started);
+  useEffect(() => {
+    if (!started || !dealPending.current) return;
+    dealPending.current = false;
+    board.setState(undealt(initial, true));
+    setTimeout(() => board.setState(initial), MOVE_MS);
+  }, [started]);
   const next = nextLabel(db, s);
   const question = board.question();
   const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;   // ปุ่มจบการป้องกัน (Pass) อยู่ขวาสุดกับปุ่มป้องกัน

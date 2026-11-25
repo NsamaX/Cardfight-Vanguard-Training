@@ -21,13 +21,6 @@ interface Running {
   base?: { start?: GameState; actions: RecordedAction[] };   // เล่นต่อจาก replay
 }
 
-// ก่อนกด Start แสดงสนามที่ยังไม่แจกการ์ด: เอาการ์ดบนมือกลับไปไว้บนกองการ์ด
-function beforeDeal(state: GameState): GameState {
-  const s = structuredClone(state);
-  for (const ps of Object.values(s.players)) ps.deck.unshift(...ps.hand.splice(0));
-  return s;
-}
-
 // เปิดมาที่หน้าสนามเลย เริ่มด้วยเด็คสำเร็จรูปใบแรกทั้งสองฝั่ง seed สุ่ม คุณเล่นก่อน บอทระดับ Normal กด Start เพื่อเริ่มเกม
 export function GameApp() {
   const [game, setGame] = useState<Running | null>(null);
@@ -73,9 +66,9 @@ export function GameApp() {
         key={game.n}
         base={game.base}
         onOpenReplay={(src) => setViewing({ src, tl: timelineOf(db, src) })}
-        initial={game.started ? game.state : beforeDeal(game.state)}
+        initial={game.state}
         started={game.started}
-        onStart={() => setGame({ ...game, started: true, n: game.n + 1 })}
+        onStart={() => setGame({ ...game, started: true })}
         settings={settings}
         decks={decks}
         deckOpen={deckOpen}

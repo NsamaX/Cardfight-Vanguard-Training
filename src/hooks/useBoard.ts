@@ -433,6 +433,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     botTurn, hideBotHand: !!bot,
     actions, readOnly,
     setInspect, setPile,
+    setState: setS,   // แทนสนามทั้งหมด ใช้ตอนแจกการ์ดหลังกด Start
   };
 }
 

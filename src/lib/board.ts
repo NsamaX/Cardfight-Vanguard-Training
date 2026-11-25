@@ -4,6 +4,18 @@ import { locate, playerMsg } from "../engine/state";
 import type { CardInstance, Choice, Circle, GameEvent, GameState, PlayerId } from "../engine/types";
 import { msg, type Msg, type MsgKey } from "../i18n/msg";
 
+// สนามก่อนแจกการ์ด: การ์ดบนมือกลับไปบนกองการ์ด starterOnVc = false ให้แวนการ์ดเริ่มต้นกลับไปบนสุดของกองด้วย
+// ไม่มีใครต้องตอบอะไร (บอทจะได้ไม่เริ่มคิดก่อนแจกเสร็จ)
+export function undealt(state: GameState, starterOnVc: boolean): GameState {
+  const s = structuredClone(state);
+  s.awaiting = undefined;
+  for (const ps of Object.values(s.players)) {
+    ps.deck.unshift(...ps.hand.splice(0));
+    if (!starterOnVc && ps.circles.vc) { ps.deck.unshift(ps.circles.vc); delete ps.circles.vc; }
+  }
+  return s;
+}
+
 export type Zone = "deck" | "drop" | "soul" | "damage" | "gZone" | "bind";
 export type Sel =
   | { kind: "hand"; player: PlayerId; uid: string }
