@@ -261,7 +261,7 @@ describe("หน้าสนาม", () => {
     }
   });
 
-  it("ก่อนกด Start VC ว่างและเปิดดูกองการ์ดของเราได้ทั้งเด็ค แต่กองการ์ดบอทยังคว่ำ", () => {
+  it("ก่อนกด Start VC ว่างและเปิดดูกองการ์ดได้ทั้งเด็คทั้งสองฝั่ง", () => {
     const s = createGame(db, { seed: 2, firstPlayer: "me", decks: { me: deck, bot: deck } });
     render(s, false);
     expect(slots(1)[1].querySelector(".card")).toBeNull();
@@ -270,7 +270,7 @@ describe("หน้าสนาม", () => {
     expect(host.querySelectorAll(".modal .card")).toHaveLength(countCards(deck.main));
     rawClick(host.querySelector(".modal button"));
     rawClick(host.querySelector(".stack.bot .deck .zone-slot"));
-    expect(host.querySelectorAll(".modal .card")).toHaveLength(0);
+    expect(host.querySelectorAll(".modal .card")).toHaveLength(countCards(deck.main));
   });
 
   it("กด Start: แวนการ์ดเริ่มต้นไปที่ VC ก่อน แล้วจึงจั่ว 5 ใบ", async () => {
