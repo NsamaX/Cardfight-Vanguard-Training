@@ -202,8 +202,8 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .slot.target, .slot.source { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
 /* ความสามารถ: ขอบเหลือง = รอให้คลิกเลือก, ขอบส้ม = เลือกอยู่/กำลังทำงาน (การ์ดในกอง/ดาเมจ/โซล ไฮไลต์ทั้งโซน) */
 .slot.atk { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
-/* ยูนิทที่ถูกโจมตี: แดงคู่กับตัวโจมตี (เหลือง = สิ่งที่คลิกได้ เช่น อินเตอร์เซปต์) */
-.slot.aimed { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+/* ยูนิทที่ถูกโจมตี: น้ำเงิน ตรงข้ามตัวโจมตีสีแดง (เหลือง = สิ่งที่คลิกได้ เช่น อินเตอร์เซปต์) */
+.slot.aimed { border: 2px solid #3b9eff; background: color-mix(in srgb, #3b9eff 12%, transparent); }
 .slot.active { border: 2px solid var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
 /* ยูนิทในการต่อสู้ที่มีความสามารถรอ (เช่น เนโครโบนตอนจบการต่อสู้) แสดงขอบเหลืองแทนขอบแดง ตัวโจมตีที่เลือกรับผลทริกเกอร์ได้ยังเป็นขอบแดง */
 .slot.atk.source, .slot.aimed.source, .slot.aimed.target { border-color: var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
@@ -265,18 +265,19 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .mid-center .prompt { min-width: 0; max-width: min(520px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
 .mid-center .prompt.long { white-space: normal; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .num { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.num.bot { grid-column: 1; justify-self: end; color: #e5484d; }   /* สีเดียวกับออร่าเทิร์น: บอท = แดง เรา = ฟ้า */
-.num.me { grid-column: 2; justify-self: start; color: #3b9eff; }
+.num.atk { grid-column: 1; justify-self: end; color: #e5484d; }   /* สีเดียวกับขอบในสนาม: โจมตี = แดง ป้องกัน = น้ำเงิน */
+.num.def { grid-column: 2; justify-self: start; color: #3b9eff; }
 .num .big { font-family: "IBM Plex Mono", monospace; font-size: 19px; font-weight: 600; }
 .num .ico { width: 18px; height: 18px; flex: none; }
 /* การ์ดขนาดเท่าบนสนาม ล้นแถบขึ้นลงได้แต่ไม่ดันความสูงแถบ ถ้าที่ไม่พอการ์ดซ้อนกัน (ใบที่ใกล้กลางเห็นเต็ม) */
 .bside { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: center; }
-.bside.bot { justify-content: flex-end; }
-.bside.me { flex-direction: row-reverse; justify-content: flex-end; }
+.bside.left { justify-content: flex-end; }
+.bside.right { flex-direction: row-reverse; justify-content: flex-end; }
 .bside > span { flex: 0 1 calc(var(--card-w) + 6px); min-width: 0; }
 .bside > span:last-child { flex: none; }
-.bside.me > span:last-child { flex: 0 1 calc(var(--card-w) + 6px); }
-.bside.me > span:first-child { flex: none; }
+.bside.right > span:last-child { flex: 0 1 calc(var(--card-w) + 6px); }
+.bside.right > span:first-child { flex: none; }
+.thinking { position: absolute; top: 8px; left: 16px; z-index: 3; padding: 4px 10px; border-radius: 6px; background: var(--panel); white-space: nowrap; }
 .res-tag { padding: 1px 7px; border-radius: 4px; background: var(--ink); color: var(--inv); font-size: 11px; font-weight: 600; margin-left: 6px; }
 /* มือชิดขอบจอ แถวละ 10 ใบ ถ้าที่ไม่พอการ์ดจะซ้อนกัน แถวถัดไปลอยซ้อนเข้าหากลางสนาม */
 .hand { position: relative; z-index: 3; min-width: 0; padding-top: 6px; min-height: calc(var(--card-h) + 6px); }

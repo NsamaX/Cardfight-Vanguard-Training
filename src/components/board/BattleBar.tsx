@@ -12,8 +12,8 @@ const Shield = ({ label }: { label: string }) => (
   <svg className="ico" viewBox="0 0 24 24" aria-label={label}><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>
 );
 
-// แถบการต่อสู้ แยกตามผู้เล่น: บอทอยู่ซ้าย เราอยู่ขวา
-// ตัวเลข (BattleNum) อยู่กลางแถบแบบเฉียง: บอทซ้ายบน เราขวาล่าง / การ์ด (BattleSide) อยู่ด้านนอก
+// แถบการต่อสู้ แยกตามบทบาท: ฝ่ายโจมตีอยู่ซ้าย ฝ่ายป้องกันอยู่ขวา
+// ตัวเลข (BattleNum) อยู่กลางแถบแบบเฉียง: โจมตีซ้ายบน ป้องกันขวาล่าง / การ์ด (BattleSide) อยู่ด้านนอก
 // ฝ่ายโจมตี (เจ้าของเทิร์น): Power + การ์ดไดรฟ์เช็ค / ฝ่ายป้องกัน: Power+Shield + การ์ดบน GC + ดาเมจเช็ค
 // preview: การ์ดที่เลือกจะการ์ดแต่ยังไม่ยืนยัน (พิทักษ์ หรือไม่ฮิทแน่นอนแล้ว แสดง --)
 export function BattleNum({ p, s, preview }: { p: PlayerId; s: GameState; preview?: { shield: number; sentinel: boolean } }) {
@@ -21,8 +21,8 @@ export function BattleNum({ p, s, preview }: { p: PlayerId; s: GameState; previe
   const t = useT();
   if (!b) return null;
   return p === s.turnPlayer
-    ? <span className={`num ${p}`}><span className="big">{fmt(b.attack)}</span><Sword label={t("battle.attack")} /></span>
-    : <span className={`num ${p}`}><span className="big">{s.battle?.noHit || preview?.sentinel ? "--" : fmt(b.total + (preview?.shield ?? 0))}</span><Shield label={t("battle.defense")} /></span>;
+    ? <span className={`num atk ${p}`}><span className="big">{fmt(b.attack)}</span><Sword label={t("battle.attack")} /></span>
+    : <span className={`num def ${p}`}><span className="big">{s.battle?.noHit || preview?.sentinel ? "--" : fmt(b.total + (preview?.shield ?? 0))}</span><Shield label={t("battle.defense")} /></span>;
 }
 
 export function BattleSide({ p, s, lightOf, onInspect, onCheck, onGuardian }: {
@@ -34,8 +34,9 @@ export function BattleSide({ p, s, lightOf, onInspect, onCheck, onGuardian }: {
   onGuardian?: (uid: string) => boolean;  // คลิกการ์ดบน GC: ถอนกลับที่เดิม (false = ถอนไม่ได้ ดูรายละเอียดแทน)
 }) {
   const b = battleSummary(db, s);
-  if (!b) return <div className={`bside ${p}`} />;
   const atk = p === s.turnPlayer;
+  const cls = `bside ${atk ? "left" : "right"} ${p}`;
+  if (!b) return <div className={cls} />;
   const trigs = (during: "drive" | "damage") => (s.battle?.triggers ?? []).filter((t) => t.during === during).map((t) => (
     <span key={t.card.uid}><CardView inst={t.card} plain noRotate dim={t.done} light={t.done ? undefined : lightOf(t.card.uid)}
       onClick={() => (t.done ? onInspect : onCheck ?? onInspect)(t.card.uid)} /></span>
@@ -44,5 +45,5 @@ export function BattleSide({ p, s, lightOf, onInspect, onCheck, onGuardian }: {
     ...b.guardians.map((g) => <span key={g.uid}><CardView inst={g} plain noRotate light={lightOf(g.uid)} onClick={() => { if (!onGuardian?.(g.uid)) onInspect(g.uid); }} /></span>),
     ...trigs("damage"),
   ];
-  return <div className={`bside ${p}`}>{cards}</div>;
+  return <div className={cls}>{cards}</div>;
 }

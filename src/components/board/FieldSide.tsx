@@ -13,7 +13,7 @@ interface Props {
   lightOf: (uid: string) => Light;        // ขอบเหลือง/ส้มของการ์ดที่มีความสามารถรอ/กำลังทำงาน
   soulLight: Light;
   atkCircles: Circle[];                   // ตัวโจมตี/บูสท์ ที่เลือกอยู่หรือกำลังโจมตี (ขอบแดง)
-  aimedCircles: Circle[];                 // ยูนิทที่ถูกโจมตีอยู่ (ขอบแดง)
+  aimedCircles: Circle[];                 // ยูนิทที่ถูกโจมตีอยู่ (ขอบน้ำเงิน)
   bonus: Partial<Record<Circle, number>>; // Power จากบูสท์ที่เลือกไว้ (แสดงล่วงหน้า)
   isTarget: (c: Circle) => boolean;
   onCircle: (c: Circle) => void;

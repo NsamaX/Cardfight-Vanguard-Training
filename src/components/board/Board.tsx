@@ -146,6 +146,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     </div>
   );
 
+  const defender: PlayerId = s.turnPlayer === "me" ? "bot" : "me";
   return (
     <div className="app">
       <LogPanel log={board.log} onInspect={board.setInspect}><PhaseTrack s={s} /></LogPanel>
@@ -155,10 +156,11 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {side("bot")}
         {tray("bot")}
         {stack("bot")}
+        {started && !deckOpen && board.botTurn && <span className="thinking">{t("ui.botThinking")}</span>}
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)}
           otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}
         <div className="mid">
-          {/* ซ้ายสุด: ย้อนกลับ/ไปหน้า | กลาง: การต่อสู้ฝั่งบอท | ข้อความคำถาม + ปุ่มขั้นตอนเกม / การต่อสู้ฝั่งเรา | ขวาสุด: ปุ่มตอบความสามารถและการป้องกัน */}
+          {/* ซ้ายสุด: ย้อนกลับ/ไปหน้า | กลาง: ฝ่ายโจมตี (พลัง + ไดรฟ์เช็ค) | ข้อความคำถาม + ปุ่มขั้นตอนเกม | ฝ่ายป้องกัน (พลัง + การ์ดป้องกัน) | ขวาสุด: ปุ่มตอบความสามารถและการป้องกัน */}
           <div className="mid-history">
             {started && !deckOpen && !view && <>
               <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
@@ -166,10 +168,9 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             </>}
           </div>
           <div className="mid-main">
-            {deckOpen ? <div /> : <BattleSide p="bot" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} />}
+            {deckOpen ? <div /> : <BattleSide p={s.turnPlayer} s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} />}
             <div className="mid-center">
-              {!deckOpen && <BattleNum p="bot" s={s} preview={board.guardPreview} />}
-              {started && !deckOpen && board.botTurn && <span className="prompt">{t("ui.botThinking")}</span>}
+              {!deckOpen && <BattleNum p={s.turnPlayer} s={s} preview={board.guardPreview} />}
               {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
               <div className="steps">
                 {deckOpen && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
@@ -185,9 +186,9 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
                   <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
                 )}
               </div>
-              {!deckOpen && <BattleNum p="me" s={s} preview={board.guardPreview} />}
+              {!deckOpen && <BattleNum p={defender} s={s} preview={board.guardPreview} />}
             </div>
-            {deckOpen ? <div /> : <BattleSide p="me" s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} />}
+            {deckOpen ? <div /> : <BattleSide p={defender} s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} />}
           </div>
           <div className="mid-actions">
             {view?.action}
