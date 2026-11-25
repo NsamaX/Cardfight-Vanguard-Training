@@ -139,6 +139,8 @@ export const ja: Dict = {
 
   "deck.all": "すべて",
   "deck.search": "検索",
+  "deck.expand": "拡大",
+  "deck.collapse": "縮小",
   "deck.starter": "ファーストヴァンガード",
   "deck.cover": "デッキの表紙",
   "deck.coverAuto": "自動",

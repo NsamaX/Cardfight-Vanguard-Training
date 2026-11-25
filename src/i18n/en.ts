@@ -142,6 +142,8 @@ export const en = {
 
   "deck.all": "All",
   "deck.search": "Search",
+  "deck.expand": "Expand",
+  "deck.collapse": "Collapse",
   "deck.starter": "Starting vanguard",
   "deck.cover": "Deck cover",
   "deck.coverAuto": "Auto",

@@ -11,7 +11,18 @@ const FILTERS = ["All", "0", "1", "2", "3", "G"] as const;
 type Filter = (typeof FILTERS)[number];
 
 // สร้าง/แก้เด็ค: ซ้ายคือคลังการ์ด (คลิกเพื่อใส่) ขวาคือรายการในเด็ค (คลิกเพื่อเอาออก, ★ ตั้งแวนการ์ดเริ่มต้น)
-export function DeckBuilder({ initial, onDone, onCancel }: { initial: Deck; onDone: (d: Deck) => void; onCancel: () => void }) {
+function ExpandIcon({ collapse }: { collapse: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <path d={collapse ? "M10 2v4h4M6 14v-4H2M10 6l4-4M6 10l-4 4" : "M10 2h4v4M6 14H2v-4M14 2l-4 4M2 14l4-4"}
+        fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, onToggleExpand }: {
+  initial: Deck; onDone: (d: Deck) => void; onCancel: () => void; expanded: boolean; canExpand: boolean; onToggleExpand: () => void;
+}) {
   const [deck, setDeck] = useState(initial);
   const [filter, setFilter] = useState<Filter>("All");
   const [query, setQuery] = useState("");
@@ -59,13 +70,15 @@ export function DeckBuilder({ initial, onDone, onCancel }: { initial: Deck; onDo
       </div>
       <div className="deck-side">
         <div className="deck-head">
-          <input className="deck-title" value={deck.name} onChange={(e) => setDeck({ ...deck, name: e.target.value })} />
           <label className="deck-cover" title={t("deck.cover")} style={cover && db[cover].image ? { backgroundImage: `url(${db[cover].image})` } : undefined}>
             <select value={deck.cover && cover === deck.cover ? cover : ""} onChange={(e) => setDeck({ ...deck, cover: e.target.value || undefined })}>
               <option value="">{t("deck.coverAuto")}</option>
               {[...Object.keys(deck.main).sort(byGradeThenName), ...Object.keys(deck.g_zone)].map((k) => <option key={k} value={k}>{db[k].name}</option>)}
             </select>
           </label>
+          <input className="deck-title" value={deck.name} onChange={(e) => setDeck({ ...deck, name: e.target.value })} />
+          <button className={`btn icon-btn expand-btn ${expanded ? "on" : ""}`} aria-pressed={expanded} disabled={!canExpand && !expanded} onClick={onToggleExpand}
+            title={t(expanded ? "deck.collapse" : "deck.expand")} aria-label={t(expanded ? "deck.collapse" : "deck.expand")}><ExpandIcon collapse={expanded} /></button>
         </div>
         <div className="deck-sleeves">
           {(["sleeve", "g_sleeve"] as const).map((field) => (

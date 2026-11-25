@@ -70,6 +70,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     actions: [...(base?.actions ?? []), ...board.actions], winner: board.s.winner, turn: board.s.turn,
   });
   const [userDecks, setUserDecks] = useState(loadUserDecks);
+  const [editing, setEditing] = useState<Record<PlayerId, boolean>>({ bot: false, me: false });
   function saveDeck(d: Deck) {
     const next = userDecks.some((x) => x.id === d.id) ? userDecks.map((x) => (x.id === d.id ? d : x)) : [...userDecks, d];
     setUserDecks(next);
@@ -154,7 +155,8 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {side("bot")}
         {tray("bot")}
         {stack("bot")}
-        {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)} />)}
+        {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)}
+          otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}
         <div className="mid">
           {/* ซ้ายสุด: ย้อนกลับ/ไปหน้า | กลาง: การต่อสู้ฝั่งบอท | ข้อความคำถาม + ปุ่มขั้นตอนเกม / การต่อสู้ฝั่งเรา | ขวาสุด: ปุ่มตอบความสามารถและการป้องกัน */}
           <div className="mid-history">
