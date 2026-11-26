@@ -95,7 +95,7 @@ describe("board", () => {
     click(slots(1)[1]);
     click(slots(0)[4]);
     expect(host.querySelector(".toast")?.textContent).toContain("first turn");
-    click(button("End turn"));
+    click(button("End →"));
     expect(host.textContent).toContain("Bot's turn");
 
     // The bot's turn 2: ride, then attack our VC
@@ -275,7 +275,7 @@ describe("board", () => {
       click(slots(1)[1]);
       expect(slots(1)[1].querySelector(":scope > .card")!.getAttribute("title")).toBe(db[BONE].name);
       expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
-      expect(button("End turn")).toBeTruthy();                         // no battle phase on the first turn
+      expect(button("End →")).toBeTruthy();                         // no battle phase on the first turn
     } finally {
       vi.useRealTimers();
     }

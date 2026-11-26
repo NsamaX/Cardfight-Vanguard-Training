@@ -352,7 +352,14 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
       for (let i = 0; i < num(c.pos[0]); i++) if (!drawCard(s, p, out)) return true;
       return true;
     }
-    case "reveal": say("log.reveal"); return true;
+    case "reveal": {
+      const opts = ps.hand.filter((h) => matchFilter(db, s, r, h, c.named.filter ?? ""));
+      const n = Math.min(num(c.pos[0]), opts.length);
+      if (!n) return true;
+      if (!r.answer?.uids) return askCards(r, msg("choice.reveal", { n }), opts, n, n);
+      for (const u of r.answer.uids) say("log.reveal", { card: name(db, locate(s, u)!.inst) }, u);
+      return true;
+    }
     case "discard": {
       const opts = ps.hand.filter((h) => matchFilter(db, s, r, h, c.named.filter ?? ""));
       const n = Math.min(num(c.pos[0]), opts.length);

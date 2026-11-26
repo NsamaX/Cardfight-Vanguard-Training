@@ -1,5 +1,5 @@
 import { cardByKey as db } from "../../data/cards";
-import type { GameState, PlayerId } from "../../engine/types";
+import type { CardInstance, GameState, PlayerId } from "../../engine/types";
 import { useT } from "../../i18n/react";
 import { battleSummary, type Light } from "../../lib/board";
 import { fmt } from "../../lib/format";
@@ -25,13 +25,14 @@ export function BattleNum({ p, s, preview }: { p: PlayerId; s: GameState; previe
     : <span className={`num def ${p}`}><span className="big">{s.battle?.noHit || preview?.sentinel ? "--" : fmt(b.total + (preview?.shield ?? 0))}</span><Shield label={t("battle.defense")} /></span>;
 }
 
-export function BattleSide({ p, s, lightOf, onInspect, onCheck, onGuardian }: {
+export function BattleSide({ p, s, lightOf, onInspect, onCheck, onGuardian, drive = [] }: {
   p: PlayerId;
   s: GameState;
   lightOf: (uid: string) => Light;
   onInspect: (uid: string) => void;
   onCheck?: (uid: string) => void;       // click a revealed check card (choose the trigger effect)
   onGuardian?: (uid: string) => boolean;  // click a card on GC: return it to where it came from (false = can't, show details instead)
+  drive?: CardInstance[];                 // drive check cards being shown before they go to hand (attacker only)
 }) {
   const b = battleSummary(db, s);
   const atk = p === s.turnPlayer;
@@ -41,7 +42,7 @@ export function BattleSide({ p, s, lightOf, onInspect, onCheck, onGuardian }: {
     <span key={t.card.uid}><CardView inst={t.card} plain noRotate dim={t.done} light={t.done ? undefined : lightOf(t.card.uid)}
       onClick={() => (t.done ? onInspect : onCheck ?? onInspect)(t.card.uid)} /></span>
   ));
-  const cards = atk ? trigs("drive") : [
+  const cards = atk ? [...trigs("drive"), ...drive.map((c) => <span key={c.uid}><CardView inst={c} plain noRotate /></span>)] : [
     ...b.guardians.map((g) => <span key={g.uid}><CardView inst={g} plain noRotate light={lightOf(g.uid)} onClick={() => { if (!onGuardian?.(g.uid)) onInspect(g.uid); }} /></span>),
     ...trigs("damage"),
   ];

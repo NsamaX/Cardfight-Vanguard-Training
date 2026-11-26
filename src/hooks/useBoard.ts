@@ -10,9 +10,10 @@ import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, s
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
-import { canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
+import { canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealedBy, revealing, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
 
 const BOT_DELAY_MS = 450;   // pause between bot actions so you can follow along
+const REVEAL_MS = 800;      // how long revealed cards stay on show before going on
 
 // The board at one step, with the history and all actions up to that step (used for undo and saving replays)
 interface Snapshot { s: GameState; log: LogEntry[]; actions: RecordedAction[] }
@@ -36,7 +37,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [focus, setFocus] = useState<string>();         // card clicked to use its ACT
   const [opened, setOpened] = useState(false);          // a pending ability was just opened by clicking: Cancel on its first question goes back
   const [trigArmed, setTrigArmed] = useState(false);    // the trigger card was clicked; the cursor shows what it will give
-  const [staged, setStaged] = useState(false);          // showing cards returning to the deck before the redraw: undo/redo disabled
+  const [staged, setStaged] = useState(false);          // showing cards returning to the deck before the redraw, or revealed cards: undo/redo disabled
+  const [reveal, setReveal] = useState<{ player: PlayerId; cards: CardInstance[]; drive: CardInstance[] }>();   // cards shown in the middle of the board / drive check cards on the battle bar
   const [choiceMin, setChoiceMin] = useState(false);    // card choice dialog minimized to look at the board
 
   const actor = s.awaiting?.player;
@@ -44,7 +46,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const choice = s.awaiting?.choice;
   const ordering = s.awaiting?.kind === "order-queue";
   const trig = choice || ordering ? undefined : s.battle?.pendingTrigger;
-  const guarding = s.step === "guard" && !!s.battle;
+  const guarding = s.step === "guard" && !!s.battle && actor !== s.turnPlayer;   // only the defender guards (the attacker may answer its own abilities during this step)
   // A card choice where every option is a unit on the board: choose on the board instead of in a dialog
   const fieldChoice = choice?.kind === "cards" && choice.options.every((u) => locate(s, u)?.zone === "circle") ? choice : undefined;
   const striding = s.phase === "ride" && s.step === "stride" && s.awaiting?.kind === "next-phase" && !s.strodeThisTurn;
@@ -121,6 +123,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
           done.push({ player: p2, action: follow });
         } catch (e) { if (!(e instanceof RuleError)) throw e; }
       }
+      const shown = revealedBy(entries, st);
       bot?.observe?.(entries);
       setPast((h) => h.concat({ s, log, actions }));
       setFuture([]);
@@ -130,6 +133,12 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
         setS(returningToDeck(s, actor, action.returnUids));
         setStaged(true);
         setTimeout(() => { setS(st); setStaged(false); }, MOVE_MS + (action.returnUids.length - 1) * DEAL_GAP_MS);   // redraw once the last card reaches the deck
+      } else if (shown) {
+        const mid = revealing(s, shown.uids);
+        setS(mid.s);
+        setReveal({ player: shown.player, cards: mid.cards.filter((c) => !shown.drive.includes(c.uid)), drive: mid.cards.filter((c) => shown.drive.includes(c.uid)) });
+        setStaged(true);
+        setTimeout(() => { setS(st); setReveal(undefined); setStaged(false); }, MOVE_MS + REVEAL_MS);
       } else setS(st);
       clearUi();
     } catch (e) {
@@ -451,7 +460,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     redo: future.length && !readOnly && !staged ? () => travel(false) : undefined,
     act, unguard, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
     canNext: !botTurn && !readOnly && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
-    botTurn, hideBotHand: !!bot,
+    botTurn, hideBotHand: !!bot, reveal,
     actions, readOnly,
     setInspect, setPile,
     setState: setS,   // replace the whole board, used when dealing after Start

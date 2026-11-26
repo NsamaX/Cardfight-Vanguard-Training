@@ -7,6 +7,7 @@ import type { Deck, GameState, PlayerId } from "../../engine/types";
 import { useBoard } from "../../hooks/useBoard";
 import { MOVE_MS, useCardFlight } from "../../hooks/useCardFlight";
 import { offlineLibrary, type LibraryHandle } from "../../hooks/useLibrary";
+import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
 import { nextLabel, undealt, type LogEntry, type Zone } from "../../lib/board";
 import { moveG } from "../../lib/deckEdit";
@@ -14,7 +15,7 @@ import { publicUrl } from "../../lib/library";
 import type { GameSettings } from "../../lib/settings";
 import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { DeckPanel } from "../deck/DeckPanel";
-import { CardHover } from "../CardView";
+import { CardHover, CardView } from "../CardView";
 import { Inspector } from "../Inspector";
 import { BattleNum, BattleSide } from "./BattleBar";
 import { CursorTip } from "./CursorTip";
@@ -35,6 +36,9 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
     </svg>
   );
 }
+
+// Step buttons that sit far right with the ability/guard answer buttons instead of in the middle
+const AT_RIGHT: (MsgKey | undefined)[] = ["next.noMoreGuard", "next.endTurn", undefined];   // undefined = the plain Next button
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -101,7 +105,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   }, [started]);
   const next = nextLabel(db, s);
   const question = board.question();
-  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;   // the end-guard (Pass) button sits far right with the guard buttons
+  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;   // Pass, end turn and Next sit far right with the guard buttons
   const sleeveVars = Object.fromEntries((["me", "bot"] as const).flatMap((p) => [
     [`--sleeve-${p}`, publicUrl(decks[p].sleeve ?? DEFAULT_SLEEVES[p].sleeve)], [`--g-sleeve-${p}`, publicUrl(decks[p].g_sleeve ?? DEFAULT_SLEEVES[p].g_sleeve)],
   ]).filter(([, u]) => u).map(([k, u]) => [k, `url(${u})`])) as CSSProperties;
@@ -151,6 +155,11 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {tray("bot")}
         {stack("bot")}
         {started && !deckOpen && board.botTurn && <span className="thinking">{t("ui.botThinking")}</span>}
+        {!!board.reveal?.cards.length && (
+          <div className={`reveal ${board.reveal.player}`}>
+            {board.reveal.cards.map((c) => <CardView key={c.uid} inst={c} plain noRotate />)}
+          </div>
+        )}
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} decks={library.decks} editable={signedIn} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
           otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}
         <div className="mid">
@@ -162,7 +171,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             </>}
           </div>
           <div className="mid-main">
-            {deckOpen ? <div /> : <BattleSide p={s.turnPlayer} s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} />}
+            {deckOpen ? <div /> : <BattleSide p={s.turnPlayer} s={s} lightOf={board.lightOf} onInspect={board.setInspect} onCheck={board.clickCheck} onGuardian={board.unguard} drive={board.reveal?.drive} />}
             <div className="mid-center">
               {!deckOpen && <BattleNum p={s.turnPlayer} s={s} preview={board.guardPreview} />}
               {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
@@ -176,7 +185,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
                   const label = typeof q.label === "string" ? q.label : t(q.label);
                   return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
                 })}
-                {showNext && next !== "next.noMoreGuard" && (board.canNext || !s.battle) && (   /* during a battle, buttons that can't be pressed aren't shown */
+                {showNext && !AT_RIGHT.includes(next) && (board.canNext || !s.battle) && (   /* during a battle, buttons that can't be pressed aren't shown */
                   <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
                 )}
               </div>
@@ -190,8 +199,8 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
               const label = typeof q.label === "string" ? q.label : t(q.label);
               return <button key={label} className="btn primary" onClick={q.onClick} title={label}>{label}</button>;
             })}
-            {showNext && next === "next.noMoreGuard" && (
-              <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next)}</button>
+            {showNext && AT_RIGHT.includes(next) && (next || board.canNext || !s.battle) && (
+              <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
             )}
           </div>
         </div>

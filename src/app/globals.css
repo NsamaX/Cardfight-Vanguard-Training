@@ -315,6 +315,7 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .bside.right > span:last-child { flex: 0 1 calc(var(--card-w) + 6px); }
 .bside.right > span:first-child { flex: none; }
 .thinking { position: absolute; top: 8px; left: 16px; z-index: 3; padding: 4px 10px; border-radius: 6px; background: var(--panel); white-space: nowrap; }
+.reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; display: flex; gap: 8px; padding: 10px; border-radius: 10px; background: var(--panel); box-shadow: 0 6px 24px rgba(0, 0, 0, .45); }
 /* Hand hugs the screen edge, 10 cards per row; when space runs out cards overlap, later rows float overlapping toward the board center */
 .hand { position: relative; z-index: 3; min-width: 0; padding-top: 6px; min-height: calc(var(--card-h) + 6px); }
 .hand.bot { padding: 0 0 6px; }

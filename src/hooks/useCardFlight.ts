@@ -87,7 +87,7 @@ export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown)
       if (!still && prevDown.has(uid) && !down && el.closest(".slot") && from && Math.abs(from.x - now.x) < 1 && Math.abs(from.y - now.y) < 1 && typeof el.animate === "function") flip(el);
       if (still || !from || !(el.classList.contains("card") || el.closest(".deck")) || el.closest(".hand") || typeof el.animate !== "function") continue;
       if (Math.abs(from.x - now.x) < 1 && Math.abs(from.y - now.y) < 1) continue;
-      const look = prevHand.get(uid);
+      const look = el.closest(".reveal") ? undefined : prevHand.get(uid);   // a revealed card shows its face on the way, even from a hidden hand
       if (look && el.closest(".deck")) toDeck.push({ el, from, now, look });
       else fly(el, from, now, look);
     }

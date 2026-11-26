@@ -1,6 +1,6 @@
 // Board-screen rules (pure functions, no React): which circles are clickable, battle numbers, and finding the card being viewed
 import { BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost as cardBoosts, canIntercept as cardIntercepts, circleMsg, other, powerOf, shieldOf, type CardDB } from "../engine/rules";
-import { locate, playerMsg } from "../engine/state";
+import { locate, playerMsg, pull } from "../engine/state";
 import type { CardInstance, Choice, Circle, GameEvent, GameState, PlayerId } from "../engine/types";
 import { msg, type Msg, type MsgKey } from "../i18n/msg";
 
@@ -26,7 +26,31 @@ export function returningToDeck(state: GameState, p: PlayerId, uids: string[]): 
   return s;
 }
 
-export type Zone = "deck" | "drop" | "soul" | "damage" | "gZone" | "bind";
+// Cards an action showed the opponent (revealed from hand, searched into hand, the whole hand, drive checks); next = the state after the action
+// drive = drive check cards (shown on the attacker's side of the battle bar like triggers, the rest in the middle of the board)
+export function revealedBy(events: GameEvent[], next: GameState): { player: PlayerId; uids: string[]; drive: string[] } | undefined {
+  const uids: string[] = [], drive: string[] = [];
+  let player: PlayerId | undefined;
+  for (const e of events) {
+    const found = e.text.key === "log.revealHand" ? next.players[e.player].hand.map((h) => h.uid)
+      : (e.text.key === "log.reveal" || e.text.key === "log.searchHand" || e.code === "drive-check") && e.cardUid ? [e.cardUid] : [];
+    if (!found.length) continue;
+    player ??= e.player;
+    if (e.code === "drive-check") drive.push(...found);
+    uids.push(...found.filter((u) => !uids.includes(u)));
+  }
+  return player && { player, uids, drive };
+}
+
+// Intermediate step: the revealed cards leave where they were (to be shown in the middle of the board or the battle bar); nobody needs to answer anything meanwhile
+export function revealing(state: GameState, uids: string[]): { s: GameState; cards: CardInstance[] } {
+  const s = structuredClone(state);
+  s.awaiting = undefined;
+  const cards = uids.filter((u) => locate(s, u)).map((u) => ({ ...pull(s, u).inst, faceUp: true, rested: false }));
+  return { s, cards };
+}
+
+export type Zone ="deck" | "drop" | "soul" | "damage" | "gZone" | "bind";
 export type Sel =
   | { kind: "hand"; player: PlayerId; uid: string }
   | { kind: "circle"; player: PlayerId; circle: Circle }
@@ -105,7 +129,7 @@ export function isTarget({ s, db, actor, choice, sel, mode }: TargetContext, p: 
   const unit = s.players[p].circles[c];
   if (choice) return choice.kind === "circle" && p === choice.side && choice.options.includes(c);
   if (mode?.kind === "trigger") return p === actor && !!unit;
-  if (s.step === "guard" && s.battle) return p === actor && canIntercept(c) && !!unit && cardIntercepts(db[unit.key]) && c !== s.battle.target;
+  if (s.step === "guard" && s.battle) return p === actor && p !== s.turnPlayer && canIntercept(c) && !!unit && cardIntercepts(db[unit.key]) && c !== s.battle.target;
   if (sel?.kind === "hand" && p === actor) {
     if (s.phase === "ride" && s.step === "ride") return c === "vc";
     if (s.phase === "main") return RC.includes(c);
