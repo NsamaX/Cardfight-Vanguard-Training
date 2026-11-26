@@ -1,86 +1,86 @@
-# แผนที่จังหวะ ภาค G
+# G-era timing map
 
-บอกว่ารหัสจังหวะใน [vocabulary.md](vocabulary.md) เกิดขึ้นตอนไหนของเทิร์น และการ์ดในคลังใบไหนทำงานตรงจุดนั้น ใช้คู่กับกฎใน [rules-g.md](rules-g.md)
+When during a turn each timing code in [vocabulary.md](vocabulary.md) happens, and which library cards act at that point. Use together with the rules in [rules-g.md](rules-g.md).
 
-## หลักการทำงานของ AUTO
+## How AUTO abilities work
 
-- **เข้าสถานะรอ (standby):** เมื่อเงื่อนไขของ AUTO เกิดขึ้น ความสามารถนั้นจะเข้าสถานะรอ ถ้าเงื่อนไขเกิดหลายครั้ง ก็เข้าสถานะรอเท่าจำนวนครั้งนั้น
-- **ช่วงตรวจ (check timing):** ความสามารถที่รออยู่จะทำงานในช่วงตรวจ ผู้เล่นเลือกเองว่าจะใช้ความสามารถที่รออยู่ของตัวเองใบไหนก่อน ใช้ทีละอัน จนหมด
-- **ใครทำก่อน:** ผู้เล่นเจ้าของเทิร์นใช้ความสามารถของตัวเองก่อน แล้วจึงถึงอีกฝ่าย
-  - ตอนโจมตี: ฝ่ายโจมตีใช้ AUTO "เมื่อโจมตี" ก่อน แล้วฝ่ายถูกโจมตีจึงใช้ AUTO "เมื่อถูกโจมตี" ถ้าฝ่ายโจมตีไม่มีความสามารถ ฝ่ายถูกโจมตีใช้ได้เลย
-  - เอนด์เฟส: เจ้าของเทิร์นทำก่อน
-- **ความสามารถที่เกิดระหว่างทาง:** ถ้ามี AUTO ใหม่เข้าสถานะรอระหว่างที่อีกอันกำลังทำงาน อันใหม่จะรอทำในช่วงตรวจเดียวกัน หลังจากอันที่กำลังทำงานจบ
-- **ฮาร์ทใช้ความสามารถไม่ได้:** ตอนสไตรด์อยู่ แวนการ์ดเกรด 3 เดิมกลายเป็นฮาร์ท ความสามารถ (VC) ของมันจึงไม่ทำงานจนกว่า G ยูนิทจะกลับ G โซน
-
----
-
-## ลำดับในหนึ่งเทิร์น
-
-### 1. สแตนด์เฟส และ 2. ดรอว์เฟส
-
-ไม่มีการ์ดในคลังที่ทำงานในสองเฟสนี้ หลังจั่วการ์ด โปรแกรมถามว่าจะใช้ G อาซิสต์หรือไม่ (เมื่อเข้าเงื่อนไข ดู [rules-g.md](rules-g.md))
-
-### 3. ไรด์เฟส
-
-| สเต็ป | สิ่งที่เกิด | รหัสจังหวะ | การ์ดที่ทำงาน |
-|---|---|---|---|
-| ไรด์สเต็ป | ไรด์ทับแวนการ์ด | `ridden-upon(self)`, `enter(VC, self)` | Grenache (ผู้เริ่มต้น), Nightstorm |
-| สไตรด์สเต็ป | ทิ้งการ์ดเป็นคอสต์ แล้ววาง G ยูนิททับแวนการ์ด | `step(stride, own)` | G ยูนิททุกใบ, Tommy (+2 เกรดตอนจ่ายคอสต์) |
-| | หลังสไตรด์ | `stride(own)` | Nightrose (Night Fog), Nightrose (Starlight) |
-| | G ยูนิทเข้าสู่ VC | `enter(VC, self)` | Obadiah, Immortal Galleon, Megiddo |
-
-### 4. เมนเฟส
-
-| สิ่งที่เกิด | รหัสจังหวะ | การ์ดที่ทำงาน |
-|---|---|---|
-| คอลยูนิทจากมือลง RC | `enter(RC, self)`, `enter(RC, self, from=hand)` | Tommy, Negrolazy, Honoly, ฮอลโล่ว์ทุกใบ |
-| คอลจากดรอปโซนด้วยผลของการ์ด | `enter(RC, self, from=drop)`, `enter(RC, other-own, from=drop)` | Skeleton Cannoneer, King Serpent, Mick, Nightrose (Starlight) |
-| ใช้ ACT | (ไม่มีจังหวะ เลือกใช้เอง) | Nightrose (G unit) |
-
-### 5. แบทเทิลเฟส
-
-| สเต็ป | สิ่งที่เกิด | รหัสจังหวะ | การ์ดที่ทำงาน |
-|---|---|---|---|
-| เริ่มแบทเทิลเฟส | | `phase-start(battle, own)` | Nightrose (G unit) นับ "Nightrose" ในดรอปโซน |
-| แอทแทคสเต็ป | ประกาศโจมตีและบูสท์ | `attack(self)`, `attack(self, target=VC)`, `attack(own-VC)` | Negrorook, Zombie Whale, Rampage Shade |
-| การ์ดสเต็ป | ฝ่ายตั้งรับคอลการ์ดลง GC, อินเตอร์เซปต์, G การ์เดี้ยน | `step(guard, opp)`, `enter(GC, self)`, `discarded(self, as=g-guardian-cost)` | G การ์เดี้ยนทุกใบ, Gust Jinn, Waterspout Djinn, Chappie, Dewey |
-| ไดรฟ์สเต็ป | ไดรฟ์เช็ค (เฉพาะแวนการ์ดโจมตี) | (ผลของทริกเกอร์) | — |
-| ดาเมจสเต็ป | ตัดสินฮิท, ดาเมจเช็ค, รีไทร์เรียร์การ์ดที่ถูกฮิท | `retired(…, from=RC)`, `to-drop(own, from=RC)` (ฝ่ายถูกโจมตี) | Nightrose (Night Fog) ในเทิร์นคู่แข่ง |
-| โคลสสเต็ป | จบการต่อสู้, G การ์เดี้ยนกลับ G โซน, ผล "จนจบการต่อสู้" หมดอายุ | `battle-end(…)` | Nightstorm, Negrobone, ความสามารถที่Megiddoมอบให้ |
-
-ถ้าเรียร์การ์ดโจมตี เมื่อฝ่ายตั้งรับผ่านการ์ดสเต็ป เกมจะข้ามไดรฟ์สเต็ปไปดาเมจสเต็ปเลย
-
-### 6. เอนด์เฟส
-
-| สิ่งที่เกิด | รหัสจังหวะ | การ์ดที่ทำงาน |
-|---|---|---|
-| 1. G ยูนิทกลับ G โซนแบบหงายหน้า ฮาร์ทกลับเป็นแวนการ์ด | — | ทำให้นับ GB ได้เพิ่ม และความสามารถ (VC) ของแวนการ์ดเกรด 3 กลับมาใช้ได้ |
-| 2. AUTO แบบ "เมื่อจบเทิร์น" เข้าสถานะรอ แล้วทำงานในช่วงตรวจ (เจ้าของเทิร์นทำก่อน) | `turn-end` | ฮอลโล่ว์ทุกใบ, ยูนิทที่Immortal Galleonคอลมา |
-| 3. การรีไทร์จากข้อ 2 ทำให้เกิดเหตุการณ์ต่อ | `retired(self, from=RC)`, `to-drop(self, from=RC, by=hollow)`, `to-drop(own, from=RC)` | Mick (ที่ได้รับความสามารถ), Grenache, Negrolazy (ที่ได้รับความสามารถ), Nightrose (Night Fog) |
-| หลังจบทุกกระบวนการของช่วงตรวจ ผล "จนจบเทิร์น" หมดอายุ | — | — |
-| ถ้าไม่มีอะไรเหลือให้ทำแล้ว เปลี่ยนเทิร์น | — | — |
+- **Standby:** when an AUTO's condition happens, the ability goes into standby. If the condition happens several times, it goes into standby that many times.
+- **Check timing:** abilities in standby resolve at check timing. Each player chooses the order of their own standby abilities and resolves them one at a time until none are left.
+- **Who goes first:** the turn player resolves their abilities first, then the other player.
+  - On attack: the attacker resolves "when it attacks" AUTO abilities first, then the defender resolves "when it is attacked" ones. If the attacker has none, the defender goes right away.
+  - End phase: the turn player goes first.
+- **Abilities triggered along the way:** a new AUTO that enters standby while another one is resolving waits for the same check timing, after the current one finishes.
+- **The heart has no abilities:** while striding, the old grade 3 vanguard becomes the heart, so its (VC) abilities don't work until the G unit returns to the G zone.
 
 ---
 
-## ข้อสังเกตสำหรับการคิดคอมโบในคลังนี้
+## Order of a turn
 
-1. **Nightrose (Night Fog) ทำงานไม่ได้ระหว่างสไตรด์ แต่กลับมาทำงานในเอนด์เฟส**
-   - ความสามารถ (VC) "เมื่อเรียร์การ์ดตกลงดรอปโซน" ทำงานได้แค่ตอนที่มันเป็นแวนการ์ดจริง
-   - ในเอนด์เฟส G ยูนิทกลับ G โซนก่อน แล้วฮอลโล่ว์จึงรีไทร์ Nightroseจึงกลับมาเป็นแวนการ์ดทันการรีไทร์ ใช้วงจร ฮอลโล่ว์ → Nightrose (Night Fog) ได้ในเทิร์นที่สไตรด์ด้วย
-   - ยูนิทที่Immortal Galleonคอลมาแล้วถูกรีไทร์ตอนจบเทิร์น ก็ต่อกับNightroseได้เช่นกัน (แต่ 1/Turn คอลกลับได้ใบเดียว)
-   - ความสามารถนี้ไม่มีเงื่อนไข "ในเทิร์นคุณ" จึงใช้ในเทิร์นคู่แข่งได้ด้วย เช่น เรียร์การ์ดเราถูกตีแล้วรีไทร์ ก็คอลกลับได้ทันที
-2. **ฮอลโล่ว์เป็นตัวเลือก ไม่ได้บังคับ**
-   - การ์ดเขียนว่า "คุณ**สามารถ**ให้ยูนิทนี้ติดสถานะฮอลโล่ว์ได้" ยูนิทที่ถูกคอลกลับมาจึงไม่ต้องติดฮอลโล่ว์ก็ได้ และจะอยู่บนสนามต่อ
-   - การเล่นทั่วไป: ยูนิทถูกรีไทร์จากฮอลโล่ว์ แล้วถูกคอลกลับมาโดยไม่เลือกติดฮอลโล่ว์
-   - ข้อแลกเปลี่ยน: การ์ดบางใบได้ผลเพิ่มเฉพาะตอนติดฮอลโล่ว์ เช่น Skeleton Cannoneerจั่วการ์ดได้ถ้าติดฮอลโล่ว์ ต้องเลือกระหว่างได้ผลนั้นกับเก็บยูนิทไว้บนสนาม
-3. **สร้างดรอปโซนก่อนเริ่มแบทเทิลเฟส**
-   - Nightrose (G unit) นับการ์ดชื่อ "Nightrose" ในดรอปโซนตอนเริ่มแบทเทิลเฟส
-   - ผลที่ส่งการ์ดลงดรอปโซนต้องเกิดในสไตรด์สเต็ปหรือเมนเฟส เช่น `mill(≤3)` ของNightrose (Starlight), `search(deck→drop)` ของObadiah, คอสต์ STRIDE ที่ทิ้งNightroseจากมือ
-4. **ความสามารถ "ในเทิร์นคุณ"**
-   - ที่มีเงื่อนไขนี้: Nightrose (Night Fog) ความสามารถที่ 2 (เมื่อสไตรด์) และNightrose (Starlight) ความสามารถที่ 2 และ 3
-   - Nightrose (Starlight) ความสามารถที่ 2 (เมื่อยูนิทอื่นเข้า RC จากดรอปโซน) ใช้ได้ทั้งตอนเป็นแวนการ์ดและเรียร์การ์ด (VC/RC) ถ้าวางไว้ที่ RC จะไม่ติดปัญหาฮาร์ท
-5. **GB เพิ่มขึ้นตอนไหน**
-   - ทันที: คอสต์ `flip-G-up` ของNegronora และNightrose (G unit)
-   - ระหว่างเทิร์นคู่แข่ง: G การ์เดี้ยนกลับ G โซนหลังจบการต่อสู้
-   - ตอนจบเทิร์นเรา: G ยูนิทที่สไตรด์กลับ G โซน
-6. **1/Turn ช่วยกันไม่ให้วนไม่จบ:** Nightrose (Night Fog) คอลยูนิทกลับได้แค่ 1 ครั้งต่อเทิร์น วงจรฮอลโล่ว์ในเอนด์เฟสจึงหยุดเอง
+### 1. Stand phase and 2. Draw phase
+
+No library card acts in these phases. After the draw, the program asks whether to use G assist (when its conditions are met, see [rules-g.md](rules-g.md)).
+
+### 3. Ride phase
+
+| Step | What happens | Timing code | Cards that act |
+|---|---|---|---|
+| Ride step | Ride onto the vanguard | `ridden-upon(self)`, `enter(VC, self)` | Grenache (Forerunner), Nightstorm |
+| Stride step | Discard cards as the cost, then put a G unit on the vanguard | `step(stride, own)` | Every G unit, Tommy (+2 grade when paying the cost) |
+| | After striding | `stride(own)` | Nightrose (Night Fog), Nightrose (Starlight) |
+| | The G unit is placed on VC | `enter(VC, self)` | Obadiah, Immortal Galleon, Megiddo |
+
+### 4. Main phase
+
+| What happens | Timing code | Cards that act |
+|---|---|---|
+| Call a unit from hand to RC | `enter(RC, self)`, `enter(RC, self, from=hand)` | Tommy, Negrolazy, Honoly, every Hollow card |
+| Call from the drop zone by a card effect | `enter(RC, self, from=drop)`, `enter(RC, other-own, from=drop)` | Skeleton Cannoneer, King Serpent, Mick, Nightrose (Starlight) |
+| Use an ACT | (no timing, used by choice) | Nightrose (G unit) |
+
+### 5. Battle phase
+
+| Step | What happens | Timing code | Cards that act |
+|---|---|---|---|
+| Start of battle phase | | `phase-start(battle, own)` | Nightrose (G unit) counts "Nightrose" in the drop zone |
+| Attack step | Declare the attack and boost | `attack(self)`, `attack(self, target=VC)`, `attack(own-VC)` | Negrorook, Zombie Whale, Rampage Shade |
+| Guard step | The defender calls guards to GC, intercepts, calls G guardians | `step(guard, opp)`, `enter(GC, self)`, `discarded(self, as=g-guardian-cost)` | Every G guardian, Gust Jinn, Waterspout Djinn, Chappie, Dewey |
+| Drive step | Drive checks (attacking vanguard only) | (trigger effects) | — |
+| Damage step | Resolve the hit, damage checks, retire a hit rear-guard | `retired(…, from=RC)`, `to-drop(own, from=RC)` (attacked side) | Nightrose (Night Fog) on the opponent's turn |
+| Close step | End of battle, G guardians return to the G zone, "until end of battle" effects expire | `battle-end(…)` | Nightstorm, Negrobone, the ability Megiddo grants |
+
+When a rear-guard attacks, after the defender's guard step the game skips the drive step and goes straight to the damage step.
+
+### 6. End phase
+
+| What happens | Timing code | Cards that act |
+|---|---|---|
+| 1. The G unit returns to the G zone face up, the heart becomes the vanguard again | — | Raises the GB count, and the grade 3 vanguard's (VC) abilities work again |
+| 2. "At the end of the turn" AUTO abilities go into standby, then resolve at check timing (turn player first) | `turn-end` | Every Hollow card, units called by Immortal Galleon |
+| 3. The retires from step 2 cause further events | `retired(self, from=RC)`, `to-drop(self, from=RC, by=hollow)`, `to-drop(own, from=RC)` | Mick (granted ability), Grenache, Negrolazy (granted ability), Nightrose (Night Fog) |
+| After every check timing process ends, "until end of turn" effects expire | — | — |
+| When nothing is left to do, the turn changes | — | — |
+
+---
+
+## Notes for building combos with this library
+
+1. **Nightrose (Night Fog) doesn't work while striding, but works again in the end phase**
+   - Its (VC) ability "when your rear-guard is put into the drop zone" only works while it really is the vanguard.
+   - In the end phase the G unit returns to the G zone first, and only then does Hollow retire, so Nightrose is the vanguard again in time. The Hollow → Nightrose (Night Fog) loop works even on a turn you strode.
+   - A unit called by Immortal Galleon and retired at the end of the turn chains into Nightrose too (but 1/Turn calls back only one card).
+   - The ability has no "during your turn" condition, so it works on the opponent's turn as well, e.g. when our rear-guard is hit and retired, it can be called back right away.
+2. **Hollow is optional**
+   - The card says "you **may** make this unit hollowed", so a called-back unit doesn't have to become hollowed and stays on the board.
+   - Typical play: a unit is retired by Hollow, then called back without choosing Hollow.
+   - Trade-off: some cards get an extra effect only while hollowed, e.g. Skeleton Cannoneer draws a card if hollowed. You choose between that effect and keeping the unit on the board.
+3. **Fill the drop zone before the battle phase**
+   - Nightrose (G unit) counts cards named "Nightrose" in the drop zone at the start of the battle phase.
+   - Effects that send cards to the drop zone must happen in the stride step or main phase, e.g. Nightrose (Starlight)'s `mill(≤3)`, Obadiah's `search(deck→drop)`, a STRIDE cost that discards a Nightrose from hand.
+4. **"During your turn" abilities**
+   - With this condition: Nightrose (Night Fog)'s 2nd ability (when striding), and Nightrose (Starlight)'s 2nd and 3rd abilities.
+   - Nightrose (Starlight)'s 2nd ability (when another unit enters RC from the drop zone) works as both vanguard and rear-guard (VC/RC). Placed on RC, it avoids the heart problem.
+5. **When GB goes up**
+   - Immediately: the `flip-G-up` cost of Negronora and Nightrose (G unit).
+   - During the opponent's turn: a G guardian returns to the G zone after the battle.
+   - At the end of our turn: the strode G unit returns to the G zone.
+6. **1/Turn keeps loops finite:** Nightrose (Night Fog) calls back a unit only once per turn, so the end-phase Hollow loop stops by itself.

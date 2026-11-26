@@ -1,38 +1,39 @@
-# เด็คตัวอย่าง: Granblue Nightrose
-# จัดจากการ์ดที่มีในคลังเท่านั้น ไว้ทดสอบโปรแกรม แก้จำนวนได้ตามต้องการ
-# อ้างการ์ดด้วย "รหัสการ์ด" = ส่วนแรกของ ids ตัวแรกในไฟล์การ์ด เช่น "G-CHB03/S11TH SP" → G-CHB03/S11TH
+# Sample deck: Granblue Nightrose
+# Built only from cards in the library, for testing the program. Change the counts as you like
+# Cards are referenced by "card code" = the first part of the first id in the card file, e.g. "G-CHB03/S11TH SP" → G-CHB03/S11TH
 
 name: Granblue Nightrose
 format: G
-starter: G-TD08/014TH          # Undying Departed, Grenache (นับรวมใน main แล้ว)
+starter: G-TD08/014TH          # Undying Departed, Grenache (counted in main)
+cover: G-CHB03/S11TH           # Vampire Princess of Night Fog, Nightrose
 
-main:                           # 50 ใบ
-  # เกรด 0
+main:                           # 50 cards
+  # Grade 0
   G-TD08/014TH: 1               # Grenache
   BT02/026TH: 2                 # Chappie the Ghostie
-  # ทริกเกอร์ 16 ใบ
+  # 16 triggers
   PR/0632TH: 4                  # Rough Seas Banshee (Critical)
   G-BT08/S32TH: 4               # Rampage Shade (Critical)
   PR/0740TH: 4                  # Dewey the Ghostie (Heal)
   PR/0564TH: 4                  # Mick the Ghostie and Family (Stand)
-  # เกรด 1
+  # Grade 1
   G-BT06/040TH: 4               # Negrobone
   G-CHB03/S12TH: 4              # Tommy the Ghostie Brothers
-  G-BT06/S11TH: 3               # Waterspout Djinn (พิทักษ์)
+  G-BT06/S11TH: 3               # Waterspout Djinn (Sentinel)
   BT02/014TH: 1                 # Gust Jinn
-  G-BT09/104TH: 1               # ไลต์เอเลเมนทัล Honoly
-  # เกรด 2
+  G-BT09/104TH: 1               # Light Elemental, Honoly
+  # Grade 2
   G-CP06/019TH: 3               # Negrolazy
   G-BT06/087TH: 2               # Skeleton Cannoneer
   PR/0256TH: 2                  # King Serpent
   G-TD08/007TH: 2               # Negrorook
-  # เกรด 3
+  # Grade 3
   G-CHB03/S11TH: 4              # Nightrose (Night Fog)
   G-CHB03/002TH: 2              # Nightrose (Starlight)
   G-BT06/083TH: 2               # Nightstorm
   MB/065TH: 1                   # Zombie Whale of the Ocean Depths
 
-g_zone:                         # 14 ใบ (ไม่เกิน 16)
+g_zone:                         # 14 cards (max 16)
   PR/0686TH: 4                  # Nightrose (G)
   G-CP06/037TH: 1               # Obadiah
   G-FC04/019TH: 1               # Immortal Galleon

@@ -4,12 +4,12 @@ import { msg, type Msg } from "../i18n/msg";
 import { cardByKey } from "./cards";
 import content from "./content.json";
 
-// เด็คสำเร็จรูปจาก content/decks/*.yaml (เด็คที่ผู้เล่นสร้างในโปรแกรมจะเก็บใน localStorage และ export เป็น .yaml ได้)
+// Sample decks from content/decks/*.yaml (default set; the app loads players' decks from Supabase)
 export const presetDecks = content.decks as Deck[];
 
 export const countCards = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0);
 
-// กฎจัดเด็คภาค G ตาม documents/rules-g.md คืนรายการข้อผิดพลาด (ว่าง = ใช้ได้)
+// G-era deck building rules per documents/rules-g.md; returns a list of errors (empty = legal)
 export function validateDeck(deck: Deck): Msg[] {
   const errors: Msg[] = [];
   const total = countCards;
@@ -29,7 +29,7 @@ export function validateDeck(deck: Deck): Msg[] {
   if (heals > 4) errors.push(msg("deck.err.heals", { n: heals }));
   const sentinels = sumWhere(deck.main, (k) => isSentinel(card(k)));
   if (sentinels > 4) errors.push(msg("deck.err.sentinels", { n: sentinels }));
-  // การ์ดชื่อเดียวกันนับรวมกันแม้รหัสต่างกัน (พิมพ์ซ้ำคนละชุด)
+  // Cards with the same name count together even with different codes (reprints in different sets)
   const overCopies = (r: Record<string, number>) => {
     const byName = new Map<string, number>();
     for (const [k, n] of Object.entries(r)) byName.set(card(k).name, (byName.get(card(k).name) ?? 0) + n);

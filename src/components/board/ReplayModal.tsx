@@ -1,15 +1,25 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../../i18n/react";
+import { deleteCloudReplay, loadCloudReplays, saveCloudReplay } from "../../lib/library";
 import { download, parseReplayFile } from "../../replay/play";
 import { deleteReplay, loadReplays, saveReplay } from "../../replay/store";
 import type { Replay, ReplaySource } from "../../replay/types";
 
 const fileName = (r: Replay) => `vanguard-${r.createdAt.slice(0, 10)}-turn${r.turn}.json`;
 
-// รายการ replay ที่บันทึกไว้ + บันทึก/ดาวน์โหลดเกมนี้ + เปิดไฟล์ replay
-export function ReplayModal({ current, onOpen, onClose }: { current?: () => Replay; onOpen: (src: ReplaySource) => void; onClose: () => void }) {
+// Signed in: replays in Supabase. Guest: replays in this browser's localStorage
+const cloud = { load: loadCloudReplays, save: saveCloudReplay, remove: deleteCloudReplay };
+const local = { load: async () => loadReplays(), save: async (r: Replay) => saveReplay(r), remove: async (id: string) => deleteReplay(id) };
+
+// List of saved replays + save/download this game + open a replay file
+export function ReplayModal({ signedIn = false, current, onOpen, onClose }: { signedIn?: boolean; current?: () => Replay; onOpen: (src: ReplaySource) => void; onClose: () => void }) {
   const t = useT();
-  const [list, setList] = useState(loadReplays);
+  const store = signedIn ? cloud : local;
+  const [list, setList] = useState<Replay[]>(() => (signedIn ? [] : loadReplays()));
+  const [failed, setFailed] = useState(false);
+  const refresh = () => store.load().then(setList, () => setFailed(true));
+  const run = (op: Promise<void>) => op.then(refresh, () => setFailed(true));
+  useEffect(() => { if (signedIn) void refresh(); }, []);
   const [bad, setBad] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -24,12 +34,13 @@ export function ReplayModal({ current, onOpen, onClose }: { current?: () => Repl
       <div className="dialog replays" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-head"><span>{t("replay.title")}</span><button type="button" className="btn" onClick={onClose}>×</button></div>
         <div className="field-row">
-          <button className="btn" disabled={!current} onClick={() => { saveReplay(current!()); setList(loadReplays()); }}>{t("replay.saveCurrent")}</button>
+          <button className="btn" disabled={!current} onClick={() => run(store.save(current!()))}>{t("replay.saveCurrent")}</button>
           <button className="btn" disabled={!current} onClick={() => { const r = current!(); download(fileName(r), r); }}>{t("replay.downloadCurrent")}</button>
           <button className="btn" onClick={() => fileRef.current?.click()}>{t("replay.openFile")}</button>
           <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void openFile(f); }} />
         </div>
         {bad && <span className="mute">{t("replay.badFile")}</span>}
+        {failed && <span className="err">{t("library.offline")}</span>}
         <div className="replay-list">
           {list.length === 0 && <span className="mute">{t("replay.empty")}</span>}
           {list.map((r) => (
@@ -40,7 +51,7 @@ export function ReplayModal({ current, onOpen, onClose }: { current?: () => Repl
               </span>
               <button className="btn" onClick={() => onOpen(r)}>{t("replay.view")}</button>
               <button className="btn" onClick={() => download(fileName(r), r)} title={t("replay.download")} aria-label={t("replay.download")}>↓</button>
-              <button className="btn" onClick={() => { deleteReplay(r.id); setList(loadReplays()); }} title={t("replay.delete")} aria-label={t("replay.delete")}>×</button>
+              <button className="btn" onClick={() => run(store.remove(r.id))} title={t("replay.delete")} aria-label={t("replay.delete")}>×</button>
             </div>
           ))}
         </div>

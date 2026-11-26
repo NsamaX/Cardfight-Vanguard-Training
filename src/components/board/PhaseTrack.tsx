@@ -2,7 +2,7 @@ import type { GameState } from "../../engine/types";
 import { useT } from "../../i18n/react";
 import { PHASES, phaseIndex } from "../../lib/board";
 
-// เฟสเรียงจากล่างขึ้นบน: START อยู่ล่างสุด END อยู่บนสุด
+// Phases run bottom to top: START at the bottom, END at the top
 export function PhaseTrack({ s }: { s: GameState }) {
   const current = phaseIndex(s);
   const t = useT();

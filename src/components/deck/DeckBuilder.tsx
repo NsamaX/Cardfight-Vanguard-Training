@@ -1,19 +1,25 @@
-import { useState } from "react";
-import { cardByKey as db, cards, putCard } from "../../data/cards";
+import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { cardByKey as db, cards } from "../../data/cards";
 import { countCards, validateDeck } from "../../data/decks";
-import { sleeveUrl, sleeves } from "../../data/sleeves";
-import type { Card, Deck } from "../../engine/types";
+import { DEFAULT_SLEEVES, type Sleeve } from "../../data/sleeves";
+import type { Card, Deck, PlayerId } from "../../engine/types";
 import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
-import { USER_SOURCE, saveUserCard } from "../../lib/cardStore";
-import { G_ZONE_SIZE, MAIN_SIZE, MAX_COPIES, addCard, byGradeThenName, copiesIn, coverCard, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
+import { shrinkImage } from "../../lib/image";
+import { publicUrl } from "../../lib/library";
+import { G_ZONE_SIZE, MAIN_SIZE, MAX_COPIES, addCard, byGradeThenName, copiesIn, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
+import { emptyCard } from "../../lib/abilityDraft";
 import { CardView } from "../CardView";
-import { CardEditor, emptyCard } from "./CardEditor";
+import { CardEditor } from "./CardEditor";
 
 const FILTERS = ["All", "0", "1", "2", "3", "G"] as const;
 type Filter = (typeof FILTERS)[number];
+// Slots above the deck list: drop a card on Deck (cover, card must be in the deck), a sleeve on Main / G
+const SLOTS = ["cover", "sleeve", "g_sleeve"] as const;
+type Slot = (typeof SLOTS)[number];
+type Drag = { kind: "card"; key: string } | { kind: "sleeve"; path: string };
+const SLEEVE_W = 440, SLEEVE_H = 640;
 
-// สร้าง/แก้เด็ค: ซ้ายคือคลังการ์ด (คลิกเพื่อใส่) ขวาคือรายการในเด็ค (คลิกเพื่อเอาออก, ★ ตั้งแวนการ์ดเริ่มต้น)
 function ExpandIcon({ collapse }: { collapse: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
@@ -23,26 +29,63 @@ function ExpandIcon({ collapse }: { collapse: boolean }) {
   );
 }
 
-export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, onToggleExpand }: {
-  initial: Deck; onDone: (d: Deck) => void; onCancel: () => void; expanded: boolean; canExpand: boolean; onToggleExpand: () => void;
+// Create/edit a deck. Left: the card library (click to add) or the sleeve list. Right: the Deck/Main/G slots and the deck list
+// (click to remove, ★ sets the starting vanguard). Drag a card or sleeve onto a slot to set the cover or sleeve.
+export function DeckBuilder({ p, initial, onDone, onCancel, onSaveCard, sleeves, onAddSleeve, onDeleteSleeve, expanded, canExpand, onToggleExpand }: {
+  p: PlayerId;
+  initial: Deck; onDone: (d: Deck) => void; onCancel: () => void; onSaveCard: (c: Card) => Promise<MsgKey | null>;
+  sleeves: Sleeve[]; onAddSleeve: (name: string, image: string) => Promise<void>; onDeleteSleeve: (path: string) => Promise<void>;
+  expanded: boolean; canExpand: boolean; onToggleExpand: () => void;
 }) {
   const [deck, setDeck] = useState(initial);
+  const [tab, setTab] = useState<"cards" | "sleeves">("cards");
+  const [uploading, setUploading] = useState(false);
+  const dragging = useRef<Drag | null>(null);   // dataTransfer is unreadable during dragover
+  const [over, setOver] = useState<Slot | null>(null);
   const [filter, setFilter] = useState<Filter>("All");
   const [query, setQuery] = useState("");
   const [cardEdit, setCardEdit] = useState<Card | null>(null);
   const t = useT();
 
-  // การ์ดที่สร้างเองเก็บในเบราว์เซอร์ การ์ดในคลังเขียนกลับลงไฟล์ .yaml
   async function saveCard(c: Card): Promise<MsgKey | null> {
-    if (c.source === USER_SOURCE) {
-      if (!saveUserCard(c)) return "cardEd.storageFull";
-    } else {
-      const res = await fetch("/api/cards", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }).catch(() => null);
-      if (!res?.ok) return "cardEd.writeFailed";
+    const err = await onSaveCard(c);
+    if (!err) setCardEdit(null);
+    return err;
+  }
+
+  // A deck without its own sleeve uses this side's default, so the slot and the sleeve list show that one
+  const sleeveOf = (slot: "sleeve" | "g_sleeve") => deck[slot] ?? DEFAULT_SLEEVES[p][slot];
+  const inDeck = (key: string) => !!(deck.main[key] || deck.g_zone[key]);
+  const accepts = (slot: Slot, d: Drag) => (slot === "cover" ? d.kind === "card" && inDeck(d.key) : d.kind === "sleeve");
+  const dragProps = (d: Drag) => ({
+    draggable: true,
+    onDragStart: (e: DragEvent) => { dragging.current = d; e.dataTransfer.effectAllowed = "copy"; e.dataTransfer.setData("text/plain", ""); },
+    onDragEnd: () => { dragging.current = null; setOver(null); },
+  });
+  function drop(slot: Slot) {
+    const d = dragging.current;
+    if (!d || !accepts(slot, d)) return;
+    setDeck({ ...deck, [slot]: d.kind === "card" ? d.key : d.path });
+  }
+
+  async function removeSleeve(sl: Sleeve) {
+    if (!confirm(t("sleeve.confirmDelete", { name: sl.name }))) return;
+    await onDeleteSleeve(sl.path);
+    setDeck((d) => ({ ...d, sleeve: d.sleeve === sl.path ? undefined : d.sleeve, g_sleeve: d.g_sleeve === sl.path ? undefined : d.g_sleeve }));
+  }
+
+  async function newSleeve(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const name = prompt(t("sleeve.name"), file.name.replace(/\.\w+$/, ""))?.trim();
+    if (!name) return;
+    setUploading(true);
+    try {
+      await onAddSleeve(name, await shrinkImage(file, SLEEVE_W, SLEEVE_H));
+    } finally {
+      setUploading(false);
     }
-    putCard(c);
-    setCardEdit(null);
-    return null;
   }
 
   const pool = cards
@@ -50,12 +93,11 @@ export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, on
     .filter((c) => !query || c.name.includes(query))
     .sort((a, b) => byGradeThenName(a.key, b.key));
   const errors = validateDeck(deck);
-  const cover = coverCard(deck);
   const triggers = Object.entries(deck.main).reduce((n, [k, v]) => n + (db[k].type === "trigger" ? v : 0), 0);
 
-  // เมนเด็คเรียงตามเกรด G โซนเรียงตามที่ลากจัดไว้ในหน้าสนาม
+  // The main deck is sorted by grade, the G zone keeps the order dragged on the board
   const rows = (zone: Record<string, number>) => (zone === deck.main ? Object.keys(zone).sort(byGradeThenName) : Object.keys(zone)).map((k) => (
-    <div key={k} className="deck-row" style={db[k].image ? { backgroundImage: `url(${db[k].image})` } : undefined} onClick={() => setDeck(removeCard(deck, k))}>
+    <div key={k} className="deck-row" {...dragProps({ kind: "card", key: k })} style={db[k].image ? { backgroundImage: `url(${db[k].image})` } : undefined} onClick={() => setDeck(removeCard(deck, k))}>
       <span className="g">{db[k].type.startsWith("g-") ? "G" : db[k].grade}</span>
       <span className="n">{db[k].name}</span>
       {db[k].grade === 0 && zone === deck.main && (
@@ -70,48 +112,69 @@ export function DeckBuilder({ initial, onDone, onCancel, expanded, canExpand, on
     <div className="deck-builder">
       <div className="collection-pane">
         <div className="collection-bar">
-          {FILTERS.map((f) => <button key={f} className={`btn chip ${filter === f ? "on" : ""}`} onClick={() => setFilter(f)}>{f === "All" ? t("deck.all") : f}</button>)}
-          <input className="search" placeholder={t("deck.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
+          {tab === "cards" && <>
+            {FILTERS.map((f) => <button key={f} className={`btn chip ${filter === f ? "on" : ""}`} onClick={() => setFilter(f)}>{f === "All" ? t("deck.all") : f}</button>)}
+            <input className="search" placeholder={t("deck.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
+          </>}
+          <div className="tabs">
+            {(["cards", "sleeves"] as const).map((x) => (
+              <button key={x} className={`btn chip ${tab === x ? "on" : ""}`} onClick={() => setTab(x)}>{t(x === "cards" ? "deck.tabCards" : "deck.tabSleeves")}</button>
+            ))}
+          </div>
         </div>
-        <div className="collection">
-          <button className="new-card" onClick={() => setCardEdit(emptyCard())}>{t("cardEd.new")}</button>
+        {tab === "sleeves" && (
+          <div className="collection">
+            <label className={`new-card ${uploading ? "busy" : ""}`}>
+              {t("deck.create")}
+              <input type="file" accept="image/*" hidden disabled={uploading} onChange={newSleeve} />
+            </label>
+            {sleeves.map((sl) => (
+              <div key={sl.path} className={`collect sleeve-tile ${sleeveOf("sleeve") === sl.path || sleeveOf("g_sleeve") === sl.path ? "full" : ""}`} {...dragProps({ kind: "sleeve", path: sl.path })}>
+                <div className="card">
+                  <img src={publicUrl(sl.path)} alt="" draggable={false} />
+                  <span className="strip"><span className="nm">{sl.name}</span></span>
+                </div>
+                {sl.own && <button className="btn edit-card" title={t("sleeve.delete")} aria-label={t("sleeve.delete")} onClick={() => removeSleeve(sl)}>×</button>}
+              </div>
+            ))}
+          </div>
+        )}
+        {tab === "cards" && <div className="collection">
+          <button className="new-card" onClick={() => setCardEdit(emptyCard())}>{t("deck.create")}</button>
           {pool.map((c) => {
             const n = copiesIn(deck, c.key);
             return (
-              <div key={c.key} className={`collect ${n >= MAX_COPIES ? "full" : ""}`}>
+              <div key={c.key} className={`collect ${n >= MAX_COPIES ? "full" : ""}`} {...dragProps({ kind: "card", key: c.key })}>
                 <CardView inst={displayInstance(c.key)} mark onClick={() => setDeck(addCard(deck, c.key))} />
                 <span className="copies">{n > 0 ? `x${n}` : ""}</span>
                 <button className="btn edit-card" title={t("cardEd.edit")} onClick={() => setCardEdit(c)}>✎</button>
               </div>
             );
           })}
-        </div>
+        </div>}
       </div>
       <div className="deck-side">
         <div className="deck-head">
-          <label className="deck-cover" title={t("deck.cover")} style={cover && db[cover].image ? { backgroundImage: `url(${db[cover].image})` } : undefined}>
-            <select value={deck.cover && cover === deck.cover ? cover : ""} onChange={(e) => setDeck({ ...deck, cover: e.target.value || undefined })}>
-              <option value="">{t("deck.coverAuto")}</option>
-              {[...Object.keys(deck.main).sort(byGradeThenName), ...Object.keys(deck.g_zone)].map((k) => <option key={k} value={k}>{db[k].name}</option>)}
-            </select>
-          </label>
           <input className="deck-title" value={deck.name} onChange={(e) => setDeck({ ...deck, name: e.target.value })} />
           <button className={`btn icon-btn expand-btn ${expanded ? "on" : ""}`} aria-pressed={expanded} disabled={!canExpand && !expanded} onClick={onToggleExpand}
             title={t(expanded ? "deck.collapse" : "deck.expand")} aria-label={t(expanded ? "deck.collapse" : "deck.expand")}><ExpandIcon collapse={expanded} /></button>
         </div>
-        <div className="deck-sleeves">
-          {(["sleeve", "g_sleeve"] as const).map((field) => (
-            <label key={field}>
-              <span className="sleeve-thumb" style={sleeveUrl(deck[field]) ? { backgroundImage: `url(${sleeveUrl(deck[field])})` } : undefined} />
-              <span className="mono">{t(field === "sleeve" ? "deck.sleeveMain" : "deck.sleeveG")}</span>
-              <select value={deck[field] ?? ""} onChange={(e) => setDeck({ ...deck, [field]: e.target.value || undefined })}>
-                <option value="">{t("deck.sleeveDefault")}</option>
-                {sleeves.map((f) => <option key={f} value={f}>{f.replace(/\.\w+$/, "")}</option>)}
-              </select>
-            </label>
-          ))}
-        </div>
         <div className="deck-rows">
+          <div className="deck-slots">
+            {SLOTS.map((slot) => {
+              const img = slot === "cover" ? (deck.cover && inDeck(deck.cover) ? db[deck.cover].image : undefined) : publicUrl(sleeveOf(slot));
+              const label = t(slot === "cover" ? "deck.slotDeck" : slot === "sleeve" ? "deck.sleeveMain" : "sleeve.g");
+              return (
+                <div key={slot} className={`deck-slot ${slot} ${img ? "" : "empty"} ${over === slot ? "over" : ""}`} title={label}
+                  onClick={() => setTab(slot === "cover" ? "cards" : "sleeves")}
+                  onDragOver={(e) => { if (dragging.current && accepts(slot, dragging.current)) { e.preventDefault(); setOver(slot); } }}
+                  onDragLeave={() => setOver((o) => (o === slot ? null : o))}
+                  onDrop={(e) => { e.preventDefault(); setOver(null); drop(slot); }}>
+                  {img ? <img src={img} alt="" draggable={false} /> : <span>{label}</span>}
+                </div>
+              );
+            })}
+          </div>
           {rows(deck.main)}
           {Object.keys(deck.g_zone).length > 0 && <div className="deck-sep">{t("deck.gZone")}</div>}
           {rows(deck.g_zone)}

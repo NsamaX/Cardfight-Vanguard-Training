@@ -3,7 +3,7 @@ import { useT } from "../../i18n/react";
 import type { Light } from "../../lib/board";
 import { CardView } from "../CardView";
 
-// ดาเมจโซน 6 ช่อง การ์ดวางแนวนอนซ้อนกัน ใบถัดไปทับใบก่อนหน้า (ฝั่งบอทเรียงจากล่างขึ้นบนเพราะมองกลับหัว)
+// Damage zone with 6 slots, cards placed horizontally overlapping, each covering the previous (the bot side runs bottom to top since it's upside down)
 export function DamageZone({ p, ps, light, onOpen }: { p: PlayerId; ps: PlayerState; light: Light; onOpen: () => void }) {
   const t = useT();
   return (

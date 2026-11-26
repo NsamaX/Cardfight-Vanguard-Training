@@ -25,11 +25,11 @@ function newGame() {
   s = createGame(db, { seed: 11, firstPlayer: "me", decks: { me: deck, bot: deck } });
   act("me", { type: "mulligan", returnUids: [] });
   act("bot", { type: "mulligan", returnUids: [] });
-  // เทสต์ในไฟล์นี้จัดสนามเอง ไม่ใช้ G อาซิสต์ของเทิร์นแรก
+  // Tests in this file set up the board themselves, without the first turn's G assist
   if (s.queue.some((e) => e.key === "g-assist")) act("me", { type: "decline-queue", index: 0 });
 }
 
-// ความสามารถที่รออยู่ในคิว (ชื่อมีคำนี้): use = กดใช้ (ไม่ถามคอสต์ซ้ำ) / skip = ไม่ใช้
+// An ability waiting in the queue (name contains this word): use = activate (don't ask the cost again) / skip = don't use
 function queued(p: PlayerId, word: string, key?: string) {
   expect(s.awaiting?.kind).toBe("order-queue");
   const i = s.queue.filter((e) => e.owner === p).findIndex((e) => e.label.includes(word) && (key === undefined || e.key === key));
@@ -39,7 +39,7 @@ function queued(p: PlayerId, word: string, key?: string) {
 const use = (p: PlayerId, word: string, key?: string) => act(p, { type: "order-queue", index: queued(p, word, key) });
 const skip = (p: PlayerId, word: string, key?: string) => act(p, { type: "decline-queue", index: queued(p, word, key) });
 
-describe("คอมโบยิงนอกเทิร์น (content/combos/off-turn-shot.yaml)", () => {
+describe("off-turn shot combo (content/combos/off-turn-shot.yaml)", () => {
   function setup() {
     newGame();
     const me = s.players.me, bot = s.players.bot;
@@ -52,14 +52,14 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
     bot.circles = { vc: inst(K.gunit), front_left: inst(K.lazy), front_right: inst(K.gun), back_center: inst(K.bone) };
     bot.heart = inst(K.star);
     bot.circles.vc!.rested = true;
-    bot.circles.vc!.mods.push({ stat: "power", value: 7000, source: "บูสท์", until: "battle-end" });
+    bot.circles.vc!.mods.push({ stat: "power", value: 7000, source: "boost", until: "battle-end" });
     bot.deck.unshift(inst(K.gun, false), inst(K.gun, false), inst(K.gun, false));
     Object.assign(s, { turn: 4, turnPlayer: "bot", phase: "battle", step: "guard",
       battle: { attacker: "vc", booster: "back_center", target: "vc", drivesLeft: 0, damageLeft: 0 } });
     refreshAwaiting(s);
   }
 
-  it("เล่นครบสายได้: กันได้ ยิงเรียร์การ์ดบอท จั่ว และได้ CC คืน", () => {
+  it("plays the whole chain: guards, shoots the bot's rear-guard, draws, and gets CC back", () => {
     setup();
     expect(powerOf(db, s.players.bot, "vc")).toBe(33000);
     const gun = s.players.me.circles.front_left!.uid;
@@ -69,32 +69,32 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
     const lily = s.players.me.gZone[2].uid;
 
     act("me", { type: "call-g-guardian", gUid: lily, discardUid: s.players.me.hand[0].uid });
-    expect(s.awaiting?.kind).toBe("order-queue");                 // เดวย์ + เนโครลิลลี่ ทำงานพร้อมกัน
-    use("me", "Dewey");                                           // จ่ายคอสต์ไบนด์
-    pick("me", otherDewey);                                       // ไบนด์ Heal อีกใบจากดรอป
+    expect(s.awaiting?.kind).toBe("order-queue");                 // Dewey + Negrolily trigger together
+    use("me", "Dewey");                                           // pay the bind cost
+    pick("me", otherDewey);                                       // bind another Heal from the drop
     act("me", { type: "choose", option: "CC(1)" });
     expect(s.players.me.damage.filter((d) => d.faceUp)).toHaveLength(4);
 
-    use("me", "Negrolily");                                     // CB1 + รีไทร์เรียร์การ์ดตัวเอง
+    use("me", "Negrolily");                                     // CB1 + retire your own rear-guard
     pick("me", gun);
-    pick("me", tommy);                                            // คอลผีน้อยจากดรอป
+    pick("me", tommy);                                            // call a ghostie from the drop
     to("me", "back_center");
     expect(shieldOf(db, s.players.me.guardian[0])).toBe(25000);
 
-    use("me", "Night Fog");                                   // ไนท์โรสทำงานเพราะเรียร์การ์ดตกดรอป: mill 3
+    use("me", "Night Fog");                                   // Nightrose triggers because a rear-guard went to the drop: mill 3
     pick("me", gun);
     to("me", "front_left");
 
-    use("me", "Skeleton Cannoneer", "0");                                  // ฮอลโล่ว์ก่อน เพื่อให้ได้จั่ว
+    use("me", "Skeleton Cannoneer", "0");                                  // hollow first, to get the draw
     const hand = s.players.me.hand.length;
-    use("me", "Skeleton Cannoneer");                                       // CB1 ยิงเรียร์การ์ดบอท
+    use("me", "Skeleton Cannoneer");                                       // CB1 shoot the bot's rear-guard
     pick("me", botLazy);
     expect(s.players.bot.circles.front_left).toBeUndefined();
     expect(s.players.me.hand).toHaveLength(hand + 1);
 
     expect(s.awaiting).toMatchObject({ player: "me", kind: "guard" });
     act("me", { type: "end-guard" });
-    expect(s.players.me.damage).toHaveLength(4);                  // 33,000 vs 36,000 ไม่ฮิท
+    expect(s.players.me.damage).toHaveLength(4);                  // 33,000 vs 36,000, no hit
     expect(s.players.me.damage.filter((d) => d.faceUp)).toHaveLength(2);
     expect(s.players.me.circles.front_left).toMatchObject({ key: K.gun, hollowed: true });
     expect(s.players.me.circles.back_center?.key).toBe(K.tommy);
@@ -103,7 +103,7 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
     expect(s.battle).toBeUndefined();
   });
 
-  it("เลือก CC(1) ตอนดาเมจคว่ำหลายใบ: ถามว่าหงายใบไหน แล้วทำต่อ ไม่ถามผลซ้ำ", () => {
+  it("choosing CC(1) with several face-down damage: asks which to flip, then continues without asking the effect again", () => {
     setup();
     for (const d of s.players.me.damage) d.faceUp = false;
     act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
@@ -117,7 +117,7 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
     expect(s.awaiting?.kind).toBe("order-queue");
   });
 
-  it("ไม่จ่ายคอสต์ได้ และถ้าไม่มีความสามารถรออยู่ก็กลับมาการ์ดต่อ", () => {
+  it("can decline a cost, and with no ability pending returns to guarding", () => {
     setup();
     act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
     skip("me", "Negrolily");
@@ -126,7 +126,7 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
     expect(shieldOf(db, s.players.me.guardian[0])).toBe(15000);
   });
 
-  it("ตอบผิดถูกปฏิเสธ และทำอย่างอื่นระหว่างรอคำตอบไม่ได้", () => {
+  it("wrong answers are rejected, and nothing else can be done while waiting for an answer", () => {
     setup();
     act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
     expect(() => act("me", { type: "end-guard" })).toThrow("err.resolveFirst");
@@ -136,7 +136,7 @@ describe("คอมโบยิงนอกเทิร์น (content/combos/of
   });
 });
 
-describe("ฮอลโล่ว์ในเอนด์เฟส", () => {
+describe("hollow in the end phase", () => {
   function setup() {
     newGame();
     const me = s.players.me;
@@ -149,35 +149,35 @@ describe("ฮอลโล่ว์ในเอนด์เฟส", () => {
     refreshAwaiting(s);
   }
 
-  it("G ยูนิทกลับ G โซนก่อน แล้วไนท์โรสคอลยูนิทที่ถูกรีไทร์กลับมาได้", () => {
+  it("the G unit returns to the G zone first, then Nightrose can call back the retired unit", () => {
     setup();
     const gun = s.players.me.circles.front_left!.uid;
     act("me", { type: "next-phase" });
-    expect(s.players.me.circles.vc?.key).toBe(K.mist);            // ฮาร์ทกลับเป็นแวนการ์ดแล้ว
+    expect(s.players.me.circles.vc?.key).toBe(K.mist);            // the heart is the vanguard again
     use("me", "Night Fog");
     pick("me", gun);
     to("me", "front_left");
-    skip("me", "Skeleton Cannoneer", "0");                                 // ไม่ติดฮอลโล่ว์
-    // ความสามารถยิง (CB1) ถูกข้ามเองเพราะไม่มีดาเมจหงายให้จ่าย
+    skip("me", "Skeleton Cannoneer", "0");                                 // don't become hollowed
+    // The shoot ability (CB1) is skipped automatically because there's no face-up damage to pay
     expect(s.turnPlayer).toBe("bot");
     expect(s.players.me.circles.front_left).toMatchObject({ uid: gun, hollowed: false });
   });
 
-  it("ติดฮอลโล่ว์ซ้ำ ถูกรีไทร์อีกรอบ และไนท์โรสใช้ซ้ำไม่ได้ (1/Turn)", () => {
+  it("hollowed again, retired again, and Nightrose can't be used again (1/Turn)", () => {
     setup();
     act("me", { type: "next-phase" });
     use("me", "Night Fog");
     pick("me", s.players.me.drop.find((c) => c.key === K.gun)!.uid);
     to("me", "front_left");
-    use("me", "Skeleton Cannoneer", "0");                                  // ติดฮอลโล่ว์อีก
+    use("me", "Skeleton Cannoneer", "0");                                  // hollow again
     expect(s.turnPlayer).toBe("bot");
     expect(s.players.me.circles.front_left).toBeUndefined();
     expect(s.players.me.drop.some((c) => c.key === K.gun)).toBe(true);
   });
 });
 
-describe("กดถัดไปตอนมีความสามารถรอ", () => {
-  it("ไม่ใช้แบบเลือกได้ทั้งหมด แล้วเกมเดินต่อ", () => {
+describe("pressing next with pending abilities", () => {
+  it("declines all the optional ones, and the game continues", () => {
     newGame();
     const me = s.players.me;
     me.circles = { vc: inst(K.gunit), front_left: inst(K.gun) };
@@ -188,7 +188,7 @@ describe("กดถัดไปตอนมีความสามารถร�
     Object.assign(s, { turn: 3, turnPlayer: "me", phase: "battle", step: "attack" });
     refreshAwaiting(s);
     act("me", { type: "next-phase" });
-    expect(s.queue.map((e) => e.optional)).toEqual([true]);       // ไนท์โรส (mill 3) รออยู่
+    expect(s.queue.map((e) => e.optional)).toEqual([true]);       // Nightrose (mill 3) waiting
     act("me", { type: "pass-queue" });
     expect(s.queue).toHaveLength(0);
     expect(s.passQueue).toBeUndefined();
@@ -197,8 +197,8 @@ describe("กดถัดไปตอนมีความสามารถร�
   });
 });
 
-describe("ความสามารถอื่น", () => {
-  it("ไนท์สตอร์ม: จบการต่อสู้ที่โจมตีแวนการ์ด คอลจากดรอปลง RC ไหนก็ได้ที่ไม่ใช่ช่องของตัวเอง (คอลทับได้)", () => {
+describe("other abilities", () => {
+  it("Nightstorm: at the end of a battle attacking the vanguard, calls from the drop to any RC other than its own circle (can call over a unit)", () => {
     newGame();
     const me = s.players.me;
     me.circles = { vc: inst(K.mist), front_left: inst("G-BT06/083TH"), front_right: inst("G-TD08/007TH") };
@@ -219,7 +219,7 @@ describe("ความสามารถอื่น", () => {
     expect(s.players.me.circles.front_right?.key).toBe(K.gun);
   });
 
-  it("แรมเพจ·เชด: เมื่อแวนการ์ดไนท์โรสโจมตี เข้าโซล จั่ว และแวนการ์ด Power+5000", () => {
+  it("Rampage Shade: when the Nightrose vanguard attacks, goes to the soul, draws, and the vanguard gets Power+5000", () => {
     newGame();
     const me = s.players.me;
     me.circles = { vc: inst(K.mist), back_left: inst(K.rampage) };
@@ -235,7 +235,7 @@ describe("ความสามารถอื่น", () => {
     expect(powerOf(db, s.players.me, "vc")).toBe(16000);
   });
 
-  it("แบนชีน้ำวน: ใช้ ACT ในเมนเฟส เข้าโซลแล้วจั่ว", () => {
+  it("Rough Seas Banshee: use ACT in the main phase, go to the soul and draw", () => {
     newGame();
     const me = s.players.me;
     me.circles = { vc: inst(K.mist), back_left: inst("PR/0632TH") };
@@ -247,7 +247,7 @@ describe("ความสามารถอื่น", () => {
     expect(s.players.me.hand).toHaveLength(hand + 1);
   });
 
-  it("คิง·เซอเพนท์: เข้า RC จากดรอปโซนแล้ว SC1 + CC1 อัตโนมัติ (ไม่มีคอสต์ ไม่ต้องถาม)", () => {
+  it("King Serpent: entering RC from the drop zone gives SC1 + CC1 automatically (no cost, no question)", () => {
     newGame();
     const me = s.players.me;
     me.circles = { vc: inst(K.mist), front_left: inst(K.serp) };
@@ -258,7 +258,7 @@ describe("ความสามารถอื่น", () => {
     Object.assign(s, { turn: 3, turnPlayer: "me", phase: "battle", step: "attack" });
     refreshAwaiting(s);
     const soul = me.soul.length;
-    act("me", { type: "next-phase" });   // เอนด์เฟส: เซอเพนท์ (ฮอลโล่ว์) ถูกรีไทร์ ไนท์โรสคอลกลับ
+    act("me", { type: "next-phase" });   // end phase: Serpent (hollow) is retired, Nightrose calls it back
     use("me", "Night Fog");
     pick("me", s.players.me.drop.find((c) => c.key === K.serp)!.uid);
     to("me", "front_left");
@@ -267,8 +267,8 @@ describe("ความสามารถอื่น", () => {
   });
 });
 
-describe("ลำดับความสามารถที่ทำงานพร้อมกัน", () => {
-  it("เนโครเลซี่คอลผีน้อยมิคฯ จากดรอป: ติดฮอลโล่ว์ก่อน แล้วเอฟเฟคบวกพลังทำงาน", () => {
+describe("order of simultaneous abilities", () => {
+  it("Negrolazy calls Mick the Ghostie and Family from the drop: hollow first, then the power effect resolves", () => {
     newGame();
     const me = s.players.me;
     me.circles = { vc: inst(K.mist), front_left: inst(K.gun) };
@@ -280,17 +280,17 @@ describe("ลำดับความสามารถที่ทำงาน�
     Object.assign(s, { turn: 3, turnPlayer: "me", phase: "main", step: undefined });
     refreshAwaiting(s);
     act("me", { type: "call", uid: me.hand[0].uid, to: "back_left" });
-    skip("me", "Negrolazy", "0");                                // ไม่ติดฮอลโล่ว์ให้เลซี่
-    use("me", "Negrolazy");                                      // CB1 + SB1 คอลมิคจากดรอป
+    skip("me", "Negrolazy", "0");                                // don't hollow Lazy
+    use("me", "Negrolazy");                                      // CB1 + SB1 call Mick from the drop
     pick("me", s.players.me.drop.find((c) => c.key === "PR/0564TH")!.uid);
     to("me", "back_right");
-    use("me", "Mick", "0");                                        // ติดฮอลโล่ว์ก่อน
-    expect(s.awaiting?.choice?.kind).toBe("cards");               // เอฟเฟคบวกพลังของมิคทำงานต่อ
+    use("me", "Mick", "0");                                        // hollow first
+    expect(s.awaiting?.choice?.kind).toBe("cards");               // Mick's power effect continues
     pick("me", s.players.me.circles.front_left!.uid);
     expect(powerOf(db, s.players.me, "front_left")).toBe(db[K.gun].power! + 10000);
   });
 
-  it("เนโครโบนบูสท์เรียร์การ์ด (GB1, แวนการ์ดไนท์โรส): จบการต่อสู้แล้วรีไทร์ตัวที่ถูกบูสท์และคอลจากดรอป", () => {
+  it("Negrobone boosting a rear-guard (GB1, Nightrose vanguard): at battle end retires the boosted unit and calls from the drop", () => {
     newGame();
     const me = s.players.me;
     me.circles = { vc: inst(K.mist), front_left: inst(K.gun), back_left: inst(K.bone) };

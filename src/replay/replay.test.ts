@@ -10,7 +10,7 @@ import type { RecordedAction, Replay } from "./types";
 const deck = presetDecks.find((d) => d.id === "nightrose-sample")!;
 const decks = { me: deck, bot: deck };
 
-// เล่นทั้งเกมด้วยบอท แล้วเก็บ action ทุกก้าวเป็น replay
+// Play a whole game with bots, then record every action as a replay
 async function recorded(seed: number) {
   const bots = { me: new VanguardBot(db, "normal", decks, 1), bot: new VanguardBot(db, "normal", decks, 2) };
   let s = createGame(db, { seed, decks, firstPlayer: "me" });
@@ -28,7 +28,7 @@ async function recorded(seed: number) {
 }
 
 describe("replay", () => {
-  it("เล่นซ้ำจาก seed + action ได้สนามตรงกับเกมจริงทุกก้าว", async () => {
+  it("replaying from seed + actions gives a board matching the real game at every step", async () => {
     const { r, states } = await recorded(21);
     const tl = replayTimeline(db, r);
     expect(tl.brokenAt).toBeUndefined();
@@ -38,7 +38,7 @@ describe("replay", () => {
     expect(tl.logAt.at(-1)).toBe(tl.log.length);
   });
 
-  it("เล่นต่อจากก้าวกลางเกม: replay ใหม่ = action ก่อนหน้า + action ใหม่ เล่นซ้ำได้ครบ", async () => {
+  it("continuing from mid-game: new replay = earlier actions + new actions, fully replayable", async () => {
     const { r, states } = await recorded(22);
     const step = 60;
     const s = states[step];
@@ -47,15 +47,15 @@ describe("replay", () => {
     expect(replayTimeline(db, cont).states.at(-1)).toEqual(states[step + 1]);
   });
 
-  it("action ที่ใช้กับกฎปัจจุบันไม่ได้: หยุดที่ก้าวก่อนหน้า และบอกว่าหยุดตรงไหน", async () => {
+  it("an action that can't be applied under the current rules: stops at the step before and says where", async () => {
     const { r } = await recorded(23);
-    const broken: Replay = { ...r, actions: [...r.actions.slice(0, 5), { player: "me", action: { type: "ride", uid: "ไม่มี" } }, ...r.actions.slice(6)] };
+    const broken: Replay = { ...r, actions: [...r.actions.slice(0, 5), { player: "me", action: { type: "ride", uid: "missing" } }, ...r.actions.slice(6)] };
     const tl = replayTimeline(db, broken);
     expect(tl.brokenAt).toBe(5);
     expect(tl.states).toHaveLength(6);
   });
 
-  it("ไฟล์แบบ states: แสดงประวัติถึงเทิร์นของแต่ละก้าว", () => {
+  it("states file: shows the history up to each step's turn", () => {
     const s1 = createGame(db, { seed: 1, decks, firstPlayer: "me" });
     const s2 = { ...s1, turn: 2 };
     const log = [{ code: "a", player: "me" as const, turn: 1, text: { key: "log.battleEnd" as const } }, { code: "b", player: "me" as const, turn: 2, text: { key: "log.battleEnd" as const } }];
@@ -63,7 +63,7 @@ describe("replay", () => {
     expect(tl.logAt).toEqual([1, 2]);
   });
 
-  it("อ่านไฟล์: รับ replay และไฟล์แบบ states ปฏิเสธไฟล์อื่น", () => {
+  it("reading files: accepts replays and states files, rejects other files", () => {
     const r: Replay = { version: 1, id: "x", createdAt: "", title: "", seed: 1, firstPlayer: "me", decks, actions: [], turn: 0 };
     expect(parseReplayFile(JSON.stringify(r))).toMatchObject({ seed: 1 });
     expect(parseReplayFile(JSON.stringify({ kind: "states", decks, states: [createGame(db, { seed: 1, decks, firstPlayer: "me" })], log: [] }))).toMatchObject({ kind: "states" });

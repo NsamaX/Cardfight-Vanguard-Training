@@ -1,11 +1,11 @@
-// กติกาฝั่งหน้าจอของหน้าสนาม (ฟังก์ชันล้วน ไม่มี React): ช่องไหนคลิกได้ ตัวเลขการต่อสู้ และการหาการ์ดที่กำลังดู
+// Board-screen rules (pure functions, no React): which circles are clickable, battle numbers, and finding the card being viewed
 import { BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost as cardBoosts, canIntercept as cardIntercepts, circleMsg, other, powerOf, shieldOf, type CardDB } from "../engine/rules";
 import { locate, playerMsg } from "../engine/state";
 import type { CardInstance, Choice, Circle, GameEvent, GameState, PlayerId } from "../engine/types";
 import { msg, type Msg, type MsgKey } from "../i18n/msg";
 
-// สนามก่อนแจกการ์ด: การ์ดบนมือกลับไปบนกองการ์ด starterOnVc = false ให้แวนการ์ดเริ่มต้นกลับไปบนสุดของกองด้วย
-// ไม่มีใครต้องตอบอะไร (บอทจะได้ไม่เริ่มคิดก่อนแจกเสร็จ)
+// The board before dealing: hand cards go back on top of the deck; starterOnVc = false also puts the starting vanguard back on top of the deck
+// Nobody needs to answer anything (so the bot doesn't start thinking before dealing is done)
 export function undealt(state: GameState, starterOnVc: boolean): GameState {
   const s = structuredClone(state);
   s.awaiting = undefined;
@@ -16,7 +16,7 @@ export function undealt(state: GameState, starterOnVc: boolean): GameState {
   return s;
 }
 
-// ก้าวกลางของการเปลี่ยนการ์ดบนมือ: การ์ดที่เลือกกลับเข้ากองก่อน (ยังไม่จั่วใหม่) ไม่มีใครต้องตอบอะไรระหว่างนี้
+// Intermediate mulligan step: the chosen cards go back into the deck first (no redraw yet); nobody needs to answer anything meanwhile
 export function returningToDeck(state: GameState, p: PlayerId, uids: string[]): GameState {
   const s = structuredClone(state);
   s.awaiting = undefined;
@@ -30,20 +30,20 @@ export type Zone = "deck" | "drop" | "soul" | "damage" | "gZone" | "bind";
 export type Sel =
   | { kind: "hand"; player: PlayerId; uid: string }
   | { kind: "circle"; player: PlayerId; circle: Circle }
-  | { kind: "attack"; player: PlayerId; col: Circle; front: boolean; back: boolean };   // แบทเทิล: ตัวโจมตี (แถวหน้า) และตัวบูสท์ (แถวหลัง) ในแนวเดียวกัน
+  | { kind: "attack"; player: PlayerId; col: Circle; front: boolean; back: boolean };   // battle: attacker (front row) and booster (back row) in the same column
 
-// ช่องแถวหน้าของแนวที่ช่องนี้อยู่ (vc ↔ back_center, หน้า ↔ หลังซ้าย/ขวา)
+// Front-row circle of this circle's column (vc ↔ back_center, front ↔ back left/right)
 export const columnOf = (c: Circle): Circle => (FRONT.includes(c) ? c : FRONT.find((f) => BEHIND[f] === c)!);
 export type Mode =
   | { kind: "mulligan"; picks: string[] }
-  | { kind: "stride"; gUid?: string; picks: string[] }            // G ยูนิทที่จะสไตรด์ + การ์ดบนมือที่จะทิ้ง (เกรดรวม 3 ขึ้นไป)
+  | { kind: "stride"; gUid?: string; picks: string[] }            // G unit to stride + hand cards to discard (total grade 3+)
   | { kind: "gguard"; gUid: string; discardUid?: string }
-  | { kind: "guard"; picks: string[] }                      // การ์ดบนมือที่เลือกจะการ์ด (หลายใบได้)
+  | { kind: "guard"; picks: string[] }                      // hand cards chosen to guard (several allowed)
   | { kind: "trigger"; powerTo?: Circle };
 export type LogEntry = GameEvent & { turn: number };
-export type Light = "source" | "active" | undefined;   // ขอบเหลือง = มีความสามารถรอ, ขอบส้ม = เลือกอยู่/กำลังทำงาน
+export type Light = "source" | "active" | undefined;   // yellow border = ability pending, orange border = selected/resolving
 
-// แถวในแถบเฟส เรียงตามลำดับเกม: START (เตรียมเกม/เปลี่ยนการ์ดบนมือ) แล้ววน STAND → END โดยแยก RIDE กับ STRIDE เป็นคนละแถว
+// Rows in the phase bar in game order: START (setup/mulligan), then STAND → END in a loop, with RIDE and STRIDE as separate rows
 export const PHASES: { label: MsgKey; phase: GameState["phase"]; step?: string }[] = [
   { label: "phase.setup", phase: "setup" },
   { label: "phase.stand", phase: "stand" },
@@ -56,7 +56,7 @@ export const PHASES: { label: MsgKey; phase: GameState["phase"]; step?: string }
 ];
 export const phaseIndex = (s: GameState) => PHASES.findIndex((p) => p.phase === s.phase && (!p.step || p.step === s.step));
 
-// key = "phase:step" ของสถานะตอนนั้น
+// key = "phase:step" of the current state
 const stepKey = (s: GameState) => `${s.phase}:${s.step ?? ""}`;
 const NEXT_LABEL: Record<string, MsgKey> = {
   "ride:ride": "next.toStride", "ride:stride": "btn.none", "main:": "next.toBattle", "battle:attack": "next.endTurn",
@@ -65,13 +65,13 @@ const NEXT_LABEL: Record<string, MsgKey> = {
 export function nextLabel(db: CardDB, s: GameState): MsgKey | undefined {
   if (s.awaiting?.kind === "guard" || (s.awaiting?.kind === "order-queue" && s.battle && s.step === "guard")) return NEXT_LABEL["battle:guard"];
   if (s.awaiting?.kind !== "next-phase" && s.awaiting?.kind !== "order-queue") return undefined;
-  if (stepKey(s) === "ride:ride" && !bothVanguardsGrade3(db, s)) return "next.toMain";   // ไม่มีสไตรด์สเต็ป
-  if (stepKey(s) === "ride:stride" && s.strodeThisTurn) return "next.toMain";                // สไตรด์แล้ว ไม่ใช่การข้าม
-  if (stepKey(s) === "main:" && s.turn === 1) return NEXT_LABEL["battle:attack"];                     // เทิร์นแรกไม่มีแบทเทิล
+  if (stepKey(s) === "ride:ride" && !bothVanguardsGrade3(db, s)) return "next.toMain";   // no stride step
+  if (stepKey(s) === "ride:stride" && s.strodeThisTurn) return "next.toMain";                // already strode, not a skip
+  if (stepKey(s) === "main:" && s.turn === 1) return NEXT_LABEL["battle:attack"];                     // no battle on the first turn
   return NEXT_LABEL[stepKey(s)];
 }
 
-// มองจากฝั่งเรา: สนามบอทกลับหัว แถวหลังอยู่บน และซ้าย-ขวาสลับกัน
+// Seen from our side: the bot's board is upside down, back row on top, and left-right swapped
 export const LAYOUT: Record<PlayerId, Circle[]> = {
   bot: ["back_right", "back_center", "back_left", "front_right", "vc", "front_left"],
   me: ["front_left", "vc", "front_right", "back_left", "back_center", "back_right"],
@@ -80,7 +80,7 @@ export const LAYOUT: Record<PlayerId, Circle[]> = {
 const INTERCEPT: Circle[] = ["front_left", "front_right"];
 export const canIntercept = (c: Circle) => INTERCEPT.includes(c);
 
-// การ์ดจาก uid พร้อมป้ายตำแหน่ง (รวมการ์ดที่กำลังเปิดเช็คด้วย)
+// Card by uid with a location label (including the card being revealed for a check)
 export function findCard(s: GameState, uid: string): { inst: CardInstance; player: PlayerId; where: Msg; circle?: Circle } | undefined {
   const at = locate(s, uid);
   if (at) {
@@ -100,7 +100,7 @@ export interface TargetContext {
   mode: Mode | null;
 }
 
-// ช่องที่ไฮไลต์ว่าคลิกได้ในสถานะตอนนี้
+// Circles highlighted as clickable in the current state
 export function isTarget({ s, db, actor, choice, sel, mode }: TargetContext, p: PlayerId, c: Circle): boolean {
   const unit = s.players[p].circles[c];
   if (choice) return choice.kind === "circle" && p === choice.side && choice.options.includes(c);
@@ -115,7 +115,7 @@ export function isTarget({ s, db, actor, choice, sel, mode }: TargetContext, p: 
   return false;
 }
 
-// บูสท์ได้: เกรด 0-1 ที่สแตนด์อยู่
+// Can boost: a standing grade 0-1
 export const canBoost = (db: CardDB, inst: CardInstance) => !inst.rested && cardBoosts(db[inst.key]);
 
 export function battleSummary(db: CardDB, s: GameState) {
@@ -139,7 +139,7 @@ export function battleSummary(db: CardDB, s: GameState) {
   };
 }
 
-// โซนกองที่มีการ์ดต้นทางความสามารถอยู่ (การ์ดบนสนาม มือ GC ไฮไลต์ที่ตัวการ์ดเอง ส่วนกองไฮไลต์ทั้งช่อง)
+// Pile zones containing an ability's source card (cards on the board, hand, GC highlight the card itself; piles highlight the whole slot)
 export function sourcePiles(s: GameState, uids: string[]): Record<PlayerId, Set<string>> {
   const out: Record<PlayerId, Set<string>> = { me: new Set(), bot: new Set() };
   for (const u of uids) {
@@ -152,7 +152,7 @@ export function sourcePiles(s: GameState, uids: string[]): Record<PlayerId, Set<
 export function groupByTurn(log: LogEntry[]): { turn: number; items: LogEntry[] }[] {
   const turns: { turn: number; items: LogEntry[] }[] = [];
   for (const e of log) {
-    const turn = e.code === "mulligan" ? 0 : e.turn;   // เปลี่ยนการ์ดบนมือของผู้เล่นคนที่สองเกิดตอนเกมเริ่ม (เทิร์น 1) แต่เป็นการเตรียมเกม
+    const turn = e.code === "mulligan" ? 0 : e.turn;   // the second player's mulligan happens when the game starts (turn 1) but is part of setup
     if (turns.at(-1)?.turn !== turn) turns.push({ turn, items: [] });
     turns.at(-1)!.items.push(e);
   }

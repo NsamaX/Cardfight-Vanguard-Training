@@ -1,4 +1,4 @@
-// ให้บอทเล่นกันเองทั้งเกม: ใช้ในเทสต์ และวัดว่าบอทระดับไหนชนะระดับไหน
+// Bots play a full game against each other: used in tests, and to measure which level beats which
 import { apply, createGame } from "../engine/game";
 import type { CardDB } from "../engine/rules";
 import type { Deck, PlayerId } from "../engine/types";

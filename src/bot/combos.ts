@@ -1,11 +1,11 @@
-// วิเคราะห์คอมโบของเด็คก่อนเริ่มเกม: เช็คการ์ด → หาคอมโบ → จัดประเภท → คะแนนความยาก/ความคุ้ม → บันทึกกับเด็ค
-// คอมโบ = สายความสามารถที่ผลของขั้นหนึ่งไปกระตุ้นจังหวะของขั้นถัดไป เช่น call(drop→RC) → enter(RC, self, from=drop)
+// Analyze the deck's combos before the game: check cards → find combos → classify → difficulty/value score → save with the deck
+// Combo = a chain of abilities where one step's effect triggers the next step's timing, e.g. call(drop→RC) → enter(RC, self, from=drop)
 import { parseCode, quoted, splitTop } from "../engine/code";
 import { isG, printedShield, type CardDB } from "../engine/rules";
 import type { Ability, Card, Deck } from "../engine/types";
 
 export type ComboKind = "attack" | "defense" | "finisher";
-// ตำแหน่งที่ชิ้นส่วนต้องอยู่: hand = ต้องมีบนมือ (คอล/ไรด์/ทิ้ง), drop = ต้องอยู่ในดรอป, G = G โซน, starter = การ์ดเริ่มต้น
+// Where a piece must be: hand = in hand (call/ride/discard), drop = in the drop zone, G = G zone, starter = the starting card
 export type PieceAt = "hand" | "drop" | "G" | "starter";
 
 export interface ComboStep { key: string; ability: number; at: PieceAt }
@@ -15,32 +15,32 @@ export interface Combo {
   kind: ComboKind;
   difficulty: number;
   value: number;
-  score: number;      // value / difficulty: ง่ายและคุ้ม = สูง
+  score: number;      // value / difficulty: easy and worthwhile = high
   profile: ComboProfile;
 }
 
-// ข้อมูลที่คอมโบใช้และให้ (ประมาณจากโค้ดความสามารถ ไม่ได้จำลองจริง)
+// What a combo uses and gives (estimated from ability code, not actually simulated)
 export interface ComboProfile {
-  cb: number; sb: number;           // คอสต์รวมทั้งคอมโบ
-  cc: number; sc: number;           // ได้คืนระหว่างคอมโบ
-  cbNeed: number; sbNeed: number;   // ต้องมีก่อนเริ่ม (หักที่ได้คืนจากขั้นก่อนหน้าแล้ว)
-  gb: number;                       // GB ที่ต้องมี
-  flipG: number;                    // G โซนที่ต้องหงาย (ไม่นับการคอล G การ์เดี้ยน)
-  handUse: number;                  // การ์ดบนมือที่ใช้ (ทิ้ง/คอล/ไรด์)
-  deckUse: number;                  // การ์ดที่ออกจากกอง (ทิ้งกอง ค้น จั่ว)
+  cb: number; sb: number;           // total cost of the combo
+  cc: number; sc: number;           // regained during the combo
+  cbNeed: number; sbNeed: number;   // needed before starting (after subtracting what earlier steps regain)
+  gb: number;                       // GB required
+  flipG: number;                    // G zone cards to flip face up (not counting G guardian calls)
+  handUse: number;                  // hand cards used (discard/call/ride)
+  deckUse: number;                  // cards leaving the deck (mill, search, draw)
   draw: number;
-  attacks: { power: number; crit: number }[];   // การโจมตีที่คอมโบเพิ่ม/เสริม (รวม Power ตัวบูสท์แล้ว)
-  shield: number;                   // Shield ที่ได้ตอนป้องกัน
+  attacks: { power: number; crit: number }[];   // attacks the combo adds/boosts (booster Power included)
+  shield: number;                   // Shield gained when guarding
   noHit: boolean;
-  disrupt: { ownTurn: number; oppTurn: number };   // ยิง/ขัดขวางคู่แข่ง (รีไทร์ ฯลฯ) ในเทิร์นตัวเอง/เทิร์นคู่แข่ง
+  disrupt: { ownTurn: number; oppTurn: number };   // shooting/disrupting the opponent (retire etc.) on your turn / the opponent's turn
 }
 export interface DeckCombos {
   signature: string;
   combos: Combo[];
-  handPiece: Map<string, number>;   // การ์ด → คะแนนคอมโบดีสุดที่การ์ดใบนี้เป็นชิ้นส่วนบนมือ
+  handPiece: Map<string, number>;   // card → best combo score this card is a hand piece of
 }
 
-// ---------- 1. เช็คการ์ดใน deck และ G zone ----------
+// ---------- 1. Check cards in the deck and G zone ----------
 
 interface Entry { key: string; card: Card; copies: number }
 
@@ -50,9 +50,9 @@ function deckCards(db: CardDB, deck: Deck): Entry[] {
     .map(([key, copies]) => ({ key, card: db[key], copies }));
 }
 
-// ---------- 2. คำนวณคอมโบที่เป็นไปได้ ----------
+// ---------- 2. Compute possible combos ----------
 
-// เหตุการณ์ที่ผลหรือคอสต์ของความสามารถทำให้เกิด
+// Events an ability's effect or cost causes
 type Ev =
   | { t: "enter"; zone: string; from?: string; who: "self" | "called"; filter: string }
   | { t: "to-drop"; by: string; who: "self" | "called" | "own"; filter: string }
@@ -78,7 +78,7 @@ function produces(ab: Ability): Ev[] {
   return out;
 }
 
-// การ์ด k ตรงกับตัวกรอง (ตรวจแบบไม่มีสนาม: ตัวกรองที่ต้องดูสนามถือว่าผ่าน)
+// Card k matches the filter (checked without a board: filters that need the board count as passing)
 function fits(k: Card, flt: string, source: Card, subject?: string): boolean {
   for (const t of splitTop(flt, "&")) {
     let m: RegExpMatchArray | null;
@@ -92,7 +92,7 @@ function fits(k: Card, flt: string, source: Card, subject?: string): boolean {
     else if (t === "heal" || t === "heal-trigger") { if (k.trigger !== "heal") return false; }
     else if (t === "G-GUARDIAN") { if (k.type !== "g-guardian") return false; }
     else if (t === "that-card") { if (subject && k.key !== subject) return false; }
-    else if (t === "different-grades" || t === "grade-sum≥3" || t === "") { /* ตรวจตอนเลือก */ }
+    else if (t === "different-grades" || t === "grade-sum≥3" || t === "") { /* checked when choosing */ }
     else if (k.clan !== t) return false;
   }
   return true;
@@ -100,7 +100,7 @@ function fits(k: Card, flt: string, source: Card, subject?: string): boolean {
 
 const isUnit = (c: Card) => !isG(c);
 
-// ความสามารถ b ของการ์ด k ถูกกระตุ้นด้วยเหตุการณ์ e ที่การ์ด p ทำให้เกิดไหม คืนตำแหน่งที่ k ต้องอยู่
+// Is ability b of card k triggered by event e caused by card p? Returns where k must be
 function consumes(k: Card, b: Ability, e: Ev, p: Card, subject?: string): PieceAt | undefined {
   if (b.kind !== "AUTO" || !b.timing) return undefined;
   const c = parseCode(b.timing);
@@ -130,7 +130,7 @@ function consumes(k: Card, b: Ability, e: Ev, p: Card, subject?: string): PieceA
   return undefined;
 }
 
-// จุดเริ่มคอมโบ: สิ่งที่ผู้เล่นทำเองได้ (คอล ไรด์ สไตรด์ โจมตี การ์ด ใช้ ACT)
+// Combo starting points: things the player can do directly (call, ride, stride, attack, guard, use ACT)
 function starterAt(e: Entry, ab: Ability, starter: string): PieceAt | undefined {
   if (isG(e.card)) return ["ACT", "STRIDE", "ULTIMATE STRIDE", "G GUARDIAN"].includes(ab.kind) ? "G" : undefined;
   const own = e.key === starter ? "starter" : "hand";
@@ -148,7 +148,7 @@ function findCombos(cards: Entry[], starter: string): ComboStep[][] {
   const all = cards.flatMap((e) => e.card.abilities.map((ab, i) => ({ e, ab, i })));
   const out: ComboStep[][] = [];
   const walk = (path: ComboStep[], from: { e: Entry; ab: Ability }, subject?: string) => {
-    // ขั้นสุดท้ายต้องได้ผลจริง (ไม่ใช่แค่ฮอลโล่ว์ตัวเอง) ไม่งั้นเป็นแค่ทางผ่านไปขั้นถัดไป
+    // The last step must have a real effect (not just hollowing itself), otherwise it's only a pass-through to the next step
     if (path.length >= 2 && from.ab.effect.reduce((n, e) => n + effectValue(e), 0) > 0) out.push(path);
     if (path.length >= MAX_STEPS) return;
     for (const ev of produces(from.ab)) {
@@ -169,7 +169,7 @@ function findCombos(cards: Entry[], starter: string): ComboStep[][] {
   return out;
 }
 
-// ---------- 3. จัดประเภทคอมโบ ----------
+// ---------- 3. Classify combos ----------
 
 const num = (s: string | undefined, dflt = 1) => {
   if (!s) return dflt;
@@ -203,7 +203,7 @@ function kindOf(abs: Ability[]): ComboKind {
   return "attack";
 }
 
-// ---------- 4. คะแนนความยากของเงื่อนไข ----------
+// ---------- 4. Condition difficulty score ----------
 
 const PIECE_BASE = 0.5;
 const COST_WEIGHT: Record<string, number> = { CB: 0.6, SB: 0.3, "flip-G-up": 1, mill: 0.1, discard: 0.5, "retire-own": 0.5, bind: 0.3, reveal: 0.2 };
@@ -232,7 +232,7 @@ function difficultyOf(pieces: { key: string; at: PieceAt; copies: number }[], ab
   return d + gb + (grade3 ? 1 : 0);
 }
 
-// ---------- 5. คะแนนความคุ้มค่าตามการใช้งาน ----------
+// ---------- 5. Value score by use ----------
 
 function effectValue(e: string): number {
   const c = parseCode(e);
@@ -267,14 +267,14 @@ function valueOf(abs: Ability[], cards: Card[]): number {
   return v;
 }
 
-// ---------- 6. บันทึกคอมโบกับเด็ค ----------
+// ---------- 6. Save combos with the deck ----------
 
 export const deckSignature = (deck: Deck) =>
   JSON.stringify([deck.starter, Object.entries(deck.main).sort(), Object.entries(deck.g_zone).sort()]);
 
 const saved = new Map<string, DeckCombos>();
 
-// เด็คเดิม = ใช้คอมโบที่บันทึกไว้ เด็คถูกแก้ (รายการการ์ดเปลี่ยน) = คิดใหม่
+// Unchanged deck = reuse saved combos, edited deck (card list changed) = recompute
 export function deckCombos(db: CardDB, deck: Deck): DeckCombos {
   const signature = deckSignature(deck);
   let r = saved.get(signature);
@@ -293,7 +293,7 @@ export function analyze(db: CardDB, deck: Deck, signature = deckSignature(deck))
     seen.add(id);
     const abs = steps.map((s) => db[s.key].abilities[s.ability]);
     const pieces = distinctPieces(steps);
-    // เงื่อนไขชื่อแวนการ์ด: ต้องไรด์การ์ดชื่อนั้น (เกรด 3 ที่มีหลายใบที่สุด)
+    // Vanguard-name condition: must ride a card with that name (the grade 3 with the most copies)
     for (const ab of abs) for (const x of ab.cond ?? []) {
       if (!x.startsWith("vc-name(")) continue;
       const nm = quoted(x);
@@ -315,13 +315,13 @@ export function analyze(db: CardDB, deck: Deck, signature = deckSignature(deck))
   return { signature, combos, handPiece };
 }
 
-// ---------- ข้อมูลคอมโบ: ทรัพยากร การโจมตี การป้องกัน การขัดขวาง ----------
+// ---------- Combo data: resources, attacks, defense, disruption ----------
 
-const HEART = 11000;   // G ยูนิทบนแวนการ์ดได้ Power ของฮาร์ท (เกรด 3 ทั่วไป)
+const HEART = 11000;   // a G unit on the vanguard gets the heart's Power (a typical grade 3)
 
 interface Unit { key: string; power: number; crit: number; vc: boolean }
 
-// ยูนิทที่ถูกคอล: ใบในสายคอมโบก่อน ที่เหลือเลือกใบ Power สูงสุดในเด็คที่ตรงตัวกรอง (นับจำนวนใบ)
+// Called units: cards in the combo chain first, the rest pick the highest-Power card in the deck matching the filter (counting copies)
 function calledUnits(cards: Entry[], source: Card, filter: string, n: number, chained: string | undefined): Unit[] {
   const out: Unit[] = [];
   const left = new Map(cards.map((e) => [e.key, e.copies]));
@@ -332,7 +332,7 @@ function calledUnits(cards: Entry[], source: Card, filter: string, n: number, ch
   return out;
 }
 
-// Shield จากการคอลการ์ดลง GC: ใบ Shield สูงสุด (different-grades = เกรดไม่ซ้ำกัน)
+// Shield from calling cards to GC: the highest-Shield cards (different-grades = no repeated grade)
 function gcShield(cards: Entry[], source: Card, filter: string, n: number): number {
   const distinct = filter.includes("different-grades");
   const pool = cards.filter((e) => !isG(e.card) && fits(e.card, filter, source)).sort((a, b) => printedShield(b.card) - printedShield(a.card));
@@ -406,7 +406,7 @@ function profileOf(steps: ComboStep[], cards: Entry[], kind: ComboKind): ComboPr
           break;
         }
         case "power": case "critical": {
-          // "+1000 per 2 drop" ขึ้นกับดรอปโซน: ประมาณ +5000
+          // "+1000 per 2 drop" depends on the drop zone: about +5000
           const amt = x.pos[0]?.includes("per") ? 5000 : num(x.pos[0]?.replace(/^\+/, ""), 0);
           const target = x.pos[1] ?? "self";
           const add = (u: Unit) => { if (x.name === "power") u.power += amt; else u.crit += 1; };
@@ -420,7 +420,7 @@ function profileOf(steps: ComboStep[], cards: Entry[], kind: ComboKind): ComboPr
       }
     }
   });
-  // เกรด 0-1 เป็นตัวบูสท์ (บวก Power ให้ตัวโจมตีที่ยังไม่มีตัวบูสท์) เกรด 2 ขึ้นไปและแวนการ์ดเป็นตัวโจมตี
+  // Grades 0-1 are boosters (add Power to an attacker without a booster), grade 2+ and the vanguard are attackers
   const gradeOf = (u: Unit) => (u.vc ? 4 : card(u.key.split("@")[0]).grade);
   const attackers = units.filter((u) => gradeOf(u) >= 2).sort((a, b) => b.power - a.power).map((u) => ({ power: u.power, crit: u.crit }));
   const boosters = units.filter((u) => gradeOf(u) <= 1).sort((a, b) => b.power - a.power);
@@ -429,13 +429,13 @@ function profileOf(steps: ComboStep[], cards: Entry[], kind: ComboKind): ComboPr
   return pr;
 }
 
-// Shield ที่คู่แข่งต้องใช้กันทุกการโจมตีของคอมโบ (ใช้ประเมินว่าตีบ่อยลดการ์ดบนมือคู่แข่งได้เท่าไร)
-// การโจมตีที่ Power ไม่ถึงแวนการ์ดคู่แข่งไม่บังคับให้ใช้การ์ด
+// Shield the opponent must spend to guard every attack of the combo (estimates how much frequent attacks drain the opponent's hand)
+// An attack whose Power can't reach the opponent's vanguard doesn't force a guard
 export function shieldForced(pr: ComboProfile, oppVc: number): number {
   return pr.attacks.reduce((n, a) => n + (a.power >= oppVc ? Math.ceil((a.power - oppVc + 1) / 5000) * 5000 : 0), 0);
 }
 
-// เล่นคอมโบนี้ได้ไหมด้วยทรัพยากรที่มี (CB SB GB G โซนคว่ำ) และกองไม่หมด
+// Can this combo be played with the available resources (CB SB GB face-down G zone) without decking out
 export function affordable(pr: ComboProfile, res: { cb: number; sb: number; gb: number; gFaceDown: number; deck: number }): boolean {
   return res.cb >= pr.cbNeed && res.sb >= pr.sbNeed && res.gb >= pr.gb && res.gFaceDown >= pr.flipG && res.deck > pr.deckUse;
 }

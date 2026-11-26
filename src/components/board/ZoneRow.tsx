@@ -5,9 +5,9 @@ import { CardView } from "../CardView";
 
 const PER_ROW = 4;
 
-// G โซน: ช่องโซน + G ที่หงายแล้วเรียงแถวละ 4 ใบเข้าหากลางสนาม (สูงสุด 4 แถว)
-// ใบใหม่สุดอยู่ติดช่องในแถวหน้าและเห็นเต็มใบ ใบเก่ากว่าถูกทับและโผล่ออกไปทีละแถบ
-// แถวเก่ากว่าอยู่ข้างหลังและโผล่ออกไปทางขอบจอแบบดาเมจโซน
+// G zone: the zone slot + face-up G units in rows of 4 toward the board center (up to 4 rows)
+// The newest is next to the slot in the front row and fully visible; older ones are covered, each showing a strip
+// Older rows sit behind, showing toward the screen edge like the damage zone
 export function GZoneRow({ ps, toward, light, onOpen, onInspect }: {
   ps: PlayerState;
   light: Light;
@@ -39,8 +39,8 @@ export function GZoneRow({ ps, toward, light, onOpen, onInspect }: {
 
 const PILE_BADGE = { bind: "badge.bind", deck: "badge.deck", drop: "badge.drop" } as const;
 
-// ไบนด์ / กองการ์ด / ดรอป: ป้ายจำนวนเหนือช่อง (แบบ GB/SB) + ใบบนสุด (กองการ์ดแสดงหลังการ์ด) คลิกเพื่อดูทั้งโซน
-// กองการ์ดวางหลังการ์ดทุกใบซ้อนกัน (ใบบนสุดอยู่หน้า) การ์ดที่เข้า/ออกจากกองจึงบินจากและไปที่กองได้
+// Bind / deck / drop: count label above the slot (like GB/SB) + the top card (the deck shows a card back); click to view the whole zone
+// The deck stacks a card back for every card (top card in front), so cards entering/leaving the deck fly from and to it
 export function PileSlot({ ps, zone, light, onOpen }: { ps: PlayerState; zone: keyof typeof PILE_BADGE; light: Light; onOpen: () => void }) {
   const list = ps[zone];
   const top = list.at(-1);

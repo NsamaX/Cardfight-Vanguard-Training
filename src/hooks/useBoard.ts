@@ -1,4 +1,4 @@
-// สถานะของหน้าสนามและการตอบสนองต่อการคลิก แปลงการคลิกเป็น Action ของ engine
+// Board screen state and click handling; turns clicks into engine Actions
 import { useEffect, useState } from "react";
 import type { Bot } from "../bot/types";
 import { cardByKey as db } from "../data/cards";
@@ -9,16 +9,16 @@ import { fmt } from "../lib/format";
 import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, strideCostGrade } from "../engine/rules";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
-import { DEAL_GAP_MS, MOVE_MS } from "../components/board/motion";
+import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
 import { canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
 
-const BOT_DELAY_MS = 450;   // เว้นจังหวะระหว่างการกระทำของบอท ให้มองตามทัน
+const BOT_DELAY_MS = 450;   // pause between bot actions so you can follow along
 
-// ภาพสนาม ณ ก้าวหนึ่ง พร้อมประวัติและ action ทั้งหมดจนถึงก้าวนั้น (ใช้ย้อนกลับและบันทึก replay)
+// The board at one step, with the history and all actions up to that step (used for undo and saving replays)
 interface Snapshot { s: GameState; log: LogEntry[]; actions: RecordedAction[] }
 
-// bot: บอทที่เล่นฝั่ง "bot" (ไม่มี = คุมเองทั้งสองฝั่ง)
-// view: หน้าดูย้อนหลัง (แสดงสนามพร้อมประวัติที่ให้มา คลิกแล้วไม่มีผลต่อเกม)
+// bot: the bot playing the "bot" side (none = control both sides yourself)
+// view: replay viewer (shows the board with the given history; clicks don't affect the game)
 export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[] }) {
   const readOnly = !!view;
   const [s, setS] = useState(initial);
@@ -28,16 +28,16 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [sel, setSel] = useState<Sel | null>(null);
   const [mode, setMode] = useState<Mode | null>(null);
-  const [inspect, setInspectUids] = useState<Partial<Record<PlayerId, string>>>({});   // การ์ดที่กดดูล่าสุด แยกตามเจ้าของ
-  const [hover, setHover] = useState<string>();                                         // การ์ดในมือที่ชี้เมาส์อยู่ (แสดงแทนชั่วคราว)
+  const [inspect, setInspectUids] = useState<Partial<Record<PlayerId, string>>>({});   // last inspected card, per owner
+  const [hover, setHover] = useState<string>();         // hand card under the mouse (shown in the inspector temporarily)
   const [pile, setPile] = useState<{ player: PlayerId; zone: Zone } | null>(null);
   const [choicePicks, setChoicePicks] = useState<string[]>([]);
   const [error, setError] = useState<Msg>();
-  const [focus, setFocus] = useState<string>();
-  const [opened, setOpened] = useState(false);                                           // เพิ่งคลิกการ์ดเปิดความสามารถที่รออยู่: คำถามแรกกด Cancel ย้อนกลับได้
-  const [trigArmed, setTrigArmed] = useState(false);
-  const [staged, setStaged] = useState(false);                                          // กำลังแสดงก้าวกลาง (การ์ดกลับเข้ากองก่อนจั่วใหม่): ย้อนกลับ/ไปหน้าไม่ได้
-  const [choiceMin, setChoiceMin] = useState(false);                                    // ย่อหน้าต่างเลือกการ์ดไว้ดูสนาม                                    // คลิกการ์ดทริกเกอร์แล้ว เมาส์แสดงผลที่จะให้                                         // การ์ดที่คลิกเลือกความสามารถที่รออยู่
+  const [focus, setFocus] = useState<string>();         // card clicked to use its ACT
+  const [opened, setOpened] = useState(false);          // a pending ability was just opened by clicking: Cancel on its first question goes back
+  const [trigArmed, setTrigArmed] = useState(false);    // the trigger card was clicked; the cursor shows what it will give
+  const [staged, setStaged] = useState(false);          // showing cards returning to the deck before the redraw: undo/redo disabled
+  const [choiceMin, setChoiceMin] = useState(false);    // card choice dialog minimized to look at the board
 
   const actor = s.awaiting?.player;
   const botTurn = !!bot && actor === "bot" && !s.winner;
@@ -45,37 +45,37 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const ordering = s.awaiting?.kind === "order-queue";
   const trig = choice || ordering ? undefined : s.battle?.pendingTrigger;
   const guarding = s.step === "guard" && !!s.battle;
-  // คำถามเลือกการ์ดที่ตัวเลือกเป็นยูนิทบนสนามทั้งหมด: เลือกบนสนามแทนหน้าต่าง
+  // A card choice where every option is a unit on the board: choose on the board instead of in a dialog
   const fieldChoice = choice?.kind === "cards" && choice.options.every((u) => locate(s, u)?.zone === "circle") ? choice : undefined;
   const striding = s.phase === "ride" && s.step === "stride" && s.awaiting?.kind === "next-phase" && !s.strodeThisTurn;
-  // ความสามารถที่รอผู้เล่น: การ์ดขอบเหลือง (sources) คลิกแล้วเป็นขอบส้ม (active) และถามว่าจะใช้ไหม
-  // ระหว่างความสามารถทำงานและรอคำตอบ การ์ดต้นทางเป็นขอบส้ม
+  // Abilities waiting for the player: yellow-bordered cards (sources), clicking turns them orange (active) and asks whether to use it
+  // While an ability resolves and waits for an answer, the source card has an orange border
   const queued = ordering ? s.queue.filter((e) => e.owner === actor) : [];
-  // ความสามารถที่รออยู่เป็นแบบเลือกใช้ทั้งหมด: ผู้เล่นทำอย่างอื่นต่อได้ (คอล ย้าย ใช้ ACT) ถือว่าไม่ใช้
+  // Every pending ability is optional: the player may do something else (call, move, use ACT), treated as declining
   const skippable = queued.length > 0 && queued.every((e) => e.optional);
-  const acts = usableActs(db, s);                                                       // ACT ที่กดใช้ได้ในเมนเฟส
+  const acts = usableActs(db, s);                                                       // ACT usable in the main phase
   const focusedAct = acts.find((a) => a.uid === focus);
   const active = focusedAct ? [focus!] : choice && s.resolving ? [s.resolving.uid] : [];
   const sources = [...queued, ...acts].map((e) => e.uid).filter((u) => !active.includes(u));
   const waitingPiles = sourcePiles(s, sources), activePiles = sourcePiles(s, active);
 
-  // หน้าดูย้อนหลัง: เลื่อนก้าวแล้วแสดงสนามของก้าวนั้น (ไม่สร้างหน้าสนามใหม่ การ์ดจึงเลื่อนต่อเนื่อง)
+  // Replay viewer: stepping shows that step's board (no new board is created, so cards move continuously)
   useEffect(() => {
     if (!view) return;
     setS(initial);
     setLog(view.log);
   }, [initial]);
   useEffect(() => { if (!error) return; const t = setTimeout(() => setError(undefined), 2600); return () => clearTimeout(t); }, [error]);
+  // The mulligan selection mode exists only while waiting for the mulligan (one side at a time)
   useEffect(() => {
-    // โหมดเลือกการ์ดเปลี่ยนมีเฉพาะตอนรอเปลี่ยนการ์ดบนมือ (ทีละฝั่ง ล้างเมื่อพ้นขั้นนี้)
     const mulliganing = s.awaiting?.kind === "mulligan";
     if (mulliganing && !mode) setMode({ kind: "mulligan", picks: [] });
     if (!mulliganing && mode?.kind === "mulligan") setMode(null);
     if (trig && mode?.kind !== "trigger") setMode({ kind: "trigger" });
   }, [s, mode, trig]);
 
-  // คลิกการ์ดที่ไหนก็ได้: แสดงรายละเอียด ถ้ามีความสามารถรออยู่ เปิดคำถามแรกของความสามารถนั้น (Cancel = ปิด ความสามารถยังรออยู่)
-  // ACT ในเมนเฟสยังถามก่อนใช้ เพราะคลิกดูการ์ดบนสนามอย่างเดียวก็ได้
+  // Click a card anywhere: show details; if it has a pending ability, open that ability's first question (Cancel = close, the ability keeps waiting)
+  // ACT in the main phase still asks before use, since clicking a board card may be just to look at it
   function setInspect(uid: string) {
     const f = findCard(s, uid);
     if (f) setInspectUids((i) => ({ ...i, [f.player]: uid }));
@@ -92,8 +92,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     return { ...f, power: f.circle ? powerOf(db, s.players[f.player], f.circle) : undefined };
   }
 
-  // then: action ต่อเนื่องที่คำนวณจาก state ใหม่ (ทำต่อเฉพาะเมื่อถูกกฎ)
-  // ตาของบอท: รับเฉพาะ action จากบอท (fromBot) การคลิกของผู้เล่นไม่มีผล
+  // then: a follow-up action computed from the new state (continues only if legal)
+  // The bot's turn: only accept actions from the bot (fromBot); player clicks have no effect
   function act(action: Action, then?: (st: GameState) => Action | undefined, fromBot = false) {
     if (!actor || readOnly || botTurn !== fromBot) return;
     try {
@@ -129,7 +129,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       if (action.type === "mulligan" && action.returnUids.length) {
         setS(returningToDeck(s, actor, action.returnUids));
         setStaged(true);
-        setTimeout(() => { setS(st); setStaged(false); }, MOVE_MS + (action.returnUids.length - 1) * DEAL_GAP_MS);   // จั่วใหม่เมื่อใบสุดท้ายถึงกอง
+        setTimeout(() => { setS(st); setStaged(false); }, MOVE_MS + (action.returnUids.length - 1) * DEAL_GAP_MS);   // redraw once the last card reaches the deck
       } else setS(st);
       clearUi();
     } catch (e) {
@@ -137,7 +137,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     }
   }
 
-  // ตาของบอท: ให้บอทคิดแล้วส่ง action (ยกเลิกถ้า state เปลี่ยนก่อนบอทคิดเสร็จ เช่น กดย้อนกลับ)
+  // The bot's turn: let the bot think and send an action (cancelled if the state changes before it finishes, e.g. undo)
   useEffect(() => {
     if (!bot || !botTurn) return;
     let alive = true;
@@ -148,8 +148,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     return () => { alive = false; clearTimeout(t); };
   }, [s, bot, botTurn]);
 
-  // ย้อนกลับ/ไปหน้า ทีละ action (state และ log กลับไปพร้อมกัน)
-  // เล่นกับบอท: ข้ามจุดที่บอทตัดสินใจ ไปหยุดที่ตาของผู้เล่น
+  // Undo/redo one action at a time (state and log go back together)
+  // Playing the bot: skip the points where the bot decides, stopping on the player's turn
   function travel(back: boolean) {
     let from = back ? past : future;
     let to = back ? future : past;
@@ -182,7 +182,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   function clickHand(p: PlayerId, inst: CardInstance) {
-    if (bot && p === "bot") return;   // มือบอทคว่ำอยู่ ดูไม่ได้
+    if (bot && p === "bot") return;   // the bot's hand is face down, can't be viewed
     setInspect(inst.uid);
     if (botTurn) return;
     if (actor && p !== actor) { setError(msg("err.turnOf", { player: playerMsg(actor) })); return; }
@@ -217,7 +217,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (fieldChoice) { if (unit && fieldChoice.options.includes(unit.uid)) toggleChoicePick(unit.uid); return; }
     if (choice || (ordering && !skippable) || (unit && queued.some((e) => e.uid === unit.uid))) return;
     const mine = p === actor;
-    // ทริกเกอร์: คลิกการ์ดทริกเกอร์ก่อน แล้วจึงเลือกยูนิทรับผลได้
+    // Trigger: click the trigger card first, then choose the unit to receive the effect
     if (mine && mode?.kind === "trigger" && trig) {
       if (!unit || !trigArmed) return;
       if (trig.kind === "critical" || trig.kind === "stand") {
@@ -245,7 +245,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       act({ type: "attack", attacker: sel.col, target: c, booster: sel.back ? BEHIND[sel.col] : undefined });
       return;
     }
-    // เลือกตัวโจมตี/ตัวบูสท์: แนวเดียวกันกดเพิ่ม/เอาออกได้ทั้ง 2 ใบ กดแนวอื่นเริ่มเลือกใหม่
+    // Choose attacker/booster: in the same column, click to add/remove either card; clicking another column starts over
     if (mine && unit && s.phase === "battle" && s.step === "attack") {
       const col = columnOf(c), isFront = c === col;
       if (isFront && unit.rested) { setError(msg("err.restedAttack")); return; }
@@ -268,7 +268,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       const why = gGuardianBlocked(db, s, p);
       if (why) { setError(why); return; }
       const heals = s.players[p].hand.filter((c) => db[c.key].trigger === "heal");
-      setMode({ kind: "gguard", gUid: inst.uid, discardUid: heals.length === 1 ? heals[0].uid : undefined });   // Heal ใบเดียว เลือกให้เลย
+      setMode({ kind: "gguard", gUid: inst.uid, discardUid: heals.length === 1 ? heals[0].uid : undefined });   // only one Heal, choose it automatically
       setSel(null);
       setPile(null);
     }
@@ -280,8 +280,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     setInspect(uid);
   }
 
-  // คลิกการ์ดบน GC ของตัวเองระหว่างรอป้องกัน: ถอนการ์ดใบนั้นกลับที่เดิม (มือ หรือ RC ที่อินเตอร์เซปต์มา)
-  // ทำโดยกลับไปก่อนวางใบนั้น แล้วเล่น action ที่ตามมาซ้ำโดยตัดใบนั้นออก (ความสามารถที่เกิดจากใบนั้นหายไปด้วย)
+  // Clicking your own card on GC while waiting to guard: return that card to where it came from (hand, or the RC it intercepted from)
+  // Done by going back to before that card was placed, then replaying the following actions without it (abilities caused by that card disappear too)
   function unguard(uid: string): boolean {
     if (readOnly || botTurn || s.awaiting?.kind !== "guard" || !actor) return false;
     if (!s.players[actor].guardian.some((g) => g.uid === uid)) return false;
@@ -318,7 +318,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     return true;
   }
 
-  // ปิดความสามารถที่เพิ่งเปิด: กลับไปก่อนคลิกการ์ด (ไม่นับเป็นก้าวที่ redo ได้)
+  // Close an ability just opened: go back to before the card was clicked (not counted as a redo-able step)
   function cancelOpened() {
     const prev = past.at(-1);
     if (!prev) return;
@@ -329,8 +329,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     clearUi();
   }
 
-  // คำถามแรกของความสามารถที่เพิ่งคลิกเปิด: ปุ่มไม่ใช้/ข้าม เปลี่ยนเป็น Cancel
-  // step: คำถามของสไตรด์ ปุ่มอยู่กลางแถบแทนปุ่มเปลี่ยนเฟส ไม่ใช่ = ความสามารถ/การป้องกัน ปุ่มอยู่ขวาสุด
+  // First question of an ability just opened by clicking: the decline/skip button becomes Cancel
+  // step: a stride question, buttons in the middle of the bar instead of the phase button; not a step = ability/guard, buttons far right
   function question(): { prompt?: Msg; step?: boolean; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
     const q = baseQuestion();
     if (!opened || !s.resolving || !choice) return q;
@@ -339,7 +339,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     return { prompt: q?.prompt ?? s.awaiting?.prompt, buttons: [...keep, cancel] };
   }
 
-  // คำถามในแถบกลาง: ความสามารถที่คลิกเลือก (ใช่/ไม่) หรือคำถามระหว่างความสามารถทำงาน (ใช่/ไม่ เลือกผล เลือกช่อง)
+  // Question in the middle bar: an ability chosen by clicking (yes/no), or a question while an ability resolves (yes/no, choose effect, choose circle)
   function baseQuestion(): { prompt?: Msg; step?: boolean; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
     const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label: abilityTag(label), cost: cost.join(", ") }) : msg("q.use", { label: abilityTag(label) });
     const yes = msg("btn.yes"), no = msg("btn.no");
@@ -350,7 +350,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
         { label: no, onClick: () => setFocus(undefined) },
       ] };
     }
-    // สไตรด์สเต็ป: ตรงกลางเป็นปุ่ม Skip (ไปเมนเฟส) สไตรด์ = กด G โซน เลือก G ยูนิท แล้วเลือกการ์ดบนมือที่จะทิ้ง (เกรดรวม 3 ขึ้นไป)
+    // Stride step: the middle has a Skip button (to the main phase); stride = click the G zone, pick a G unit, then pick hand cards to discard (total grade 3+)
     if (striding && mode?.kind === "stride") {
       const gs = mode.picks.reduce((n, u) => n + strideCostGrade(db[findCard(s, u)!.inst.key]), 0);
       const g = mode.gUid && db[findCard(s, mode.gUid)!.inst.key].name;
@@ -359,7 +359,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       if (gUid && gs >= 3) buttons.unshift({ label: msg("btn.stride"), onClick: () => act({ type: "stride", gUid, discardUids }) });
       return { prompt: msg("q.stride", { g: g ?? msg("q.pickGUnit"), n: gs }), step: true, buttons };
     }
-    // การ์ด: เลือกการ์ดบนมือ หรือ G การ์เดี้ยน แล้วยืนยัน
+    // Guard: pick hand cards or a G guardian, then confirm
     if (guarding && mode?.kind === "gguard") {
       const g = findCard(s, mode.gUid)!.inst;
       const gCard = { card: db[g.key].name, shield: shieldOf(db, { ...g, mods: [] }) };
@@ -387,7 +387,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (choice?.kind === "option") return { prompt, buttons: choice.options.map((o) => ({ label: o, onClick: () => act({ type: "choose", option: o }) })) };
   }
 
-  // ปุ่มเปลี่ยนเฟส: ถ้ามีความสามารถรออยู่ ถือว่าไม่ใช้ (แบบบังคับทำเองตามลำดับ) แล้วไปต่อถ้ายังอยู่สเต็ปเดิม
+  // Phase button: pending abilities are treated as declined (forced ones resolve automatically in order), then continue if still on the same step
   function next() {
     if (s.awaiting?.kind === "guard") { act({ type: "end-guard" }); return; }
     if (!ordering) { act({ type: "next-phase" }); return; }
@@ -403,7 +403,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       : fieldChoice?.options.includes(uid) ? (choicePicks.includes(uid) ? "active" : "source")
       : (striding || mode?.kind === "stride") && s.players[actor!]?.gZone.some((g) => g.uid === uid && !g.faceUp && db[g.key].type === "g-unit") ? (mode?.kind === "stride" && mode.gUid === uid ? "active" : "source")
       : active.includes(uid) ? "active" : sources.includes(uid) ? "source" : undefined,
-    // ทริกเกอร์: คลิกการ์ดที่เปิดเช็คแล้วเมาส์บอกผลที่จะให้ (Power ของทริกเกอร์ก่อน แล้ว Critical/Stand) ยูนิทที่เลือกรับ Power แสดงค่าล่วงหน้า
+    // Trigger: click the revealed check card and the cursor shows what it will give (the trigger's Power first, then Critical/Stand); the unit chosen for Power shows the value in advance
     clickCheck: (uid: string) => { setInspect(uid); if (trig && uid === s.battle?.checkCard?.uid) setTrigArmed(true); },
     trigTip: trig && trigArmed
       ? mode?.kind === "trigger" && mode.powerTo ? { text: trig.kind === "critical" ? msg("tip.critical", { v: "+1" }) : msg("tip.stand"), kind: "cri" } : { text: msg("tip.power", { v: `+${fmt(trig.power)}` }), kind: "pow" }
@@ -411,20 +411,23 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     trigBonus: trig && mode?.kind === "trigger" && mode.powerTo ? { player: trig.owner, bonus: { [mode.powerTo]: trig.power } as Partial<Record<Circle, number>> }
       : fieldChoice?.bonus?.stat === "power" ? { player: actor!, bonus: Object.fromEntries(choicePicks.map((u) => [locate(s, u)!.circle!, fieldChoice.bonus!.value])) as Partial<Record<Circle, number>> }
       : undefined,
-    // เลือกยูนิทรับผลบนสนาม: เมาส์บอกผลที่จะได้ (จนกว่าจะเลือกครบ)
+    // Choosing the unit to receive the effect on the board: the cursor shows what it will get (until all are chosen)
     choiceTip: fieldChoice?.bonus && choicePicks.length < fieldChoice.max
       ? { text: msg(`tip.${fieldChoice.bonus.stat}`, { v: `${fieldChoice.bonus.value > 0 ? "+" : ""}${fmt(fieldChoice.bonus.value)}` }), kind: fieldChoice.bonus.stat === "critical" ? "cri" : "pow" }
       : undefined,
     fieldChoice: !!fieldChoice, choiceMin, setChoiceMin,
-    pileLight: (p: PlayerId, zone: string): Light => (striding || mode?.kind === "stride") && !botTurn && !readOnly && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "active" : "source") : (activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) ? "source" : undefined), choice, ordering, trig, guarding, mode, choicePicks, pile,
+    pileLight: (p: PlayerId, zone: string): Light =>
+      (striding || mode?.kind === "stride") && !botTurn && !readOnly && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "active" : "source")
+      : activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) ? "source" : undefined,
+    choice, ordering, trig, guarding, mode, choicePicks, pile,
     selUid: sel?.kind === "hand" ? sel.uid : sel?.kind === "circle" ? s.players[sel.player].circles[sel.circle]?.uid : undefined,
-    // ยูนิทที่เลือกโจมตี/บูสท์ (ขอบแดง) และ Power ที่จะได้จากบูสท์
-    // การต่อสู้ที่ประกาศแล้ว: ตัวโจมตี/บูสท์ขอบแดง เป้าหมายขอบเหลือง (ฝั่งป้องกันเห็นว่าโดนอะไรโจมตีใคร)
+    // Units chosen to attack/boost (red border) and the Power the boost will give
+    // A declared battle: attacker/booster red border, target yellow border (the defender sees who attacks whom)
     battleMarks: s.battle ? {
       [s.turnPlayer]: { atk: [s.battle.attacker, s.battle.booster].filter((c): c is Circle => !!c), aimed: [] as Circle[] },
       [s.turnPlayer === "me" ? "bot" : "me"]: { atk: [] as Circle[], aimed: [s.battle.target] },
     } as Record<PlayerId, { atk: Circle[]; aimed: Circle[] }> : undefined,
-    // Shield ที่จะได้จากการ์ดที่เลือกอยู่ (แสดงล่วงหน้าที่ตัวเลขป้องกัน) และมีพิทักษ์ในนั้นไหม
+    // Shield from the currently selected cards (shown in advance on the guard number) and whether a sentinel is among them
     guardPreview: guarding ? (() => {
       const uids = mode?.kind === "guard" ? mode.picks : mode?.kind === "gguard" ? [mode.gUid] : [];
       const insts = uids.map((u) => findCard(s, u)!.inst);
@@ -440,7 +443,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     setHover,
     closeInspect: (p: PlayerId) => setInspectUids((i) => ({ ...i, [p]: undefined })),
     isTarget: (p: PlayerId, c: Circle) => (mode?.kind !== "trigger" || trigArmed) && isTarget({ s, db, actor, choice, sel, mode }, p, c),
-    // เปลี่ยนการ์ดบนมือตอนเริ่มเกม (ครั้งเดียวต่อผู้เล่น): ไม่เลือกการ์ด = เก็บมือเดิม
+    // Mulligan at game start (once per player): choosing no cards = keep the hand
     mulligan: !botTurn && !readOnly && s.awaiting?.kind === "mulligan" && mode?.kind === "mulligan"
       ? { picks: mode.picks.length, confirm: () => act({ type: "mulligan", returnUids: mode.picks }) }
       : undefined,
@@ -451,7 +454,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     botTurn, hideBotHand: !!bot,
     actions, readOnly,
     setInspect, setPile,
-    setState: setS,   // แทนสนามทั้งหมด ใช้ตอนแจกการ์ดหลังกด Start
+    setState: setS,   // replace the whole board, used when dealing after Start
   };
 }
 

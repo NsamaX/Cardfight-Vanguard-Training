@@ -1,5 +1,5 @@
-// วัดความเก่งของบอท: ให้ 2 ระดับเล่นกันหลายเกม (สลับฝั่งและคนเล่นก่อน) แล้วนับผล
-// ใช้เวลานาน จึงรันเฉพาะเมื่อสั่ง:  ARENA=1 A=hard B=normal N=20 MS=300 npm test -- src/bot/arena
+// Measures bot strength: two levels play many games (swapping sides and who goes first), then count the results
+// Slow, so it only runs when asked:  ARENA=1 A=hard B=normal N=20 MS=300 npm test -- src/bot/arena
 import { describe, it } from "vitest";
 import { cardByKey as db } from "../data/cards";
 import { presetDecks } from "../data/decks";
@@ -11,8 +11,8 @@ const env = process.env;
 const deck = presetDecks.find((d) => d.id === "nightrose-sample")!;
 const decks = { me: deck, bot: deck };
 
-describe.runIf(env.ARENA)("บอทแข่งกัน", () => {
-  it("นับผลแพ้ชนะ", async () => {
+describe.runIf(env.ARENA)("bot vs bot", () => {
+  it("counts wins and losses", async () => {
     const N = Number(env.N ?? 20);
     const A = (env.A ?? "hard") as BotLevel, B = (env.B ?? "normal") as BotLevel;
     const tune = { ...(env.MS && { ms: Number(env.MS) }), ...(env.H && { horizon: Number(env.H) }) };
@@ -24,6 +24,6 @@ describe.runIf(env.ARENA)("บอทแข่งกัน", () => {
       const r = await playGame(db, decks, bots, 1000 + g, Math.floor(g / 2) % 2 ? "me" : "bot");
       if (r.winner === aSide) a++; else if (r.winner === bSide) b++;
     }
-    console.log(`${A} ${a} - ${b} ${B}  (${N} เกม, ${((Date.now() - t0) / N / 1000).toFixed(1)} วินาที/เกม)`);
+    console.log(`${A} ${a} - ${b} ${B}  (${N} games, ${((Date.now() - t0) / N / 1000).toFixed(1)} s/game)`);
   }, 24 * 3600 * 1000);
 });

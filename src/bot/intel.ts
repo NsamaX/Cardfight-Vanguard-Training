@@ -1,5 +1,5 @@
-// ประเมินฝั่งคู่แข่งจากข้อมูลที่เห็นได้: มือ (การ์ดที่รู้ + คาดเดาจากการ์ดที่ยังไม่ปรากฏ), G การ์เดี้ยน, ทรัพยากร, แรงตีเทิร์นหน้า
-// สนามที่สุ่มเติมแล้ว (ใช้ในการจำลอง) เห็นมือจริงทั้งหมด ค่าประเมินจึงเป็นค่าจริงของโลกที่สุ่มนั้น
+// Estimate the opponent's side from visible information: hand (known cards + guesses from cards not yet seen), G guardians, resources, next-turn attack strength
+// On a board that's been randomly filled (used in simulation) the whole hand is visible, so estimates are the real values of that sampled world
 import {
   BEHIND, FRONT, bothVanguardsGrade3, canBoost, criticalOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, type CardDB,
 } from "../engine/rules";
@@ -8,7 +8,7 @@ import { intelOf, isHidden } from "./view";
 
 const hasNoHit = (c: Card) => isSentinel(c) && c.abilities.some((a) => a.effect.some((e) => e.startsWith("no-hit")));
 
-// ค่าเฉลี่ยต่อใบของการ์ดบนมือที่ไม่รู้ (จากการ์ดที่ยังไม่ปรากฏของ q)
+// Average per card of unknown hand cards (from q's cards not yet seen)
 function unknownCardStats(db: CardDB, s: GameState, q: PlayerId) {
   const pool = intelOf(s)?.pools[q].main;
   let n = 0, shield = 0, sentinel = 0, heal = 0, g3 = 0;
@@ -25,13 +25,13 @@ function unknownCardStats(db: CardDB, s: GameState, q: PlayerId) {
 }
 
 export interface Defense {
-  shield: number;       // Shield ที่คาดว่ามีบนมือ (ไม่นับพิทักษ์)
-  sentinels: number;    // จำนวนพิทักษ์ที่คาดว่ามี (กันได้การโจมตีละใบ ต้องมีการ์ดอื่นให้ทิ้ง)
-  gGuard: number;       // Shield ที่คาดว่าได้จาก G การ์เดี้ยน (คูณโอกาสมี Heal)
+  shield: number;       // expected Shield in hand (not counting sentinels)
+  sentinels: number;    // expected number of sentinels (each stops one attack, needs another card to discard)
+  gGuard: number;       // expected Shield from G guardians (times the chance of having a Heal)
   cards: number;
 }
 
-// การป้องกันที่คู่แข่ง q น่าจะมีในเทิร์นนี้
+// Defense the opponent q probably has this turn
 export function estimateDefense(db: CardDB, s: GameState, q: PlayerId): Defense {
   const ps = s.players[q];
   const st = unknownCardStats(db, s, q);
@@ -44,7 +44,7 @@ export function estimateDefense(db: CardDB, s: GameState, q: PlayerId): Defense 
     if (hasNoHit(c)) sentinels++; else shield += printedShield(c);
     if (c.trigger === "heal") heals++;
   }
-  // คู่แข่งที่ยอมรับดาเมจตอนดาเมจสูงบ่อย น่าจะมี Shield น้อยกว่าค่าเฉลี่ย
+  // An opponent who often takes damage at high damage probably has less Shield than average
   const passive = Math.max(0.6, 1 - 0.12 * (reads?.oppPassive ?? 0));
   shield += hidden * st.shield * passive;
   sentinels += hidden * st.sentinel;
@@ -52,7 +52,7 @@ export function estimateDefense(db: CardDB, s: GameState, q: PlayerId): Defense 
   return { shield, sentinels, gGuard: gGuardianLeft(db, s, q) ? 15000 * pHeal : 0, cards: ps.hand.length };
 }
 
-// คู่แข่งยังคอล G การ์เดี้ยนได้ไหม (แวนการ์ดเกรด 3 ทั้งคู่ หงายไม่เกิน 3 ใบ เหลือใบคว่ำ)
+// Can the opponent still call a G guardian (both vanguards grade 3, at most 3 face up, a face-down card left)
 export function gGuardianLeft(db: CardDB, s: GameState, q: PlayerId): boolean {
   if (!bothVanguardsGrade3(db, s)) return false;
   const ps = s.players[q];
@@ -63,13 +63,13 @@ export function gGuardianLeft(db: CardDB, s: GameState, q: PlayerId): boolean {
   return known || (unseen && ps.gZone.some((g) => !g.faceUp));
 }
 
-// ทรัพยากรที่คู่แข่งใช้ได้ (ใช้ตัดสินว่าคอมโบไหนของคู่แข่งทำงานได้)
+// Resources the opponent can use (decides which of the opponent's combos can work)
 export function resources(db: CardDB, s: GameState, q: PlayerId) {
   const ps = s.players[q];
   return { cb: ps.damage.filter((d) => d.faceUp).length, soul: ps.soul.length, gb: generationBreak(db, ps) };
 }
 
-// ภัยของยูนิทบนสนามของ q: Power, ความสามารถตอนโจมตี/จบการต่อสู้/บูสท์ที่ทำงานได้ด้วยทรัพยากรที่มี
+// Threat of q's units on the board: Power, attack/battle-end/boost abilities that can work with the available resources
 export function unitThreat(db: CardDB, s: GameState, q: PlayerId, uid: string): number {
   const ps = s.players[q];
   const c = (Object.keys(ps.circles) as (keyof typeof ps.circles)[]).find((k) => ps.circles[k]?.uid === uid);
@@ -91,14 +91,14 @@ export function unitThreat(db: CardDB, s: GameState, q: PlayerId, uid: string): 
   const front = FRONT.includes(c);
   if (!front && canBoost(card)) {
     const f = FRONT.find((x) => BEHIND[x] === c);
-    if (f && ps.circles[f]) v += 0.3;   // ตัวบูสท์ของแนวที่มีตัวโจมตี
+    if (f && ps.circles[f]) v += 0.3;   // booster of a column with an attacker
   }
   return v;
 }
 
-// แรงตีเทิร์นหน้าของคู่แข่ง q ใส่แวนการ์ดของ p: Shield รวมที่ p ต้องใช้กันการโจมตีที่โดนแล้วแพ้ (ไม่นับทริกเกอร์)
-// แวนการ์ดคู่แข่งคิดเป็นสไตรด์ (15000 + ฮาร์ท) ถ้าสไตรด์ได้
-// สนามเดียวกันได้คำตอบเดิม (ถูกเรียกซ้ำตอนเทียบการคอลทุกแบบ) เก็บไว้ใช้ซ้ำ
+// Opponent q's next-turn attack on p's vanguard: total Shield p needs to guard the attacks that would be lethal (not counting triggers)
+// The opponent's vanguard counts as a stride (15000 + heart) if it can stride
+// The same board gives the same answer (called repeatedly when comparing every call), so cache it
 const needCache = new WeakMap<GameState, Partial<Record<PlayerId, number>>>();
 export function nextTurnNeed(db: CardDB, s: GameState, p: PlayerId): number {
   const c = needCache.get(s) ?? {};
@@ -124,7 +124,7 @@ function computeNextTurnNeed(db: CardDB, s: GameState, p: PlayerId): number {
     const boost = b && canBoost(db[b.key]) ? db[b.key].power ?? 0 : 0;
     const base = col === "vc" ? (canStride ? 15000 + heartPower : heartPower) : db[u.key].power ?? 0;
     const crit = col === "vc" ? criticalOf(db, vc) : 1;
-    if (dmg + crit + (col === "vc" ? 1 : 0) < 6) continue;   // แวนการ์ดเผื่อ Critical จากไดรฟ์เช็ค 1 ใบ
+    if (dmg + crit + (col === "vc" ? 1 : 0) < 6) continue;   // the vanguard allows for 1 Critical from a drive check
     const n = base + boost - def + 1;
     if (n > 0) need += Math.ceil(n / 5000) * 5000;
   }

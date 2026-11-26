@@ -1,6 +1,6 @@
 import type { Ability, AbilityKind } from "../engine/types";
 
-// ความสามารถหนึ่งอันบนการ์ด: ข้อความที่ผู้เล่นอ่าน (จากช่อง text) คู่กับรหัสใน abilities
+// One ability on a card: the text the player reads (from the text field) paired with its code in abilities
 export interface SkillBlock {
   kind: AbilityKind;
   zone?: string;
@@ -13,7 +13,7 @@ export interface SkillBlock {
 
 const FIELDS = { Zone: "zone", Condition: "cond", Timing: "timing", Cost: "cost" } as const;
 
-// ช่อง text แบ่งหัวข้อตามประเภท และในประเภทเดียวกันเรียงตาม abilities จึงจับคู่ด้วยลำดับในประเภทนั้นได้
+// The text field is split into sections by kind, and within a kind follows the abilities order, so they pair by order within the kind
 export function parseBlocks(text: string, abilities: Ability[]): SkillBlock[] {
   const blocks: SkillBlock[] = [];
   let kind: AbilityKind | undefined;
@@ -42,7 +42,7 @@ export function parseBlocks(text: string, abilities: Ability[]): SkillBlock[] {
   return blocks;
 }
 
-// ช่อง text ที่ไม่ได้เขียนตามรูปแบบ ### (การ์ดที่สร้างในโปรแกรม): ทำกล่องจากรหัสแทน
+// A text field not written in the ### format (cards created in the app): build the boxes from the code instead
 export const blocksFromCodes = (abilities: Ability[]): SkillBlock[] => abilities.map((a) => ({
   kind: a.kind, zone: a.zone, timing: a.timing, cond: a.cond?.join(", "), cost: a.cost?.join(", "), effect: a.effect.join(", "), ability: a,
 }));

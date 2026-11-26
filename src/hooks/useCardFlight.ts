@@ -3,17 +3,17 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 export const MOVE_MS = 400;
 export const MOVE_EASE = "cubic-bezier(.2,.7,.2,1)";
 export const FLIP_MS = 200;
-export const DEAL_GAP_MS = 90;   // หลายใบเข้ามือ/กลับเข้ากองพร้อมกัน (เริ่มเกม/เปลี่ยนการ์ด) ทยอยทีละใบ
+export const DEAL_GAP_MS = 90;   // several cards entering the hand/returning to the deck at once (game start/mulligan) go one at a time
 
-// จุดกึ่งกลางของการ์ดบนจอ turned = วางแนวนอน (เรสต์/ดาเมจ)
+// Center of a card on screen; turned = placed horizontally (rest/damage)
 export interface Spot { x: number; y: number; turned: boolean }
 
 const spotOf = (r: DOMRect): Spot => ({ x: r.left + r.width / 2, y: r.top + r.height / 2, turned: r.width > r.height });
 const flights = new WeakMap<HTMLElement, HTMLElement>();
 
-// การ์ดที่ย้ายที่บนกระดาน: ซ่อนตัวจริงไว้ แล้วให้เงาของมันบินจากตำแหน่งเดิมมาที่ใหม่
-// เงาอยู่ใน body จึงไม่ถูกขอบของโซนต้นทาง/ปลายทางตัดและลอยเหนือการ์ดอื่น
-// look: หน้าตาของเงา (ไม่ระบุ = หน้าตาของการ์ดที่ที่ใหม่) delay: รอก่อนออกบิน ระหว่างรอเงาค้างอยู่ที่เดิม
+// A card that moved on the board: hide the real one, and let its ghost fly from the old position to the new one
+// The ghost lives in body, so it isn't clipped by the source/target zone and floats above other cards
+// look: the ghost's appearance (unset = the card's look at its new place) delay: wait before flying; meanwhile the ghost stays at the old place
 function fly(el: HTMLElement, from: Spot, to: Spot, look: HTMLElement = el, delay = 0) {
   const w = el.offsetWidth, h = el.offsetHeight;
   const ghost = look.cloneNode(true) as HTMLElement;
@@ -41,8 +41,8 @@ function fly(el: HTMLElement, from: Spot, to: Spot, look: HTMLElement = el, dela
   anim.finished.then(done, done);
 }
 
-// พลิกการ์ดที่อยู่กับที่จากคว่ำเป็นหงาย: ครึ่งแรกหลังการ์ดหดจนเหลือแนวตั้ง ครึ่งหลังหน้าการ์ดกางออก
-// ระหว่างครึ่งแรกวางหลังการ์ดทับหน้าการ์ดไว้ชั่วคราว
+// Flip a card in place from face down to face up: the first half shrinks the back to a vertical line, the second half opens the face
+// During the first half the back is temporarily laid over the face
 function flip(el: HTMLElement) {
   const back = document.createElement("span");
   back.className = "back";
@@ -53,13 +53,13 @@ function flip(el: HTMLElement) {
   }, () => back.remove());
 }
 
-// จำตำแหน่งการ์ดทุกใบ (ตาม uid) ทุกครั้งที่ state เปลี่ยน ใบที่ตำแหน่งเปลี่ยนจะบินไปที่ใหม่
-// การ์ดในมือให้ Hand เลื่อนเอง (ใช้ตำแหน่งที่จำไว้นี้เป็นจุดเริ่มของการ์ดที่เข้ามือ) การ์ดในหน้าต่างไม่นับ
-// การ์ดจากมือกลับเข้ากอง: เงาเป็นหน้าตาตอนอยู่ในมือ และทยอยบินทีละใบจากซ้ายไปขวาแบบตอนจั่ว
-// ยูนิทที่หงายขึ้นโดยไม่ย้ายที่ (แวนการ์ดตอนเริ่มเกม) พลิกให้เห็น
+// Remember every card's position (by uid) on every state change; cards whose position changed fly to the new place
+// Cards in hand are moved by Hand itself (using these remembered positions as the start for cards entering the hand); cards in dialogs don't count
+// Cards returning from hand to the deck: the ghost looks like it did in hand, flying one by one left to right like a draw
+// Units turned face up without moving (the vanguard at game start) flip visibly
 export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown) {
   const seen = useRef(new Map<string, Spot>()).current;
-  const inHand = useRef(new Map<string, HTMLElement>()).current;   // สำเนาการ์ดในมือรอบก่อน (ตัวจริงหายไปแล้วเมื่อออกจากมือ)
+  const inHand = useRef(new Map<string, HTMLElement>()).current;   // copies of the previous hand cards (the real ones are gone once they leave the hand)
   const faceDown = useRef(new Set<string>()).current;
   useLayoutEffect(() => {
     const main = root.current;
@@ -77,7 +77,7 @@ export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown)
       seen.set(uid, now);
       if (el.closest(".hand")) {
         inHand.set(uid, el.cloneNode(true) as HTMLElement);
-        // การ์ดที่เพิ่งเข้ามือยังเลื่อนอยู่ (ตำแหน่งที่วัดได้ยังเป็นที่เดิม): วัดใหม่เมื่อเลื่อนเสร็จ
+        // A card that just entered the hand is still sliding (its measured position is still the old place): remeasure when it finishes
         const moving = el.closest(".hand-slot")?.getAnimations?.() ?? [];
         if (moving.length) Promise.all(moving.map((a) => a.finished)).then(() => { if (seen.get(uid) === now && el.isConnected) seen.set(uid, spotOf(el.getBoundingClientRect())); }, () => {});
       }

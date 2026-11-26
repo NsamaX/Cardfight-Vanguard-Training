@@ -1,31 +1,31 @@
-# คอมโบ tutorial แบบ combo trial: ผู้เล่นต้องทำตาม steps ทีละขั้นให้ถูก
-# setup = สถานะสนามตอนเริ่ม, steps = การกระทำที่ต้องทำ (action ตรงกับ Action ใน src/engine/types.ts)
-# "จ่ายคอสต์ / ใช้ความสามารถ" = action: choose, option: "yes"
-# อ้างการ์ดด้วยรหัสการ์ด (ดู documents/content.md)
+# Tutorial combo in combo-trial style: the player must follow the steps one at a time, correctly
+# setup = board state at the start, steps = actions to perform (action matches Action in src/engine/types.ts)
+# "pay cost / use ability" = action: choose, option: "yes"
+# Cards are referenced by card code (see "Content files" in README.md)
 
 id: off-turn-shot
-name: คอมโบยิงนอกเทิร์น
+name: Off-turn shot combo
 difficulty: 2                    # 1-5
 summary: >
-  ในเทิร์นบอท ใช้Negrolilyรีไทร์Skeleton Cannoneerของเราเอง ให้Nightroseคอลกลับ
-  แล้วSkeleton Cannoneerยิงเรียร์การ์ดบอท ได้ทั้งกันตาย ได้ CC คืน และได้จั่ว
-tags: [เทิร์นคู่แข่ง, G GUARDIAN, ฮอลโล่ว์]
+  On the bot's turn, use Negrolily to retire your own Skeleton Cannoneer so Nightrose calls it back,
+  then Skeleton Cannoneer shoots the bot's rear-guard: you survive, get CC back, and draw
+tags: [Opponent's turn, G GUARDIAN, Hollow]
 
 setup:
   turn: opp
   phase: battle
   step: guard
-  attack:                        # บอทกำลังโจมตีแวนการ์ดเรา
-    attacker: PR/0686TH          # Nightrose (G) ของบอท
+  attack:                        # the bot is attacking our vanguard
+    attacker: PR/0686TH          # the bot's Nightrose (G)
     power: 33000
     target: vc
   me:
     vc: G-CHB03/S11TH            # Nightrose (Night Fog)
     rc:
-      front_left: G-BT06/087TH   # Skeleton Cannoneer (ตัวที่จะถูกรีไทร์แล้วกลับมา)
+      front_left: G-BT06/087TH   # Skeleton Cannoneer (the one that gets retired and comes back)
       front_right: PR/0256TH
       back_left: G-BT06/040TH
-      back_center: null          # ช่องว่าง: Negrolilyจะคอลผีน้อยลงตรงนี้
+      back_center: null          # empty circle: Negrolily calls a ghostie here
       back_right: G-CP06/019TH
     hand: [PR/0740TH, G-CHB03/002TH, G-BT06/S11TH]
     damage: { up: 3, down: 1 }
@@ -47,52 +47,52 @@ steps:
   - action: call-g-guardian
     card: G-CP08/S11TH
     discard: PR/0740TH
-    hint: คอลNegrolilyเป็น G การ์เดี้ยน โดยทิ้งDewey the Ghostie (มีไอคอน Heal)
+    hint: Call Negrolily as a G guardian by discarding Dewey the Ghostie (has the Heal icon)
   - action: order-queue
     first: PR/0740TH
     hint: >
-      ตอนนี้มี AUTO รอ 2 อัน (Deweyถูกทิ้ง, Negrolilyเข้า GC) ทำDeweyก่อน
-      จะได้ CC คืนมาใช้จ่าย CB ของNegrolily
+      Two AUTO abilities are waiting (Dewey discarded, Negrolily entered GC). Resolve Dewey first
+      to get CC back for paying Negrolily's CB
   - action: choose
     option: "yes"
     card: PR/0740TH
-    bind: PR/0740TH              # ไบนด์ Heal อีกใบจากดรอปโซน
+    bind: PR/0740TH              # bind another Heal from the drop zone
   - action: choose
     option: CC(1)
-    hint: เลือก CC1
+    hint: Choose CC1
   - action: choose
     option: "yes"
     card: G-CP08/S11TH
     retire: front_left
-    hint: Negrolily จ่าย CB1 และรีไทร์Skeleton Cannoneerของเราเอง
+    hint: Negrolily pays CB1 and retires your own Skeleton Cannoneer
   - action: select-target
     from: drop
     card: G-CHB03/S12TH
     to: back_center
-    hint: คอลTommy the Ghostie Brothersลงช่องว่าง Negrolilyได้ Shield+10000 (รวม 36,000 กันได้)
+    hint: Call Tommy the Ghostie Brothers to the empty circle; Negrolily gets Shield+10000 (36,000 total, enough to guard)
   - action: choose
     option: "yes"
     card: G-CHB03/S11TH
-    hint: Nightrose (Night Fog) ทำงานเพราะเรียร์การ์ดตกดรอป จ่าย mill 3
+    hint: Nightrose (Night Fog) triggers because a rear-guard went to the drop; pay mill 3
   - action: select-target
     from: drop
     card: G-BT06/087TH
     to: front_left
-    hint: คอลSkeleton Cannoneerกลับช่องเดิม
+    hint: Call Skeleton Cannoneer back to its original circle
   - action: order-queue
     first: hollow
-    hint: AUTO ของSkeleton Cannoneerรอ 2 อัน ทำฮอลโล่ว์ก่อน จะได้จั่วการ์ดจากความสามารถที่ 2
+    hint: Skeleton Cannoneer has 2 AUTO abilities waiting. Resolve hollow first to draw a card from the second ability
   - action: choose
     option: hollow
-    hint: ติดฮอลโล่ว์ (ถูกรีไทร์ตอนจบเทิร์นบอท)
+    hint: Becomes hollowed (retired at the end of the bot's turn)
   - action: choose
     option: "yes"
     card: G-BT06/087TH
-    hint: จ่าย CB1
+    hint: Pay CB1
   - action: select-target
     side: opp
     to: front_left
-    hint: ยิงเรียร์การ์ดบอทที่จะโจมตีต่อ แล้วจั่ว 1 ใบเพราะติดฮอลโล่ว์
+    hint: Shoot the bot rear-guard that would attack next, then draw 1 card because it is hollowed
 
 result: >
-  กันการโจมตีได้, บอทเสียเรียร์การ์ด 1 ใบ, จั่ว +1, CB ใช้ 2 ได้คืน 1
+  Attack guarded, bot loses 1 rear-guard, +1 card drawn, CB: 2 used, 1 returned

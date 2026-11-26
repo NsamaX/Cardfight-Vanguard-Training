@@ -1,12 +1,12 @@
 import type { Action } from "../engine/types";
 import content from "./content.json";
 
-// คอมโบ tutorial จาก content/combos/*.yaml รูปแบบไฟล์ดูตัวอย่างใน content/combos/off-turn-shot.yaml
+// Tutorial combos from content/combos/*.yaml; see content/combos/off-turn-shot.yaml for the file format
 
 export interface ComboStep {
   action: Action["type"];
   hint: string;
-  [param: string]: unknown;   // พารามิเตอร์ของ action เช่น card, to, option
+  [param: string]: unknown;   // action parameters, e.g. card, to, option
 }
 
 export interface Combo {

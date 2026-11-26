@@ -3,13 +3,13 @@ import type { Deck, PlayerId } from "../engine/types";
 import { useT } from "../i18n/react";
 import type { Timeline } from "../replay/play";
 import { Board } from "./board/Board";
-import type { GameSettings } from "./board/SettingsDialog";
+import type { GameSettings } from "../lib/settings";
 
 const PLAY_MS = 700;
 const SPEEDS = [0.5, 1, 2, 4];
 const noop = () => {};
 
-// ดูเกมย้อนหลังทีละก้าว เห็นมือทั้งสองฝั่ง และเล่นต่อจากก้าวที่ดูอยู่ได้
+// Step through a past game, see both hands, and continue playing from the step being viewed
 export function ReplayViewer({ tl, decks, settings, onContinue, onClose }: {
   tl: Timeline;
   decks: Record<PlayerId, Deck>;

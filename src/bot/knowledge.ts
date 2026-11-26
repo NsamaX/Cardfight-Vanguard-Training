@@ -1,17 +1,17 @@
-// ความรู้เรื่องค่าของการ์ดที่บอทใช้ร่วมกัน (หน่วย = "การ์ด 1 ใบ" โดยประมาณ)
+// Shared knowledge of card values the bot uses (unit = roughly "1 card")
 import { generationBreak, isG, isSentinel, printedShield, vcGrade, type CardDB } from "../engine/rules";
 import type { Ability, Card, CardInstance, GameState, PlayerId } from "../engine/types";
 import { isHidden } from "./view";
 
 const json = (ab: Ability) => [ab.timing ?? "", ...(ab.cond ?? []), ...(ab.cost ?? []), ...ab.effect].join(" ");
 
-// การ์ดได้ประโยชน์จากการติดฮอลโล่ว์ (มีผลที่ต้องติดฮอลโล่ว์ หรือทำงานเมื่อถูกรีไทร์เพราะฮอลโล่ว์)
+// The card benefits from becoming hollowed (has an effect that needs hollow, or works when retired by hollow)
 export const hollowPayoff = (card: Card) => card.abilities.some((ab) => /self-hollowed|by=hollow/.test(json(ab)));
 
-// มีผลเมื่อถูกคอลจากดรอปโซน
+// Has an effect when called from the drop zone
 export const dropCallPayoff = (card: Card) => card.abilities.some((ab) => ab.kind === "AUTO" && /^enter\(RC, self, from=drop\)/.test(ab.timing ?? ""));
 
-// มีผลเมื่อถูกคอลจากมือ (ไม่นับฮอลโล่ว์ตัวเอง)
+// Has an effect when called from hand (not counting hollowing itself)
 export const handCallPayoff = (card: Card) => card.abilities.some((ab) =>
   ab.kind === "AUTO" && /^enter\(RC, self(, from=hand)?\)$/.test(ab.timing ?? "") && !ab.effect.every((e) => /^(hollow|retire)\(self/.test(e)));
 
@@ -23,7 +23,7 @@ export const rcAbilityCount = (card: Card) => card.abilities.filter((ab) =>
 
 export const shieldIn = (db: CardDB, inst: CardInstance) => (isHidden(inst) ? 6000 : printedShield(db[inst.key]));
 
-// ค่าของการ์ดบนมือ: Shield ที่ใช้การ์ดได้ + การ์ดสำคัญที่ต้องเก็บไว้ไรด์/สไตรด์/คอล G การ์เดี้ยน
+// Value of a hand card: Shield usable for guarding + key cards to keep for ride/stride/G guardian calls
 export function keepValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance): number {
   if (isHidden(inst)) return 0.9;
   const ps = s.players[p];
@@ -34,25 +34,25 @@ export function keepValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInsta
   if (card.trigger === "heal" && ps.gZone.some((g) => !g.faceUp && db[g.key].type === "g-guardian")) v += 0.35;
   const g = vcGrade(db, ps);
   const sameGrade = ps.hand.filter((h) => !isHidden(h) && db[h.key].grade === card.grade && !isG(db[h.key]));
-  if (card.grade === g + 1 && card.grade <= 3) v += sameGrade[0]?.uid === inst.uid ? 1.6 : 0.1;   // ใบที่ต้องใช้ไรด์เทิร์นหน้า
-  if (card.grade === 3 && g >= 3 && sameGrade[0]?.uid === inst.uid) v += 0.35;                   // ทิ้งเป็นคอสต์สไตรด์เทิร์นหน้า
+  if (card.grade === g + 1 && card.grade <= 3) v += sameGrade[0]?.uid === inst.uid ? 1.6 : 0.1;   // the card needed to ride next turn
+  if (card.grade === 3 && g >= 3 && sameGrade[0]?.uid === inst.uid) v += 0.35;                   // discarded as next turn's stride cost
   if (handCallPayoff(card)) v += 0.15;
   return v;
 }
 
-// ค่าของยูนิทบนสนาม (ใช้ตอนเลือกยูนิทที่จะเสีย)
+// Value of a unit on the board (used when choosing which unit to lose)
 export function unitValue(db: CardDB, inst: CardInstance): number {
   const card = db[inst.key];
   if (inst.hollowed || inst.retireAtTurnEnd) return 0.1;
   return 0.35 + (card.power ?? 0) / 25000 + (dropCallPayoff(card) ? 0.1 : 0) + (hollowPayoff(card) ? 0.1 : 0);
 }
 
-// คะแนนไรด์: ความสามารถตอนเป็นแวนการ์ดสูง ความสามารถเรียร์การ์ดต่ำ ไม่ไรด์พิทักษ์
+// Ride score: high for vanguard abilities, low for rear-guard abilities, never ride a sentinel
 export function rideScore(card: Card): number {
   return vcAbilityCount(card) * 1.0 - rcAbilityCount(card) * 0.4 - (isSentinel(card) ? 5 : 0) - (card.trigger ? 3 : 0);
 }
 
-// คะแนน G ยูนิท: ความสามารถที่ใช้ได้จริงหลังสไตรด์
+// G unit score: abilities actually usable after striding
 export function strideScore(db: CardDB, s: GameState, p: PlayerId, g: CardInstance): number {
   const ps = s.players[p];
   const card = db[g.key];
@@ -68,8 +68,8 @@ export function strideScore(db: CardDB, s: GameState, p: PlayerId, g: CardInstan
     const cbNeed = cost.map((c) => c.match(/^CB\((\d+)\)/)).find(Boolean);
     if (cbNeed && cb < +cbNeed[1]) continue;
     if (cost.some((c) => c.includes("same-name")) && copies < 2) continue;
-    if (ab.kind === "ACT" && (ab.zone ?? "").includes("G")) continue;   // ACT จาก G โซน
-    // ดูดรอปโซน: คอลจากดรอปคุ้มเมื่อมียูนิทให้คอล ถ้ายังไม่มี ตัวที่ส่งการ์ดลงดรอปคุ้มกว่า
+    if (ab.kind === "ACT" && (ab.zone ?? "").includes("G")) continue;   // ACT from the G zone
+    // Look at the drop zone: calling from the drop pays off when there's a unit to call; if not yet, a card that sends cards to the drop is better
     const callable = ps.drop.filter((d) => !isHidden(d) && db[d.key].type === "normal" && !db[d.key].trigger).length;
     if (ab.effect.some((x) => x.startsWith("call(drop→RC"))) v += 1.5 * Math.min(1, callable / 2);
     else if (ab.effect.some((x) => x.startsWith("search(deck→drop"))) v += callable < 2 ? 2 : 0.8;

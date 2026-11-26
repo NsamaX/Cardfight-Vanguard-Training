@@ -9,20 +9,20 @@ interface Props {
   p: PlayerId;
   ps: PlayerState;
   selUid?: string;
-  pickedCircle?: Circle;                  // ช่องที่เลือกรับ Power+5000 ของทริกเกอร์ไว้แล้ว
-  lightOf: (uid: string) => Light;        // ขอบเหลือง/ส้มของการ์ดที่มีความสามารถรอ/กำลังทำงาน
+  pickedCircle?: Circle;                  // circle already chosen to receive the trigger's Power+5000
+  lightOf: (uid: string) => Light;        // yellow/orange border for cards with a pending/resolving ability
   soulLight: Light;
-  atkCircles: Circle[];                   // ตัวโจมตี/บูสท์ ที่เลือกอยู่หรือกำลังโจมตี (ขอบแดง)
-  aimedCircles: Circle[];                 // ยูนิทที่ถูกโจมตีอยู่ (ขอบน้ำเงิน)
-  bonus: Partial<Record<Circle, number>>; // Power จากบูสท์ที่เลือกไว้ (แสดงล่วงหน้า)
+  atkCircles: Circle[];                   // attacker/booster selected or attacking (red border)
+  aimedCircles: Circle[];                 // unit being attacked (blue border)
+  bonus: Partial<Record<Circle, number>>; // Power from the selected boost (shown in advance)
   isTarget: (c: Circle) => boolean;
   onCircle: (c: Circle) => void;
   onPile: (z: Zone) => void;
-  onCard: (uid: string) => void;          // คลิกการ์ดในโซลที่โผล่ออกมา (เลือกความสามารถของการ์ดนั้น)
+  onCard: (uid: string) => void;          // click a soul card that sticks out (choose that card's ability)
 }
 
 export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atkCircles, aimedCircles, bonus, isTarget, onCircle, onPile, onCard }: Props) {
-  // การ์ดในโซลที่มีความสามารถรอ (เช่น ผู้เริ่มต้นหลังถูกไรด์ทับ) โผล่ออกมาจากใต้ VC ให้เห็นและคลิกได้
+  // Soul cards with a pending ability (e.g. the starter after being ridden upon) stick out from under VC so they can be seen and clicked
   const soulCard = ps.soul.find((c) => lightOf(c.uid));
   const t = useT();
   return (
@@ -35,7 +35,7 @@ export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atk
             <div key={c} className={`slot ${c === "vc" ? "vc" : ""} ${isTarget(c) ? "target" : ""} ${(unit && lightOf(unit.uid)) ?? ""} ${atkCircles.includes(c) ? "atk" : ""} ${aimedCircles.includes(c) ? "aimed" : ""}`} onClick={() => onCircle(c)}>
               <span className="lbl">{c === "vc" ? "VC" : "RC"}</span>
               {c === "vc" && ps.heart && (lightOf(ps.heart.uid)
-                // ฮาร์ทที่มีความสามารถรอ (เช่น ไนท์โรส "เมื่อ G ยูนิทสไตรด์") โผล่ออกมาให้คลิกแยกจาก G ยูนิทได้
+                // A heart with a pending ability (e.g. Nightrose "when a G unit strides") sticks out to be clicked separately from the G unit
                 ? <span className="heart soul-peek lit" onClick={(e) => { e.stopPropagation(); onCard(ps.heart!.uid); }}><CardView inst={ps.heart} noRotate light={lightOf(ps.heart.uid)} /></span>
                 : <span className="heart"><CardView inst={ps.heart} noRotate /></span>)}
               {c === "vc" && soulCard && (

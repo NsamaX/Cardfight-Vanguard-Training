@@ -4,24 +4,26 @@ import type { LogEntry } from "../lib/board";
 
 export interface RecordedAction { player: PlayerId; action: Action }
 
-// replay ไม่เก็บภาพสนาม เก็บแค่ seed + เด็ค + การกระทำทั้งหมดตามลำดับ
-// เล่นซ้ำ = เริ่มเกมด้วย seed เดิม (หรือสนาม start ถ้ามี) แล้วป้อน actions ทีละอันเข้า engine
+// A replay doesn't store board images, only seed + decks + every action in order
+// Replaying = start a game with the same seed (or the start board if present), then feed the actions into the engine one by one
+// NOTE: card data isn't stored, so replays run against the current card library. Editing a card can make an old replay
+// diverge (play.ts stops at brokenAt), and an online replay would need the opponent's cards. Snapshot the cards here to fix both.
 export interface Replay {
   version: 1;
   id: string;
   createdAt: string;
-  title: string;          // เช่น "แกรนบลู ไนท์โรส vs แกรนบลู ไนท์โรส"
+  title: string;          // e.g. "Granblue Nightrose vs Granblue Nightrose"
   seed: number;
   firstPlayer: PlayerId;
   decks: Record<PlayerId, Deck>;
-  start?: GameState;      // เกมที่เล่นต่อจาก replay แบบ states: เริ่มจากสนามนี้แทนการเริ่มเกมใหม่
-  bot?: BotLevel | "off";   // "off" = replay เก่าจากโหมดคุมเองทั้งสองฝั่ง (เลิกใช้แล้ว)
+  start?: GameState;      // a game continued from a states replay: start from this board instead of a new game
+  bot?: BotLevel | "off";   // "off" = an old replay from the control-both-sides mode (no longer used)
   actions: RecordedAction[];
   winner?: PlayerId;
   turn: number;
 }
 
-// ไฟล์แบบเก็บสนามทุกก้าว (เกมที่เล่นก่อนมีระบบบันทึก action)
+// A file that stores the board at every step (games played before action recording existed)
 export interface StatesFile {
   kind: "states";
   decks: Record<PlayerId, Deck>;

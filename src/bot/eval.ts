@@ -1,14 +1,14 @@
-// คะแนนสนามจากมุมมองของผู้เล่น p (หน่วย = การ์ด 1 ใบ) ใช้ตัดสินผลของการจำลองแต่ละรอบ
+// Board score from player p's point of view (unit = 1 card), used to judge each simulation run
 import { BEHIND, FRONT, canBoost, generationBreak, isSentinel, other, powerOf, type CardDB } from "../engine/rules";
 import type { GameState, PlayerId } from "../engine/types";
 import { keepValue, unitValue } from "./knowledge";
 import { isHidden } from "./view";
 
 export const WIN = 60;
-// ราคาของการอยู่ที่ดาเมจ n: ทุกดาเมจพาเข้าใกล้ 6 (เกือบเป็นเส้นตรง) และดาเมจ 5 อันตรายมาก เพราะโดนอีกครั้งเดียวแพ้
+// Cost of sitting at damage n: each damage moves closer to 6 (almost linear), and damage 5 is very dangerous since one more hit loses
 export const DAMAGE_COST = [0, 0.6, 1.2, 1.85, 2.75, 4.3];
 export const CB_VALUE = 0.15;
-// เกรดของแวนการ์ด: เกรดต่ำกว่าคู่แข่ง = คอลเกรดสูงไม่ได้ สไตรด์ไม่ได้ Power ต่ำ
+// Vanguard grade: lower than the opponent's = can't call higher grades, can't stride, low Power
 const GRADE_VALUE = 1.4;
 
 function side(db: CardDB, s: GameState, p: PlayerId): number {
@@ -16,11 +16,11 @@ function side(db: CardDB, s: GameState, p: PlayerId): number {
   let v = -DAMAGE_COST[Math.min(5, ps.damage.length)];
   const vc = ps.circles.vc ? db[ps.circles.vc.key] : undefined;
   v += (vc?.type === "g-unit" && ps.heart ? db[ps.heart.key].grade : vc?.grade ?? 0) * GRADE_VALUE;
-  // CB 2 แต้มแรกมีค่ามาก (ต้องมีไว้ใช้คอมโบ/G การ์เดี้ยนนอกเทิร์น) ที่เกินจากนั้นค่าลดลง
+  // The first 2 CB are worth a lot (needed for combos/off-turn G guardians); beyond that the value drops
   const cb = ps.damage.filter((d) => d.faceUp).length;
   v += Math.min(cb, 2) * 0.35 + Math.max(0, cb - 2) * CB_VALUE;
   for (const h of ps.hand) v += keepValue(db, s, p, h);
-  // กันได้ด้วยพิทักษ์/G การ์เดี้ยนช่วยตอนดาเมจสูง
+  // Being able to guard with sentinels/G guardians helps at high damage
   if (ps.damage.length >= 4 && ps.hand.some((h) => !isHidden(h) && isSentinel(db[h.key]))) v += 0.4;
   const oppVc = powerOf(db, opp, "vc") || 1;
   for (const c of FRONT) {

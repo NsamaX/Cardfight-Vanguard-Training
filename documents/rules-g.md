@@ -1,116 +1,116 @@
-# กฎการเล่นภาค G
+# G-era rules
 
-กฎที่โปรแกรมใช้ และที่ใช้อ้างอิงตอนเขียนรหัสความสามารถของการ์ด จังหวะการทำงานของความสามารถในแต่ละช่วงของเทิร์นดูได้ที่ [timing-g.md](timing-g.md)
+The rules the program implements, and the reference for writing card ability code. For when abilities resolve during each part of a turn, see [timing-g.md](timing-g.md).
 
-## คำย่อ
+## Abbreviations
 
-| คำย่อ | ชื่อเต็ม | ความหมาย |
+| Abbreviation | Full name | Meaning |
 |---|---|---|
-| VC | Vanguard Circle | ช่องแวนการ์ด (กลางแถวหน้า) |
-| RC | Rear-guard Circle | ช่องเรียร์การ์ด |
-| GC | Guardian Circle | ช่องการ์เดี้ยน |
-| CB | Counter Blast | คว่ำการ์ดหงายหน้าในดาเมจโซนตามจำนวน |
-| CC | Counter Charge | หงายการ์ดคว่ำหน้าในดาเมจโซนตามจำนวน |
-| SB | Soul Blast | ส่งการ์ดจากโซลลงดรอปโซนตามจำนวน |
-| SC | Soul Charge | นำการ์ดบนสุดของกองการ์ดเข้าโซลตามจำนวน |
-| GB | Generation Break | ดูหัวข้อ Generation Break |
+| VC | Vanguard Circle | The vanguard's circle (center of the front row) |
+| RC | Rear-guard Circle | A rear-guard circle |
+| GC | Guardian Circle | The guardian circle |
+| CB | Counter Blast | Flip that many face-up damage cards face down |
+| CC | Counter Charge | Flip that many face-down damage cards face up |
+| SB | Soul Blast | Put that many cards from the soul into the drop zone |
+| SC | Soul Charge | Put that many cards from the top of the deck into the soul |
+| GB | Generation Break | See Generation Break below |
 
-## การจัดเด็ค
+## Deck building
 
-- **เมนเด็ค:** 50 ใบ ในนั้นเป็นทริกเกอร์ยูนิท 16 ใบ การ์ดชื่อเดียวกันใส่ได้ไม่เกิน 4 ใบ (นับรวมกันแม้รหัสการ์ดต่างกัน)
-- **Heal Trigger:** ใส่ได้ไม่เกิน 4 ใบ
-- **พิทักษ์:** การ์ดที่มีคีย์เวิร์ดพิทักษ์ใส่รวมกันได้ไม่เกิน 4 ใบ (ตามข้อความบนการ์ด)
-- **G โซน:** ใส่ G ยูนิทได้ไม่เกิน 16 ใบ แยกจากเมนเด็ค วางคว่ำไว้ก่อนเริ่มเกม G ยูนิทชื่อเดียวกันใส่ได้ไม่เกิน 4 ใบ และ G ยูนิทใส่ในเมนเด็คไม่ได้
-- **G การ์เดี้ยน:** ใส่ใน G โซนได้ไม่จำกัดจำนวน (ภายใต้ 16 ใบของ G โซน) แต่จะใช้ได้เฉพาะตอนที่ G การ์เดี้ยนหงายหน้าใน G โซนมีไม่เกิน 3 ใบ
+- **Main deck:** 50 cards, including exactly 16 trigger units. At most 4 cards with the same name (counted together even with different card codes).
+- **Heal triggers:** at most 4.
+- **Sentinels:** at most 4 cards with the Sentinel keyword in total (per the card text).
+- **G zone:** at most 16 G units, separate from the main deck, placed face down before the game. At most 4 G units with the same name. G units can't go in the main deck.
+- **G guardians:** any number in the G zone (within its 16 cards), but one can only be called while there are 3 or fewer face-up G guardians in the G zone.
 
-## การเตรียมเกม
+## Game setup
 
-- วางแวนการ์ดเกรด 0 แบบคว่ำไว้ที่ VC
-- จั่วการ์ดขึ้นมือ 5 ใบ แล้วเปลี่ยนการ์ดบนมือได้ 1 ครั้ง
-- เมื่อเริ่มเกม ให้หงายแวนการ์ดเกรด 0 พร้อมกัน
-- ในเทิร์นแรก ผู้เล่นที่เล่นก่อนจั่วการ์ดได้ แต่โจมตีไม่ได้
+- Place a grade 0 vanguard face down on VC.
+- Draw 5 cards, then mulligan once.
+- At the start of the game, both grade 0 vanguards are flipped face up together.
+- On the first turn, the first player draws but can't attack.
 
-## การแพ้ชนะ
+## Winning and losing
 
-- ผู้เล่นที่มีดาเมจครบ 6 ใบเป็นฝ่ายแพ้
-- ผู้เล่นที่กองการ์ดเหลือ 0 ใบเป็นฝ่ายแพ้ทันที แม้ยังไม่ต้องจั่ว
+- A player with 6 damage loses.
+- A player whose deck reaches 0 cards loses immediately, even before needing to draw.
 
-## ลำดับเฟสในหนึ่งเทิร์น
+## Phases of a turn
 
-1. **สแตนด์เฟส:** ตั้งยูนิทของตัวเองที่เรสต์อยู่ทั้งหมดให้เป็นสแตนด์
-2. **ดรอว์เฟส:** จั่วการ์ด 1 ใบ แล้วเข้า G อาซิสต์สเต็ป
-   - **G อาซิสต์:** ถ้าแวนการ์ดยังไม่ถึงเกรด 3 และบนมือไม่มียูนิทที่เกรดสูงกว่าแวนการ์ด 1 เกรด เลือกใช้ได้: เปิดมือให้คู่แข่งดู ดูการ์ด 5 ใบบนสุดของกอง เลือกยูนิทเกรดนั้นได้ไม่เกิน 1 ใบขึ้นมือ แล้วสับกอง ถ้าได้การ์ดขึ้นมือ ต้องเลือกการ์ดบนมือ 2 ใบนำออกจากเกม
-3. **ไรด์เฟส:** มี 2 สเต็ป
-   - **ไรด์สเต็ป:** ไรด์การ์ดเกรดเท่าเดิมหรือสูงกว่าเดิม 1 เกรดจากมือทับแวนการ์ด ทำได้ 1 ครั้ง การ์ดเดิมเข้าไปเป็นโซล
-   - **สไตรด์สเต็ป:** ดูหัวข้อสไตรด์
-4. **เมนเฟส:** คอลยูนิทจากมือลง RC ใช้ ACT และย้ายเรียร์การ์ดระหว่างแถวหน้ากับแถวหลังในแนวตั้งเดียวกัน
-5. **แบทเทิลเฟส:** ดูหัวข้อการต่อสู้
-6. **เอนด์เฟส:** G ยูนิทที่สไตรด์อยู่กลับ G โซน และความสามารถที่มีผล "จนจบเทิร์น" สิ้นสุดลง
+1. **Stand phase:** stand all of your rested units.
+2. **Draw phase:** draw 1 card, then the G assist step.
+   - **G assist:** if your vanguard is below grade 3 and your hand has no unit one grade above it, you may: reveal your hand to the opponent, look at the top 5 cards of your deck, add up to 1 unit of that grade to hand, then shuffle. If you added a card, choose 2 cards from your hand and remove them from the game.
+3. **Ride phase:** two steps.
+   - **Ride step:** ride a card from hand of the same grade or one grade higher on top of your vanguard, once. The old card goes to the soul.
+   - **Stride step:** see Stride.
+4. **Main phase:** call units from hand to RC, use ACT abilities, and move rear-guards between the front and back row in the same column.
+5. **Battle phase:** see Battle.
+6. **End phase:** the strode G unit returns to the G zone, and "until end of turn" effects end.
 
-## สไตรด์ (Stride)
+## Stride
 
-- **เงื่อนไข:** แวนการ์ดของผู้เล่นทั้งสองฝ่ายต้องเป็นเกรด 3 หรือสูงกว่า
-- **คอสต์:** ทิ้งการ์ด 1 ใบหรือมากกว่าจากมือ ให้เกรดรวมกันได้ 3 หรือสูงกว่า เช่น เกรด 3 หนึ่งใบ, เกรด 2+1, หรือเกรด 1 สามใบ
-- **วิธีสไตรด์:** เลือก G ยูนิทที่คว่ำอยู่ใน G โซน 1 ใบ วางหงายทับแวนการ์ดเดิม และวางในสถานะสแตนด์หรือเรสต์เหมือนแวนการ์ดเดิม
-- **สไตรด์ได้ในเทิร์นที่เพิ่งไรด์เกรด 3:** เพราะการสไตรด์ไม่นับเป็นการไรด์
-- **ฮาร์ท (Heart):** แวนการ์ดเดิมที่อยู่ใต้ G ยูนิทเรียกว่าฮาร์ท
-  - G ยูนิทได้รับชื่อและ Power ของฮาร์ท เช่น การ์ดที่พิมพ์ 15000+ จะมี Power = 15000 + Power ของฮาร์ท
-  - ความสามารถของฮาร์ทใช้ไม่ได้ขณะเป็นฮาร์ท
-  - ฮาร์ทใช้เป็นคอสต์ SB ไม่ได้
-- **เมื่อจบเทิร์น:** G ยูนิทกลับเข้า G โซนแบบหงายหน้า และฮาร์ทกลับเป็นแวนการ์ด
-  - G ยูนิทที่หงายหน้าอยู่ใน G โซนสไตรด์ซ้ำไม่ได้อีกตลอดเกม
-- **ไดรฟ์:** G ยูนิทมี Triple Drive คือทำไดรฟ์เช็ค 3 ครั้ง
+- **Condition:** both players' vanguards are grade 3 or higher.
+- **Cost:** discard 1 or more cards from hand with a total grade of 3 or more, e.g. one grade 3, grade 2+1, or three grade 1s.
+- **How:** choose 1 face-down G unit in the G zone and put it face up on top of your vanguard, standing or rested like the old vanguard.
+- **Allowed on the turn you rode grade 3:** striding doesn't count as a ride.
+- **Heart:** the old vanguard under the G unit is the heart.
+  - The G unit gets the heart's name and Power, e.g. a card printed 15000+ has Power = 15000 + the heart's Power.
+  - The heart's abilities don't work while it's the heart.
+  - The heart can't be used for an SB cost.
+- **At end of turn:** the G unit returns to the G zone face up, and the heart becomes the vanguard again.
+  - A face-up G unit in the G zone can't stride again for the rest of the game.
+- **Drive:** G units have Triple Drive (3 drive checks).
 
 ## Generation Break (GB)
 
-**GB X** ทำงานเมื่อมี G ยูนิทหงายหน้าอยู่บน VC และใน G โซนของคุณรวมกัน X ใบหรือมากกว่า (ตามข้อความอธิบายบนการ์ด)
+**GB X** is active while you have X or more face-up G units on VC and in your G zone combined (per the card text).
 
-## G การ์เดี้ยน (G GUARDIAN)
+## G GUARDIAN
 
-- **เงื่อนไข:**
-  - แวนการ์ดของผู้เล่นทั้งสองฝ่ายเป็นเกรด 3 หรือสูงกว่า
-  - G การ์เดี้ยนที่หงายหน้าอยู่ใน G โซนของคุณมี 3 ใบหรือน้อยกว่า
-- **ช่วงเวลา:** การ์ดสเต็ปของเทิร์นคู่แข่ง
-- **คอสต์:** ทิ้งการ์ดที่มีไอคอน Heal จากมือ 1 ใบ
-- **ผล:** คอล G การ์เดี้ยนจากสภาพคว่ำหน้าใน G โซนลง GC ใช้ Shield 15000
-- **หลังจบการต่อสู้:** G การ์เดี้ยนกลับ G โซนแบบหงายหน้า ไม่ลงดรอปโซน
+- **Conditions:**
+  - Both players' vanguards are grade 3 or higher.
+  - You have 3 or fewer face-up G guardians in your G zone.
+- **Timing:** the guard step of the opponent's turn.
+- **Cost:** discard 1 card with the Heal icon from hand.
+- **Effect:** call the G guardian from face down in the G zone to GC, with Shield 15000.
+- **After the battle:** the G guardian returns to the G zone face up instead of going to the drop zone.
 
-## อัลติเมทสไตรด์ (ULTIMATE STRIDE)
+## ULTIMATE STRIDE
 
-- **ใช้ได้เมื่อ:** การ์ดที่หงายหน้าอยู่ใน G โซนมี 3 ใบหรือมากกว่า
-- **คอสต์:** ทิ้งการ์ดที่ชื่อเดียวกับแวนการ์ดของคุณจากมือ 1 ใบ แล้วสไตรด์
-- **เมื่อกลับ G โซน:** นำ G โซนทั้งหมดของคุณออกจากเกม
-- **เซรอธดราก้อน:** อัลติเมทสไตรด์ลงบนแคลนไหนก็ได้ในเนชั่นของตัวเอง เช่น Megiddo ใช้กับGranblueได้เพราะอยู่เนชั่นเมกาลานิก้า
+- **Usable when:** you have 3 or more face-up cards in the G zone.
+- **Cost:** discard 1 card from hand with the same name as your vanguard, then stride.
+- **When it returns to the G zone:** remove your whole G zone from the game.
+- **Zeroth Dragons:** can ultimate stride onto any clan of their own nation, e.g. Megiddo works with Granblue because both are Megalaricca.
 
-ข้อความเรื่องการกลับ G โซนอ่านได้จากการ์ดเพียงบางส่วน
+The text about returning to the G zone is only partly legible on the card.
 
-## การต่อสู้ (แบทเทิลเฟส)
+## Battle (battle phase)
 
-- **โจมตี:** ยูนิทแถวหน้าที่สแตนด์อยู่ เปลี่ยนเป็นเรสต์เพื่อโจมตียูนิทแถวหน้าของคู่แข่ง
-- **บูสท์:** เกรด 0 และ 1 ที่อยู่ RC แถวหลังตรงกัน เรสต์เพื่อเพิ่ม Power ของตัวเองให้ยูนิทที่โจมตี
-- **การ์ด (Guard):** ฝ่ายถูกโจมตีคอลการ์ดจากมือลง GC เพื่อเพิ่ม Shield
-  - เกรด 0: Shield 10000
-  - เกรด 1 และ 2: Shield 5000
-  - พิทักษ์: Shield 0 (ตามที่พิมพ์บนการ์ด)
-  - เกรด 3: ไม่มี Shield
-- **อินเตอร์เซปต์:** เกรด 2 ที่อยู่ RC แถวหน้าย้ายไป GC ได้
-- **ตัดสินผล:** ถ้า Power ของฝ่ายโจมตีเท่ากับหรือมากกว่า Power + Shield ของฝ่ายตั้งรับ ถือว่าฮิท
-  - ฮิทแวนการ์ด: ฝ่ายตั้งรับทำดาเมจเช็คเท่าค่า Critical
-  - ฮิทเรียร์การ์ด: เรียร์การ์ดนั้นถูกรีไทร์
-- **ไดรฟ์เช็ค:** แวนการ์ดที่โจมตีเปิดการ์ดบนสุดของกองการ์ด แล้วนำขึ้นมือ
-  - Twin Drive (เกรด 3): เปิด 2 ครั้ง
-  - Triple Drive (G ยูนิท): เปิด 3 ครั้ง
-- **ทริกเกอร์:** ถ้าเปิดได้ทริกเกอร์ตอนไดรฟ์เช็คหรือดาเมจเช็ค จะได้ Power+5000 ให้ยูนิท 1 ใบ และได้ผลตามชนิด
+- **Attack:** a standing front-row unit rests to attack an opponent's front-row unit.
+- **Boost:** a grade 0 or 1 in the back-row RC directly behind rests to add its Power to the attacker.
+- **Guard:** the attacked player calls cards from hand to GC to add Shield.
+  - Grade 0: Shield 10000
+  - Grades 1 and 2: Shield 5000
+  - Sentinels: Shield 0 (as printed on the card)
+  - Grade 3: no Shield
+- **Intercept:** a grade 2 in a front-row RC can move to GC.
+- **Resolution:** if the attacker's Power is greater than or equal to the defender's Power + Shield, it hits.
+  - Hitting the vanguard: the defender does damage checks equal to the attacker's Critical.
+  - Hitting a rear-guard: that rear-guard is retired.
+- **Drive check:** an attacking vanguard reveals the top card of the deck and adds it to hand.
+  - Twin Drive (grade 3): twice.
+  - Triple Drive (G units): three times.
+- **Triggers:** a trigger revealed in a drive check or damage check gives one unit Power+5000 plus its own effect.
   - Critical: Critical+1
-  - Stand: สแตนด์เรียร์การ์ด 1 ใบ
-  - Heal: ถ้าดาเมจของคุณมากกว่าหรือเท่ากับของคู่แข่ง ฟื้นดาเมจ 1 ใบ
-  - Draw: จั่วการ์ด 1 ใบ
+  - Stand: stand 1 rear-guard
+  - Heal: if your damage is greater than or equal to the opponent's, heal 1 damage
+  - Draw: draw 1 card
 
-## คีย์เวิร์ดที่พบในคลังนี้
+## Keywords in this library
 
-| คีย์เวิร์ด | ความหมาย |
+| Keyword | Meaning |
 |---|---|
-| Hollow (ฮอลโล่ว์) | เมื่อยูนิทเข้าสู่ RC เลือกให้ติดสถานะฮอลโล่ว์ได้ ถ้าเลือก ยูนิทนั้นถูกรีไทร์เมื่อจบเทิร์น (ตามข้อความบนการ์ด) |
-| Sentinel (พิทักษ์) | ใส่ในเด็คได้ไม่เกิน 4 ใบ ส่วนใหญ่ใช้กันการโจมตีให้ไม่ฮิท |
-| Forerunner (ผู้เริ่มต้น) | เมื่อยูนิทแคลนเดียวกันไรด์ทับการ์ดนี้ คอลการ์ดนี้ลง RC ได้ |
-| This card is from all clans and nations | การ์ด Cray Elementalนับเป็นทุกแคลนและทุกเนชั่น ใส่ได้ทุกเด็ค |
+| Hollow | When the unit is placed on RC, you may make it hollowed. If you do, it is retired at the end of the turn (per the card text). |
+| Sentinel | At most 4 per deck. Usually used to make an attack not hit. |
+| Forerunner | When a unit of the same clan rides on this card, you may call this card to RC. |
+| This card is from all clans and nations | Cray Elemental cards count as every clan and nation and fit in any deck. |

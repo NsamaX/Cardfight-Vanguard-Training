@@ -1,36 +1,15 @@
 import type { Card } from "../engine/types";
-import { loadUserCards } from "../lib/cardStore";
+import { toCard, type CardFile } from "./cardFile";
 import content from "./content.json";
 
-// การ์ดทุกใบจาก content/cards/*/*.yaml (แปลงเป็น JSON โดย scripts/gen-content.mjs) เพิ่มการ์ดใหม่ = เพิ่มไฟล์ .yaml แล้วรีสตาร์ต dev server
-type CardFile = Omit<Card, "key" | "power" | "powerPlus" | "image" | "triggerPower"> & { power?: number | string; trigger_power?: number };
+export { cardKey } from "./cardFile";
 
-const images = new Set(content.images);
-
-export const cardKey = (id: string) => id.split(" ")[0];
-const imageName = (key: string) => key.replace("/", "_") + ".png";
-
-function toCard({ power, trigger_power, ...file }: CardFile): Card {
-  const key = cardKey(file.ids[0]);
-  const powerText = power != null ? String(power) : undefined;
-  return {
-    ...file,
-    key,
-    power: powerText ? parseInt(powerText, 10) : undefined,
-    powerPlus: powerText?.endsWith("+"),
-    triggerPower: trigger_power,
-    abilities: file.abilities ?? [],
-    image: images.has(imageName(key)) ? "/images/" + imageName(key) : undefined,
-    text: file.text?.trim() ?? "",
-  };
-}
-
+// Starts with the bundled content/cards/*/*.yaml set (used by tests and when Supabase is not configured).
+// The app replaces it with the library loaded from Supabase (src/lib/library.ts) via setCards.
 export const cards: Card[] = (content.cards as unknown as CardFile[]).map(toCard);
 
 export const cardByKey: Record<string, Card> = Object.fromEntries(cards.map((c) => [c.key, c]));
 
-// การ์ดที่ผู้เล่นสร้างในโปรแกรม (lib/cardStore.ts) เพิ่มเข้าคลังเดียวกันตอนโหลดโมดูลและตอนบันทึก
-// (โหลดที่นี่ ไม่ใช่ใน component เพราะเมื่อแก้การ์ดในคลัง content.json ถูกแปลงใหม่ และโมดูลนี้ถูกโหลดซ้ำ)
 export function putCard(c: Card) {
   const i = cards.findIndex((x) => x.key === c.key);
   if (i >= 0) cards[i] = c;
@@ -38,4 +17,8 @@ export function putCard(c: Card) {
   cardByKey[c.key] = c;
 }
 
-if (typeof window !== "undefined") loadUserCards().forEach(putCard);
+export function setCards(list: Card[]) {
+  cards.length = 0;
+  for (const k of Object.keys(cardByKey)) delete cardByKey[k];
+  list.forEach(putCard);
+}

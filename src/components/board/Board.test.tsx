@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// จำลองการคลิกบนหน้าสนามจริง: เล่น 2 เทิร์นตั้งแต่เปลี่ยนการ์ดบนมือจนถึงการโจมตีและการ์ด
+// Simulates clicks on the real board: plays 2 turns from the mulligan through attacking and guarding
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,10 +28,10 @@ function render(s: GameState, started = true) { act(() => root.render(<Board ini
   onNewGame={() => {}} onApplySettings={() => {}} onSwapDecks={() => {}} onPickDeck={() => {}} onDeckChanged={() => {}} />)); }
 let autoDecline = true;
 function rawClick(el: Element | undefined | null) {
-  if (!el) throw new Error("ไม่พบสิ่งที่จะคลิก");
+  if (!el) throw new Error("nothing to click");
   act(() => (el as HTMLElement).click());
 }
-// เทสต์กฎพื้นฐาน: ถ้ามีความสามารถถามขึ้นมา ตอบ "No" / ไม่เลือก ให้อัตโนมัติ
+// Basic rules tests: if an ability asks a question, answer "No" / choose nothing automatically
 function declineAll() {
   for (let i = 0; i < 30; i++) {
     const cmd = host.querySelector(".command");
@@ -51,36 +51,36 @@ function click(el: Element | undefined | null) {
 }
 const button = (text: string) => [...host.querySelectorAll("button")].find((b) => b.textContent?.includes(text));
 const modalCard = (name: string) => [...host.querySelectorAll(".modal .card")].find((c) => c.getAttribute("title") === name);
-const slots = (side: 0 | 1) => host.querySelectorAll(".side")[side].querySelectorAll(".slot");   // 0 = บอท, 1 = คุณ
+const slots = (side: 0 | 1) => host.querySelectorAll(".side")[side].querySelectorAll(".slot");   // 0 = bot, 1 = you
 const handCard = (side: "me" | "bot", name: string) =>
   [...host.querySelectorAll(`.hand.${side} .card`)].find((c) => c.getAttribute("title") === name);
-// ให้บอทเล่นจนถึงตาคุณ (ต้องเปิด fake timers ก่อน render)
+// Let the bot play until your turn (fake timers must be enabled before render)
 async function botPlays() { await act(async () => { await vi.advanceTimersByTimeAsync(5000); }); }
 const pill = () => host.querySelector(".pill")!.textContent!;
 
-// 3 เทสต์ที่ skip ใช้ปุ่มในแถบคำสั่ง (.command) และป้ายสถานะ (.pill) ซึ่งถูกลบออกแล้ว รอระบบ action แบบใหม่แล้วค่อยแก้ให้ใช้ได้
-describe("หน้าสนาม", () => {
-  it.skip("เล่นด้วยมือได้: เปลี่ยนการ์ด ไรด์ คอล จบเทิร์น โจมตี การ์ด", () => {
+// The 3 skipped tests use buttons in the command bar (.command) and status pills (.pill), which were removed; fix them once the new action system lands
+describe("board", () => {
+  it.skip("plays by hand: mulligan, ride, call, end turn, attack, guard", () => {
     const s = createGame(db, { seed: 3, firstPlayer: "me", decks: { me: deck, bot: deck } });
     s.players.me.hand.push(inst(s, BONE), inst(s, TOMMY));
     s.players.bot.hand.push(inst(s, BONE), inst(s, BONE));
-    s.players.me.deck.unshift(inst(s, GUN));                        // จั่วเทิร์น 1
-    s.players.bot.deck.unshift(inst(s, GUN), inst(s, GUN));         // จั่วเทิร์น 2 + ไดรฟ์เช็ค
+    s.players.me.deck.unshift(inst(s, GUN));                        // turn 1 draw
+    s.players.bot.deck.unshift(inst(s, GUN), inst(s, GUN));         // turn 2 draw + drive check
     render(s);
 
-    // เปลี่ยนการ์ดบนมือ: ไม่เปลี่ยนทั้งสองฝั่ง
+    // Mulligan: neither side redraws
     expect(pill()).toContain("Waiting for you");
     click(button("Confirm"));
     expect(pill()).toContain("Waiting for bot");
     click(button("Confirm"));
     expect(host.textContent).toContain("TURN 1");
 
-    // เทิร์น 1 ของเรา: ไรด์เนโครโบนลง VC
+    // Our turn 1: ride Negrobone to VC
     click(handCard("me", db[BONE].name));
     click(slots(1)[1]);
     expect(slots(1)[1].querySelector(".card")!.getAttribute("title")).toBe(db[BONE].name);
 
-    // เมนเฟส: คอลทอมมี่ลง RC หน้าซ้าย / คอลพลปืนใหญ่ (เกรด 2) ไม่ได้ ต้องขึ้นข้อความเตือน
+    // Main phase: call Tommy to front-left RC / calling the Cannoneer (grade 2) isn't allowed and shows a warning
     click(button("To stride step"));
     click(button("To main phase"));
     click(handCard("me", db[TOMMY].name));
@@ -90,7 +90,7 @@ describe("หน้าสนาม", () => {
     click(slots(1)[2]);
     expect(host.querySelector(".toast")?.textContent).toContain("grade no higher than your vanguard");
 
-    // แบทเทิล: เทิร์นแรกโจมตีไม่ได้ จบเทิร์น
+    // Battle: can't attack on the first turn, end turn
     click(button("To battle phase"));
     click(slots(1)[1]);
     click(slots(0)[4]);
@@ -98,7 +98,7 @@ describe("หน้าสนาม", () => {
     click(button("End turn"));
     expect(host.textContent).toContain("Bot's turn");
 
-    // เทิร์น 2 ของบอท: ไรด์ แล้วโจมตี VC ของเรา
+    // The bot's turn 2: ride, then attack our VC
     click(handCard("bot", db[BONE].name));
     click(slots(0)[4]);
     click(button("To stride step"));
@@ -109,16 +109,16 @@ describe("หน้าสนาม", () => {
     expect(pill()).toContain("Waiting for you");
     expect(host.querySelector(".battle")!.textContent).toContain("7,000");
 
-    // เราการ์ดด้วยพลปืนใหญ่ (Shield 5000): 7000 vs 7000+5000 ไม่ฮิท
+    // We guard with the Cannoneer (Shield 5000): 7000 vs 7000+5000, no hit
     click(handCard("me", db[GUN].name));
     expect(host.querySelector(".battle")!.textContent).toContain("No hit");
     click(button("End guard"));
-    expect(host.querySelector(".pip.up")).toBeNull();               // ไม่ได้ดาเมจ
+    expect(host.querySelector(".pip.up")).toBeNull();               // no damage taken
     expect(pill()).toContain("Waiting for bot");
     expect(host.querySelector(".log")!.textContent).toContain("No hit");
   });
 
-  it.skip("สไตรด์ผ่าน G โซน แล้วเลือกเป้าหมายคริติคอลทริกเกอร์ได้", () => {
+  it.skip("strides through the G zone, then can choose the critical trigger target", () => {
     const MIST = "G-CHB03/S11TH", STAR = "G-CHB03/002TH", GUNIT = "PR/0686TH", CRIT = "PR/0632TH";
     const s = createGame(db, { seed: 9, firstPlayer: "me", decks: { me: deck, bot: deck } });
     Object.assign(s, { phase: "ride", step: "stride", turn: 3, turnPlayer: "me", mulliganDone: ["me", "bot"] });
@@ -148,7 +148,7 @@ describe("หน้าสนาม", () => {
     expect(host.querySelectorAll(".side")[0].querySelectorAll(".pip.up")).toHaveLength(2);
   });
 
-  it.skip("คลิกเล่นคอมโบยิงนอกเทิร์นครบสายผ่านหน้าจอ", () => {
+  it.skip("clicks through the whole off-turn shot combo on screen", () => {
     autoDecline = false;
     const K = { mist: "G-CHB03/S11TH", star: "G-CHB03/002TH", serp: "PR/0256TH", lazy: "G-CP06/019TH", dewey: "PR/0740TH", gunit: "PR/0686TH", lily: "G-CP08/S11TH" };
     const s = createGame(db, { seed: 11, firstPlayer: "me", decks: { me: deck, bot: deck } });
@@ -163,7 +163,7 @@ describe("หน้าสนาม", () => {
     me.gZone = [inst(s, K.gunit), inst(s, K.gunit), down(K.lily), down(K.gunit)];
     bot.circles = { vc: { ...inst(s, K.gunit), rested: true }, front_left: inst(s, K.lazy), back_center: inst(s, BONE) };
     bot.heart = inst(s, K.star);
-    bot.circles.vc!.mods.push({ stat: "power", value: 7000, source: "บูสท์", until: "battle-end" });
+    bot.circles.vc!.mods.push({ stat: "power", value: 7000, source: "boost", until: "battle-end" });
     bot.deck.unshift(down(GUN), down(GUN), down(GUN));
     s.awaiting = { player: "me", kind: "guard", prompt: { key: "prompt.guard" } };
     render(s);
@@ -173,28 +173,28 @@ describe("หน้าสนาม", () => {
     click(handCard("me", db[K.dewey].name));
     click([...host.querySelectorAll(".command button")].find((b) => b.textContent?.includes("Dewey")));
     click(button("Yes"));
-    click(host.querySelector(".modal .card"));                    // ไบนด์ Heal อีกใบ
+    click(host.querySelector(".modal .card"));                    // bind another Heal
     click(button("Confirm"));
     click(button("CC(1)"));
-    click(button("Yes"));                                         // เนโครลิลลี่
+    click(button("Yes"));                                         // Negrolily
     click(modalCard(db[GUN].name));
     click(button("Confirm"));
     click(modalCard(db[TOMMY].name));
     click(button("Confirm"));
-    click(slots(1)[4]);                                           // หลังกลาง
+    click(slots(1)[4]);                                           // back center
     expect(host.querySelector(".command")!.textContent).toContain("Night Fog");
-    click(button("Yes"));                                         // ไนท์โรส mill 3
+    click(button("Yes"));                                         // Nightrose mill 3
     click(modalCard(db[GUN].name));
     click(button("Confirm"));
-    click(slots(1)[0]);                                           // หน้าซ้าย
+    click(slots(1)[0]);                                           // front left
     click([...host.querySelectorAll(".command button")].find((b) => b.textContent?.includes("Skeleton Cannoneer") && b.textContent.includes("#1")));
-    click(button("Yes"));                                         // ฮอลโล่ว์
-    click(button("Yes"));                                         // CB1 ยิง
+    click(button("Yes"));                                         // hollow
+    click(button("Yes"));                                         // CB1 shoot
     click(modalCard(db[K.lazy].name));
     click(button("Confirm"));
     click(button("End guard"));
 
-    expect(slots(0)[5].querySelector(".card")).toBeNull();        // เรียร์การ์ดหน้าซ้ายของบอทถูกยิง
+    expect(slots(0)[5].querySelector(".card")).toBeNull();        // the bot's front-left rear-guard was shot
     expect(slots(1)[0].textContent).toContain("Hollow");
     expect(slots(1)[1].querySelector(".card")!.getAttribute("title")).toBe(db[TOMMY].name);
     expect(host.querySelector(".side .damage")).toBeTruthy();
@@ -203,7 +203,7 @@ describe("หน้าสนาม", () => {
     autoDecline = true;
   });
 
-  it("ป้องกันแล้วคลิกการ์ดบน GC เพื่อถอนกลับที่เดิม (มือ หรือ RC ที่อินเตอร์เซปต์มา)", () => {
+  it("after guarding, clicking a card on GC returns it to where it came from (hand, or the RC it intercepted from)", () => {
     const s = createGame(db, { seed: 11, firstPlayer: "me", decks: { me: deck, bot: deck } });
     const me = s.players.me, bot = s.players.bot;
     Object.assign(s, { mulliganDone: ["me", "bot"], turn: 4, turnPlayer: "bot", phase: "battle", step: "guard",
@@ -216,7 +216,7 @@ describe("หน้าสนาม", () => {
 
     rawClick(handCard("me", db[BONE].name));
     rawClick(button("Yes"));
-    rawClick(slots(1)[0]);                                         // อินเตอร์เซปต์จากหน้าซ้าย
+    rawClick(slots(1)[0]);                                         // intercept from front left
     const gc = () => [...host.querySelectorAll(".bside.me .card")];
     expect(gc()).toHaveLength(2);
     expect(handCard("me", db[BONE].name)).toBeUndefined();
@@ -229,7 +229,7 @@ describe("หน้าสนาม", () => {
     expect(slots(1)[0].querySelector(".card")!.getAttribute("title")).toBe(db[GUN].name);
   });
 
-  it("คอลแล้วมีความสามารถแบบเลือกใช้รออยู่ (ฮอลโล่ว์) ยังคอลใบอื่นต่อได้ในเมนเฟส โดยถือว่าไม่ใช้", () => {
+  it("after a call with an optional ability pending (hollow), another card can still be called in the main phase, treating it as declined", () => {
     const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
     const g3 = Object.keys(deck.main).find((k) => db[k].grade === 3 && db[k].type === "normal")!;
     Object.assign(s, { mulliganDone: ["me", "bot"], turn: 3, turnPlayer: "me", phase: "main", step: "main" });
@@ -240,16 +240,16 @@ describe("หน้าสนาม", () => {
 
     rawClick(handCard("me", db[GUN].name));
     rawClick(slots(1)[0]);
-    expect(slots(1)[0].classList.contains("source")).toBe(true);   // ฮอลโล่ว์รอเลือกอยู่ (ขอบเหลือง)
+    expect(slots(1)[0].classList.contains("source")).toBe(true);   // hollow waiting to be chosen (yellow border)
     rawClick(handCard("me", db[BONE].name));
     rawClick(slots(1)[2]);
     expect(slots(1)[0].querySelector(".card")!.getAttribute("title")).toBe(db[GUN].name);
     expect(slots(1)[2].querySelector(".card")!.getAttribute("title")).toBe(db[BONE].name);
     expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
-    expect(slots(1)[0].classList.contains("source")).toBe(false);   // ฮอลโล่ว์ถูกข้ามไปแล้ว
+    expect(slots(1)[0].classList.contains("source")).toBe(false);   // hollow was skipped
   });
 
-  it("เปิด G โซนแล้วการ์ดคว่ำแสดงเป็นรูปการ์ดได้ และแผงขวาแสดงข้อความความสามารถ", () => {
+  it("opening the G zone shows face-down cards as card images, and the right panel shows the ability text", () => {
     const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
     render(s);
     click(host.querySelector(".tray.me .gZone .zone-slot"));
@@ -258,30 +258,30 @@ describe("หน้าสนาม", () => {
     expect(host.querySelector(".insp-pane.me")!.textContent).toMatch(/STRIDE|G GUARDIAN/);
   });
 
-  it("กด Ready แล้วบอทเปลี่ยนการ์ดเอง จากนั้นเลือกการ์ดเกรด 1 แล้วคลิก VC เพื่อไรด์ได้ และเข้าเมนเฟสเอง", async () => {
+  it("press Ready, the bot mulligans by itself, then pick a grade 1 card and click VC to ride, entering the main phase automatically", async () => {
     vi.useFakeTimers();
     try {
       const s = createGame(db, { seed: 7, firstPlayer: "me", decks: { me: deck, bot: deck } });
-      s.players.me.circles.vc = { ...inst(s, "PR/0740TH"), faceUp: false };   // แวนการ์ดเกรด 0 ที่ไม่มีความสามารถตอนถูกไรด์ทับ
+      s.players.me.circles.vc = { ...inst(s, "PR/0740TH"), faceUp: false };   // a grade 0 vanguard with no ability when ridden upon
       s.players.me.hand.push(inst(s, BONE));
       render(s);
       click(button("Ready"));
-      expect(host.querySelector(".ph.on")!.textContent).toBe("START");   // ยังรอบอทเลือกเปลี่ยนการ์ด
+      expect(host.querySelector(".ph.on")!.textContent).toBe("START");   // still waiting for the bot's mulligan
       await botPlays();
       expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
-      expect(button("To main phase")).toBeTruthy();                         // แวนการ์ดไม่ถึงเกรด 3 กดถัดไปจะข้ามสไตรด์
+      expect(button("To main phase")).toBeTruthy();                         // vanguard below grade 3, next skips the stride
       click(handCard("me", db[BONE].name));
       expect(handCard("me", db[BONE].name)!.classList.contains("sel")).toBe(true);
       click(slots(1)[1]);
       expect(slots(1)[1].querySelector(":scope > .card")!.getAttribute("title")).toBe(db[BONE].name);
       expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
-      expect(button("End turn")).toBeTruthy();                         // เทิร์นแรกไม่มีแบทเทิลเฟส
+      expect(button("End turn")).toBeTruthy();                         // no battle phase on the first turn
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("ก่อนกด Start VC ว่างและเปิดดูกองการ์ดได้ทั้งเด็คทั้งสองฝั่ง", () => {
+  it("before Start, VC is empty and both decks can be opened to view the whole deck", () => {
     const s = createGame(db, { seed: 2, firstPlayer: "me", decks: { me: deck, bot: deck } });
     render(s, false);
     expect(slots(1)[1].querySelector(".card")).toBeNull();
@@ -293,7 +293,7 @@ describe("หน้าสนาม", () => {
     expect(host.querySelectorAll(".modal .card")).toHaveLength(countCards(deck.main));
   });
 
-  it("เปลี่ยนการ์ดบนมือ: การ์ดที่เลือกกลับเข้ากองก่อน แล้วจึงจั่วใหม่", async () => {
+  it("mulligan: the chosen cards go back into the deck first, then new ones are drawn", async () => {
     vi.useFakeTimers();
     try {
       const s = createGame(db, { seed: 3, firstPlayer: "me", decks: { me: deck, bot: deck } });
@@ -306,7 +306,7 @@ describe("หน้าสนาม", () => {
       expect(host.querySelectorAll(".hand.me .card")).toHaveLength(3);
       expect(deckCount()).toBe(before + 2);
       await act(async () => { await vi.advanceTimersByTimeAsync(400); });
-      expect(host.querySelectorAll(".hand.me .card")).toHaveLength(3);   // ใบที่สองยังบินไม่ถึงกอง
+      expect(host.querySelectorAll(".hand.me .card")).toHaveLength(3);   // the second card hasn't reached the deck yet
       await act(async () => { await vi.advanceTimersByTimeAsync(90); });
       expect(host.querySelectorAll(".hand.me .card")).toHaveLength(5);
       expect(deckCount()).toBe(before);
@@ -315,13 +315,13 @@ describe("หน้าสนาม", () => {
     }
   });
 
-  it("กด Start: แวนการ์ดเริ่มต้นไปที่ VC ก่อน แล้วจึงจั่ว 5 ใบ", async () => {
+  it("press Start: the starting vanguard goes to VC first, then 5 cards are drawn", async () => {
     vi.useFakeTimers();
     try {
       const s = createGame(db, { seed: 2, firstPlayer: "me", decks: { me: deck, bot: deck } });
       render(s, false);
       render(s, true);
-      expect(slots(1)[1].querySelector(".card")!.getAttribute("title")).toBe("Face-down card");   // แวนการ์ดเริ่มต้นวางคว่ำ
+      expect(slots(1)[1].querySelector(".card")!.getAttribute("title")).toBe("Face-down card");   // the starting vanguard is placed face down
       expect(host.querySelectorAll(".hand.me .card")).toHaveLength(0);
       await act(async () => { await vi.advanceTimersByTimeAsync(500); });
       expect(host.querySelectorAll(".hand.me .card")).toHaveLength(5);
@@ -331,7 +331,7 @@ describe("หน้าสนาม", () => {
     }
   });
 
-  it("เล่นกับบอท: มือบอทคว่ำ ตาบอทไม่มีปุ่มให้กดแทน และบอทเปลี่ยนการ์ดเองแล้วถึงตาคุณ", async () => {
+  it("playing the bot: the bot's hand is face down, no buttons on the bot's turn, and the bot mulligans by itself before your turn", async () => {
     vi.useFakeTimers();
     try {
       const s = createGame(db, { seed: 9, firstPlayer: "bot", decks: { me: deck, bot: deck } });
@@ -350,7 +350,7 @@ describe("หน้าสนาม", () => {
     }
   });
 
-  it("replay: ไม่บันทึกเอง กดบันทึกใน Replays แล้วเปิดดูทีละก้าวได้ (เห็นมือทั้งสองฝั่ง)", async () => {
+  it("replay: not saved automatically; save in Replays, then step through it (both hands visible)", async () => {
     localStorage.clear();
     const s = createGame(db, { seed: 4, firstPlayer: "me", decks: { me: deck, bot: deck } });
     vi.useFakeTimers();
@@ -376,9 +376,9 @@ describe("หน้าสนาม", () => {
     expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
     expect([...host.querySelectorAll(".hand.bot .card")].some((c) => c.getAttribute("title") !== "Face-down card")).toBe(true);
     expect(button("Ready")).toBeUndefined();
-    expect(host.querySelector(".mid-actions")!.textContent).toBe("Resume");   // ปุ่มเล่นต่อจากก้าวนี้อยู่ช่องขวาของแถบกลาง
+    expect(host.querySelector(".mid-actions")!.textContent).toBe("Resume");   // the resume-from-this-step button is in the right slot of the middle bar
     expect(host.querySelector(".mid-history button")).toBeNull();
-    rawClick(host.querySelector(".stack.bot .deck .zone-slot"));                       // กองการ์ดเปิดดูได้ตอนดูย้อนหลัง
+    rawClick(host.querySelector(".stack.bot .deck .zone-slot"));                       // the deck can be opened while watching a replay
     expect(host.querySelectorAll(".modal .card")).toHaveLength(tl.states.at(-1)!.players.bot.deck.length);
     expect(host.querySelector(".replay-foot .pos")!.textContent).toContain("Step 2/2");
   });

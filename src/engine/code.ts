@@ -1,12 +1,12 @@
-// แปลงรหัสความสามารถในไฟล์การ์ด เช่น call(drop→RC, n≤1, filter=grade≤2 & not-same-name) เป็นโครงสร้างข้อมูล
+// Parses ability code from card files, e.g. call(drop→RC, n≤1, filter=grade≤2 & not-same-name), into a data structure
 
 export interface Code {
   name: string;
-  pos: string[];                     // อาร์กิวเมนต์ตามตำแหน่ง เช่น "drop→RC", "n≤1"
-  named: Record<string, string>;     // อาร์กิวเมนต์ชื่อ=ค่า เช่น filter, to, until, if
+  pos: string[];                     // positional arguments, e.g. "drop→RC", "n≤1"
+  named: Record<string, string>;     // name=value arguments, e.g. filter, to, until, if
 }
 
-// แยกด้วยตัวคั่นเฉพาะระดับนอกสุด (ไม่ตัดในวงเล็บ () [] หรือในเครื่องหมายคำพูด)
+// Split on the separator only at the top level (not inside () [] or quotes)
 export function splitTop(src: string, sep: string): string[] {
   const out: string[] = [];
   let depth = 0, quoted = false, cur = "";
@@ -27,7 +27,7 @@ export function splitTop(src: string, sep: string): string[] {
   return out;
 }
 
-// รหัสมาจากไฟล์การ์ดซึ่งมีจำนวนจำกัด เก็บผลไว้ใช้ซ้ำ (บอทจำลองเกมหลายพันก้าวต่อการตัดสินใจ) ผู้เรียกห้ามแก้ผลที่ได้
+// Codes come from card files, which are limited in number, so cache the results (the bot simulates thousands of steps per decision); callers must not modify the result
 const cache = new Map<string, Code>();
 
 export function parseCode(src: string): Code {

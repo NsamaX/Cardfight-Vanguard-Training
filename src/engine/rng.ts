@@ -1,5 +1,5 @@
-// ตัวสุ่มที่กำหนด seed ได้ (mulberry32): seed เดิม + การกระทำเดิม = เกมเดิมทุกครั้ง
-// ห้ามใช้ Math.random() ใน engine ไม่อย่างนั้น replay จะเล่นซ้ำไม่ได้
+// Seedable random generator (mulberry32): same seed + same actions = same game every time
+// Never use Math.random() in the engine, otherwise replays can't be reproduced
 
 export function nextRandom(state: number): [value: number, nextState: number] {
   const s = (state + 0x6d2b79f5) | 0;

@@ -1,4 +1,4 @@
-// แก้ไขเด็คในหน้าสร้างเด็ค (ฟังก์ชันล้วน คืนเด็คใหม่ทุกครั้ง)
+// Deck editing in the deck builder (pure functions, always return a new deck)
 import { cardByKey } from "../data/cards";
 import { countCards } from "../data/decks";
 import { isG } from "../engine/rules";
@@ -12,13 +12,13 @@ export const zoneOf = (key: string): "main" | "g_zone" => (isG(cardByKey[key]) ?
 export const copiesIn = (deck: Deck, key: string) => deck[zoneOf(key)][key] ?? 0;
 
 export function newDeck(name: string): Deck {
-  return { id: `user-${Date.now()}`, name, format: "G", starter: "", main: {}, g_zone: {} };
+  return { id: crypto.randomUUID(), name, format: "G", starter: "", main: {}, g_zone: {} };
 }
 
 export const duplicateDeck = (deck: Deck, name: string): Deck =>
-  ({ ...deck, id: `user-${Date.now()}`, name, main: { ...deck.main }, g_zone: { ...deck.g_zone } });
+  ({ ...deck, id: crypto.randomUUID(), name, main: { ...deck.main }, g_zone: { ...deck.g_zone } });
 
-// แวนการ์ดเริ่มต้น: ใช้ใบเดิมถ้ายังอยู่ในเด็ค ไม่งั้นเลือกเกรด 0 ที่ไม่ใช่ทริกเกอร์ใบแรก
+// Starting vanguard: keep the current one if it's still in the deck, otherwise the first non-trigger grade 0
 function withStarter(deck: Deck): Deck {
   if (deck.main[deck.starter] && cardByKey[deck.starter].grade === 0) return deck;
   const grade0 = Object.keys(deck.main).filter((k) => cardByKey[k].grade === 0);
@@ -39,10 +39,10 @@ export function removeCard(deck: Deck, key: string): Deck {
   return withStarter({ ...deck, [zone]: n > 1 ? { ...rest, [key]: n - 1 } : rest });
 }
 
-// เรียงการ์ดในเด็คตามเกรด (0 → 3) แล้วตามชื่อ
+// Sort deck cards by grade (0 → 3), then by name
 export const byGradeThenName = (a: string, b: string) => cardByKey[a].grade - cardByKey[b].grade || cardByKey[a].name.localeCompare(cardByKey[b].name, "en");
 
-// ย้ายการ์ด G ใบ from ไปไว้ตำแหน่งของ to (ลำดับใน g_zone คือลำดับที่แสดงทั้งในเกมและหน้าเด็ค)
+// Move G card from to the position of to (the g_zone order is the display order both in game and on the deck screen)
 export function moveG(deck: Deck, from: string, to: string): Deck {
   const keys = Object.keys(deck.g_zone);
   const at = keys.indexOf(to);
@@ -54,11 +54,11 @@ export function moveG(deck: Deck, from: string, to: string): Deck {
 
 export const setStarter = (deck: Deck, key: string): Deck => ({ ...deck, starter: key });
 
-// การ์ดที่ไม่ได้อยู่ในเกม ใช้แสดงผลด้วย CardView
+// A card not in a game, for display with CardView
 export const displayInstance = (key: string): CardInstance =>
   ({ uid: key, key, rested: false, faceUp: true, hollowed: false, mods: [], usedThisTurn: [] });
 
-// รูปประจำเด็ค: การ์ดที่เลือกไว้ (ถ้ายังอยู่ในเด็ค) ไม่งั้น G ยูนิทใบแรก ไม่มีก็ใช้การ์ดเกรดสูงสุดในเมนเด็ค
+// Deck image: the chosen card (if still in the deck), otherwise the first G unit, otherwise the highest-grade main deck card
 export function coverCard(deck: Deck): string | undefined {
   if (deck.cover && (deck.main[deck.cover] || deck.g_zone[deck.cover])) return deck.cover;
   return Object.keys(deck.g_zone)[0] ?? Object.keys(deck.main).sort((a, b) => cardByKey[b].grade - cardByKey[a].grade)[0];

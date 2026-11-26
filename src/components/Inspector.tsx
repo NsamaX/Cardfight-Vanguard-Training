@@ -6,7 +6,7 @@ import { useT } from "../i18n/react";
 import { fmt } from "../lib/format";
 import { blocksFromCodes, parseBlocks } from "../lib/skillBlocks";
 
-// ความสามารถแต่ละอันเป็นกล่อง: หัวกล่องบอกประเภท (AUTO แยกบังคับ/เลือกใช้) และช่อง ข้างล่างคือเงื่อนไข จังหวะ คอสต์ และผล
+// Each ability is a box: the header shows the kind (AUTO split into forced/optional) and zone; below are condition, timing, cost, and effect
 export function SkillBlocks({ text, abilities }: { text: string; abilities: Ability[] }) {
   const t = useT();
   const parsed = parseBlocks(text, abilities);
@@ -35,7 +35,7 @@ export function SkillBlocks({ text, abilities }: { text: string; abilities: Abil
 
 const plain = (s: string) => s.replace(/\*\*/g, "");
 
-// ครึ่งหนึ่งของแผงขวา: บอทอยู่บน เราอยู่ล่าง ปุ่ม X มุมขวาบนปิดการ์ดที่กำลังดู
+// Half of the right panel: bot on top, us at the bottom; the X button in the top-right closes the card being viewed
 export function Inspector({ p, cardKey, power, onClose }: { p: PlayerId; cardKey?: string; power?: number; onClose: () => void }) {
   return (
     <section className={`insp-pane ${p}`}>
@@ -56,7 +56,7 @@ function CardDetail({ cardKey, power }: { cardKey: string; power?: number }) {
     [t("insp.race"), c.race],
     [t("insp.shield"), isSentinel(c) ? t("insp.sentinel") : shield ? fmt(shield) : "-"],
   ];
-  // ข้างรูป: ประเภท แคลน ชื่อ ค่าพื้นฐาน รหัส / ข้อความความสามารถใช้เต็มความกว้างด้านล่าง
+  // Beside the image: type, clan, name, base stats, code / ability text uses the full width below
   return (
     <div className="insp">
       <div className="top">

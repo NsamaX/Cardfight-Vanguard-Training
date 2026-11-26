@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-// ป้ายลอยตามเมาส์ บอกผลที่จะให้เมื่อคลิกยูนิทถัดไป (เช่น ผลทริกเกอร์)
+// Label following the mouse, showing what clicking the next unit will give (e.g. a trigger effect)
 export function CursorTip({ text, kind }: { text: string; kind: string }) {
   const [at, setAt] = useState<{ x: number; y: number }>();
   useEffect(() => {

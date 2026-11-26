@@ -13,17 +13,17 @@ interface Props {
   picked?: boolean;
   hidden?: boolean;
   noRotate?: boolean;
-  mark?: boolean;          // ป้ายทริกเกอร์/G มุมขวาบน (แสดงในหน้าสร้างเด็ค หน้าเล่นแสดงแค่เกรด)
-  plain?: boolean;         // ไม่แสดงแถบชื่อและพลัง (การ์ดในมือ)
+  mark?: boolean;          // trigger/G label in the top-right corner (shown in the deck builder; the board shows grade only)
+  plain?: boolean;         // hide the name and power strip (cards in hand)
   light?: Light;
-  dim?: boolean;           // ใช้แล้ว (สีเทาอ่อน)
-  noName?: boolean;        // การ์ดบนสนาม: แสดงแค่ Power
-  powerUp?: boolean;       // Power สูงกว่าค่าพื้นฐาน (บูสท์/ผล/ทริกเกอร์) แสดงสีแดง
-  critUp?: number;         // Critical ที่เพิ่มขึ้น แสดง +x สีเหลือง
+  dim?: boolean;           // used (light gray)
+  noName?: boolean;        // card on the board: show Power only
+  powerUp?: boolean;       // Power above base (boost/effect/trigger) shown in red
+  critUp?: number;         // added Critical, shown as +x in yellow
   onClick?: () => void;
 }
 
-// ชี้เมาส์ที่การ์ดหงายหน้าแล้วแผงรายละเอียดแสดงการ์ดใบนั้นชั่วคราว (เฉพาะหน้าสนามที่ส่งตัวรับมา)
+// Hovering a face-up card temporarily shows it in the detail panel (only on boards that pass a handler)
 export const CardHover = createContext<((uid: string | undefined) => void) | undefined>(undefined);
 
 export function CardView({ inst, power, small, selected, picked, hidden, noRotate, mark, plain, light, dim, noName, powerUp, critUp, onClick }: Props) {

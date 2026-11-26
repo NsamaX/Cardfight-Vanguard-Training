@@ -1,5 +1,5 @@
-// บน Windows ถ้า working directory ขึ้นต้นด้วยไดรฟ์ตัวเล็ก (d:\) vitest จะหาเทสต์ไม่เจอ
-// สคริปต์นี้รัน vitest ใหม่โดยใช้ไดรฟ์ตัวใหญ่
+// On Windows, if the working directory starts with a lowercase drive letter (d:\), vitest can't find the tests
+// This script re-runs vitest with an uppercase drive letter
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 

@@ -1,4 +1,4 @@
-// ระบบความสามารถของการ์ด: จับเหตุการณ์ → คิว check timing → ทำงานทีละรหัส หยุดถามผู้เล่นได้กลางทาง
+// Card ability system: catch events → check timing queue → resolve code by code, can stop to ask the player midway
 import { msg, type Msg, type MsgKey } from "../i18n/msg";
 import { parseCode, quoted, splitTop, type Code } from "./code";
 import { shuffle } from "./rng";
@@ -11,7 +11,7 @@ export type ResumeHandlers = Record<string, (db: CardDB, s: GameState, out: Out)
 const KIND_TH: Record<string, string> = { AUTO: "AUTO", ACT: "ACT", CONT: "CONT" };
 const label = (db: CardDB, inst: CardInstance, ab: Ability) => `${db[inst.key].name} [${KIND_TH[ab.kind] ?? ab.kind}]`;
 const num = (t?: string) => parseInt((t ?? "1").replace(/[^\d]/g, ""), 10) || 0;
-// รหัสที่ engine จัดการเองหรือไม่มีผลระหว่างเกม
+// Codes the engine handles itself or that have no in-game effect
 const SKIP_OPS = /^(keyword|all-clan)\(|^retire\(self, at=turn-end/;
 
 function abilitiesOf(db: CardDB, inst: CardInstance, grants: Ability[]): [string, Ability][] {
@@ -79,15 +79,15 @@ export function condOk(db: CardDB, s: GameState, owner: PlayerId, inst: CardInst
   return true;
 }
 
-// ---------- จับเหตุการณ์ → คิว ----------
+// ---------- Catch events → queue ----------
 
-// ส่งเหตุการณ์ แล้วตรวจทันทีว่าเปิด AUTO ใบไหน (ใช้ตำแหน่งการ์ด ณ ตอนที่เหตุการณ์เกิด)
+// Send an event, then check right away which AUTO abilities trigger (using card positions at the moment the event happened)
 export function emit(db: CardDB, s: GameState, e: TriggerEvent) {
   s.events.push(e);
   collectTriggers(db, s);
 }
 
-// เรียร์การ์ดออกจากสนามลงดรอปโซน (รีไทร์)
+// A rear-guard leaves the board for the drop zone (retire)
 export function retireUnit(db: CardDB, s: GameState, p: PlayerId, c: Circle, out: Out, why: Msg, by?: "hollow") {
   const ps = s.players[p];
   const inst = ps.circles[c];
@@ -100,7 +100,7 @@ export function retireUnit(db: CardDB, s: GameState, p: PlayerId, c: Circle, out
   emit(db, s, { kind: "to-drop", player: p, uid: inst.uid, from: "RC", by, grants });
 }
 
-// วางยูนิทลง RC ถ้ามียูนิทอยู่แล้ว ยูนิทเดิมถูกรีไทร์
+// Place a unit on RC; if a unit is already there, the old unit is retired
 export function placeOnRC(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance, c: Circle, from: string, out: Out) {
   if (s.players[p].circles[c]) retireUnit(db, s, p, c, out, msg("reason.overCall"));
   s.players[p].circles[c] = reset(inst);
@@ -137,16 +137,16 @@ function collectTriggers(db: CardDB, s: GameState) {
   }
 }
 
-// AUTO ที่ผู้เล่นเลือกไม่ใช้ได้: ตั้ง optional ไว้ มีคอสต์ หรือผลแรกเป็นแบบ "ได้" (ผู้เริ่มต้นคอลตัวเอง, เลือกติดฮอลโล่ว์)
+// AUTO abilities the player may decline: marked optional, has a cost, or the first effect is a "may" (starter calling itself, choosing to hollow)
 const MAY_FIRST = /^(call\(self→RC\)|hollow\(self\))$/;
 export const isOptional = (ab: Ability) => !!ab.optional || !!ab.cost?.length || MAY_FIRST.test(ab.effect[0] ?? "");
 
-// ---------- วงรอบหลัก ----------
+// ---------- Main loop ----------
 
 export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandlers) {
   for (let guard = 0; guard < 2000; guard++) {
     if (s.winner) return;
-    // rule action: กองการ์ดเหลือ 0 ใบเป็นฝ่ายแพ้ทันที ไม่ต้องรอจั่ว
+    // rule action: a deck with 0 cards loses immediately, no need to wait for the draw
     const empty = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.players[q].deck.length === 0);
     if (empty) { win(s, other(empty), out, msg("win.deckOut", { player: playerMsg(empty) })); return; }
     if (s.resolving) { if (!runResolving(db, s, out)) return; continue; }
@@ -155,13 +155,13 @@ export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandler
     const p = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.queue.some((e) => e.owner === q));
     if (p) {
       const mine = s.queue.filter((e) => e.owner === p);
-      // เหลืออันเดียวแต่ใช้ไม่ได้: ข้ามพร้อมบอกเหตุ ไม่ให้ผู้เล่นต้องกดเอง
-      // (ถ้ามีหลายอัน ยังไม่ข้าม เพราะลำดับที่เลือกอาจทำให้ใช้ได้ เช่น ติดฮอลโล่ว์ก่อน หรือ CC ก่อนจ่าย CB)
+      // Only one left but it can't be used: skip it with a reason, so the player doesn't have to press it
+      // (With several, don't skip yet, since the chosen order may make it usable, e.g. hollow first, or CC before paying CB)
       if (mine.length === 1 && blocked(db, s, mine[0])) { startResolving(db, s, mine[0], out); continue; }
       if (s.passQueue === p) {
         const skip = mine.find((e) => e.optional);
         if (skip) { declineEntry(s, skip, out); continue; }
-      } else if (mine.length > 1 || mine[0].optional) return;   // รอเจ้าของเลือกว่าจะใช้อันไหน/ลำดับไหน
+      } else if (mine.length > 1 || mine[0].optional) return;   // wait for the owner to choose which one / which order
       startResolving(db, s, mine[0], out);
       continue;
     }
@@ -182,10 +182,10 @@ const toResolving = (entry: QueueEntry, activated: boolean): Resolving => ({
   i: 0, asked: activated || !(entry.ability.cost?.length), confirmed: activated, local: {}, called: [], usedCircles: [], hollowMilled: 0,
 });
 
-// เหตุที่ความสามารถในคิวทำงานไม่ได้ตอนนี้ (undefined = ทำได้)
+// Why a queued ability can't resolve right now (undefined = it can)
 export function blocked(db: CardDB, s: GameState, entry: QueueEntry): Msg | undefined {
   const at = locate(s, entry.uid);
-  // ความสามารถ "เมื่อสไตรด์" ของแวนการ์ดเดิม ทำงานต่อได้แม้ตอนนี้เป็นฮาร์ทแล้ว
+  // The old vanguard's "when it strides" ability can still resolve even though it's now the heart
   const asHeart = at?.zone === "heart" && entry.event?.kind === "stride";
   const where = at?.zone === "circle" ? at.circle! : asHeart ? "vc" : at?.zone ?? "";
   const self = entry.event && "uid" in entry.event && entry.event.uid === entry.uid;
@@ -233,11 +233,11 @@ function ask(r: Resolving, choice: Choice): false {
   return false;
 }
 
-// bonus: ผลที่ยูนิทที่เลือกจะได้ (หน้าจอแสดงล่วงหน้าเมื่อเลือกบนสนาม)
+// bonus: what the chosen unit will get (the screen shows it in advance when choosing on the board)
 const askCards = (r: Resolving, prompt: Msg, options: CardInstance[], min: number, max: number, bonus?: { stat: "power" | "shield" | "critical"; value: number }) =>
   ask(r, { kind: "cards", prompt, options: options.map((i) => i.uid), min, max, bonus });
 
-// ---------- ตัวกรองและเงื่อนไข ----------
+// ---------- Filters and conditions ----------
 
 function matchFilter(db: CardDB, s: GameState, r: Resolving, inst: CardInstance, flt: string): boolean {
   const card = db[inst.key];
@@ -254,8 +254,8 @@ function matchFilter(db: CardDB, s: GameState, r: Resolving, inst: CardInstance,
     else if (t === "heal" || t === "heal-trigger") { if (card.trigger !== "heal") return false; }
     else if (t === "G-GUARDIAN") { if (card.type !== "g-guardian") return false; }
     else if (t === "that-card") { const e = r.event; if (!e || !("uid" in e) || e.uid !== inst.uid) return false; }
-    else if (t === "different-grades" || t === "grade-sum≥3") { /* ตรวจตอนเลือก */ }
-    else if (card.clan !== t) return false;          // ชื่อแคลน เช่น Granblue
+    else if (t === "different-grades" || t === "grade-sum≥3") { /* checked when choosing */ }
+    else if (card.clan !== t) return false;          // clan name, e.g. Granblue
   }
   return true;
 }
@@ -314,7 +314,7 @@ function circleOptions(s: GameState, r: Resolving, to?: string): Circle[] {
   return RC;
 }
 
-// ---------- รหัสแต่ละตัว (คืน true = เสร็จ, false = รอคำตอบ) ----------
+// ---------- Each code (returns true = done, false = waiting for an answer) ----------
 
 function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): boolean {
   const c: Code = parseCode(op);
@@ -326,7 +326,7 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
     case "CB": { const n = flipDamage(s, p, num(c.pos[0]), false); say("log.cb", { n }); return true; }
     case "CC": {
       if (!evalIf(db, s, r, c.named.if)) return true;
-      // ดาเมจคว่ำมากกว่าจำนวนที่หงายได้ ให้ผู้เล่นเลือกใบ
+      // More face-down damage than can be flipped: let the player choose which
       const down = ps.damage.filter((d) => !d.faceUp), n = Math.min(num(c.pos[0]), down.length);
       if (down.length > n && !r.answer?.uids) return askCards(r, msg("choice.cc", { n }), down, n, n);
       const picked = down.length > n ? down.filter((d) => r.answer!.uids!.includes(d.uid)) : down;
@@ -410,7 +410,7 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
       return true;
     }
     case "g-assist": {
-      // เปิดมือ ดู 5 ใบบนกอง เอายูนิทเกรดที่ต้องการขึ้นมือได้ 1 ใบ แล้วสับกอง ถ้าได้การ์ด นำการ์ดบนมือ 2 ใบออกจากเกม
+      // Reveal the hand, look at the top 5 of the deck, add 1 unit of the wanted grade to hand, then shuffle; if you guard, remove 2 hand cards from the game
       if (!r.local.stage) {
         const grade = num(c.pos[0]);
         const pool = ps.deck.slice(0, 5).filter((i) => !isG(db[i.key]) && db[i.key].grade === grade);
@@ -453,7 +453,7 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
     case "power": case "shield": case "critical": return opStat(db, s, r, c, out);
     case "no-hit": { if (s.battle) { s.battle.noHit = true; say("log.noHitEffect"); } return true; }
     case "choose": {
-      // จำผลที่เลือกไว้ ผลนั้นอาจถามต่อ (เช่น CC ต้องเลือกใบดาเมจ) แล้วกลับมาที่รหัสนี้อีกรอบ
+      // Remember the chosen effect; it may ask further (e.g. CC must choose a damage card), then come back to this code again
       if (r.local.pick === undefined) {
         if (!r.answer?.option) return ask(r, { kind: "option", prompt: msg("choice.effect"), options: c.pos });
         r.local.pick = r.answer.option;
@@ -507,7 +507,7 @@ function opCall(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): bool
   const p = r.owner, ps = s.players[p];
   if (src === "G" || !evalIf(db, s, r, c.named.if)) return true;
 
-  if (src === "self") {   // ผู้เริ่มต้น: คอลตัวเองจากโซล
+  if (src === "self") {   // starter: call itself from the soul
     const at = locate(s, r.uid);
     if (at?.zone !== "soul") return true;
     if (!r.answer) return ask(r, { kind: "circle", prompt: msg("choice.callSelf", { card: name(db, at.inst) }), side: p, options: RC });
@@ -560,7 +560,7 @@ function opCall(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): bool
     const circles = circleOptions(s, r, c.named.to);
     if (!circles.length) { r.local.card = undefined; return true; }
     if (!r.answer?.to) {
-      if (r.answer) { r.local.card = undefined; return true; }   // ไม่เลือกช่อง = ไม่คอลต่อ
+      if (r.answer) { r.local.card = undefined; return true; }   // no circle chosen = stop calling
       const inst = locate(s, String(r.local.card))!.inst;
       return ask(r, { kind: "circle", prompt: msg("choice.callCircle", { card: name(db, inst) }), side: p, options: circles });
     }
@@ -575,7 +575,7 @@ function opCall(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): bool
   }
 }
 
-// เช่น Power+5000 (ค่าไม่ใส่จุลภาค ตามรูปแบบบนการ์ด)
+// e.g. Power+5000 (no thousands separator, as printed on the card)
 const statMsg = (stat: "power" | "shield" | "critical", value: number): Msg => msg(`stat.${stat}`, { v: `${value > 0 ? "+" : ""}${value}` });
 
 function opStat(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): boolean {

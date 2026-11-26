@@ -1,5 +1,5 @@
-// กฎตัดสินใจแบบ heuristic ของทุกจุดที่ engine รอ: ใช้เป็นบอทระดับ Normal และเป็นตัวเดินของการจำลองในระดับสูงกว่า
-// ทุกฟังก์ชันคืน Action ที่ตั้งใจให้ถูกกฎ ถ้าพลาด ผู้เรียกใช้ fallbacks() แทน
+// Heuristic decision rules for every point where the engine waits: the Normal bot, and the rollout policy for simulation at higher levels
+// Every function returns an Action intended to be legal; if it isn't, the caller uses fallbacks() instead
 import { gGuardianBlocked, usableActs } from "../engine/game";
 import { parseCode } from "../engine/code";
 import {
@@ -28,9 +28,9 @@ export function policy(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "next-phase" };
 }
 
-// ---------- เปลี่ยนการ์ดบนมือ: เก็บเส้นทางไรด์เกรด 1-2-3 อย่างละใบ + ชิ้นส่วนของคอมโบที่ทำง่ายและคุ้มค่า ----------
+// ---------- Mulligan: keep a grade 1-2-3 ride line, one each + pieces of combos that are easy and worthwhile ----------
 
-// เก็บชิ้นส่วนคอมโบที่คะแนน (ความคุ้ม / ความยาก) ไม่ต่ำกว่าสัดส่วนนี้ของชิ้นส่วนที่ดีที่สุดของเด็ค
+// Keep combo pieces whose score (value / difficulty) is at least this fraction of the deck's best piece
 const KEEP_PIECE = 0.75;
 
 function mulligan(db: CardDB, s: GameState, p: PlayerId): Action {
@@ -45,7 +45,7 @@ function mulligan(db: CardDB, s: GameState, p: PlayerId): Action {
     if (pick) keep.add(pick.uid);
   }
   const lineDone = keep.size === 3;
-  // เลือกการ์ดเริ่มต้นจากคอมโบ → ไรด์ถึงเกรด 3 ได้ไหม → ไม่ได้: เลือกใหม่โดยไม่เก็บชิ้นส่วนคอมโบนอกเส้นไรด์ (คืนกองเพิ่มเพื่อหาเกรดที่ขาด)
+  // Pick starting cards from combos → can it ride to grade 3? → no: redraw without keeping combo pieces outside the ride line (return more to find the missing grade)
   const choose = (keepPieces: boolean) => hand.filter((c) => {
     if (keep.has(c.uid)) return false;
     const card = db[c.key];
@@ -64,7 +64,7 @@ function mulligan(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "mulligan", returnUids: back.map((c) => c.uid) };
 }
 
-// ---------- เทิร์นของตัวเอง ----------
+// ---------- Own turn ----------
 
 function freeAction(db: CardDB, s: GameState, p: PlayerId): Action {
   if (s.phase === "ride" && s.step === "ride") return rideAction(db, s, p);
@@ -84,7 +84,7 @@ export function rideAction(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "ride", uid: best.uid };
 }
 
-// ใบที่ทิ้งเป็นคอสต์สไตรด์: เกรดรวม 3 ขึ้นไป เสียค่าน้อยที่สุด
+// Cards discarded for the stride cost: total grade 3 or more, losing the least value
 export function strideDiscard(db: CardDB, s: GameState, p: PlayerId): string[] | undefined {
   const hand = s.players[p].hand.filter((c) => !isG(db[c.key]));
   let best: { uids: string[]; cost: number } | undefined;
@@ -119,12 +119,12 @@ function strideAction(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "stride", gUid: best.uid, discardUids };
 }
 
-// ---------- เมนเฟส ----------
+// ---------- Main phase ----------
 
-// จำนวน Shield (หน่วยละ 5000) ที่แนวนี้บังคับให้คู่แข่งใช้ ถ้าต้องการกันไม่ให้โดน
+// Number of Shields (5000 each) this column forces the opponent to use if they want to avoid the hit
 const forced = (power: number, oppVc: number) => (power >= oppVc ? Math.min(3, Math.floor((power - oppVc) / 5000) + 1) : 0);
 
-// Power ของแวนการ์ดคู่แข่งในเทิร์นหน้าของเรา (ไรด์ขึ้นอีกเกรด G ยูนิทกลับ G โซนตอนจบเทิร์นแล้ว)
+// Power of the opponent's vanguard on our next turn (rode one more grade, G unit returned to the G zone at end of turn)
 const TYPICAL_VC = [5000, 7000, 9000, 11000];
 function futureOppVc(db: CardDB, s: GameState, p: PlayerId) {
   const opp = s.players[other(p)];
@@ -133,8 +133,8 @@ function futureOppVc(db: CardDB, s: GameState, p: PlayerId) {
   return TYPICAL_VC[Math.min(3, g + 1)];
 }
 
-// แรงกดดันของสนาม (หน่วย = Shield 5000 ที่คู่แข่งต้องใช้) เมื่อวางการ์ดตามที่ระบุ
-// ยูนิทอยู่บนสนามหลายเทิร์น จึงคิดทั้งเทียบแวนการ์ดคู่แข่งตอนนี้ และแวนการ์ดคู่แข่งในเทิร์นหน้า
+// Board pressure (unit = 5000 Shield the opponent must use) when cards are placed as given
+// Units stay on the board for several turns, so compare against both the opponent's vanguard now and on the next turn
 function pressure(db: CardDB, s: GameState, p: PlayerId, place: Partial<Record<Circle, CardInstance | null>> = {}): number {
   return pressureVs(db, s, p, powerOf(db, s.players[other(p)], "vc") || 1, place)
     + pressureVs(db, s, p, futureOppVc(db, s, p), place) * (PERSIST - 1);
@@ -156,8 +156,8 @@ function pressureVs(db: CardDB, s: GameState, p: PlayerId, oppVc: number, place:
   return n;
 }
 
-const PERSIST = 2.2;      // ยูนิทที่อยู่บนสนามได้ใช้หลายเทิร์น
-const PER_SHIELD = 0.65;  // Shield 5000 ที่บังคับให้คู่แข่งใช้ (หรือรับดาเมจแทน) มีค่าราวการ์ดครึ่งใบขึ้นไป
+const PERSIST = 2.2;      // a unit on the board gets used for several turns
+const PER_SHIELD = 0.65;  // a 5000 Shield forced out of the opponent (or damage taken instead) is worth about half a card or more
 
 export function callScore(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance, to: Circle): number {
   const ps = s.players[p];
@@ -166,16 +166,16 @@ export function callScore(db: CardDB, s: GameState, p: PlayerId, inst: CardInsta
   const old = ps.circles[to];
   let gain = (pressure(db, s, p, { [to]: inst }) - now) * PER_SHIELD;
   if (FRONT.includes(to) && !ps.circles[BEHIND[to]!]) {
-    // แนวหน้าที่ยังไม่มีตัวบูสท์: คิดรวมกับตัวบูสท์ที่ดีที่สุดบนมือ
+    // A front column without a booster: count it together with the best booster in hand
     const booster = ps.hand.filter((h) => h.uid !== inst.uid && !isG(db[h.key]) && canBoost(db[h.key]) && !isSentinel(db[h.key]))
       .sort((a, b) => (db[b.key].power ?? 0) - (db[a.key].power ?? 0))[0];
     if (booster) gain = Math.max(gain, (pressure(db, s, p, { [to]: inst, [BEHIND[to]!]: booster }) - now) * PER_SHIELD - keepValue(db, s, p, booster));
   }
   if (!canBoost(card) && !FRONT.includes(to)) gain -= 1;
   if (canBoost(card) && FRONT.includes(to)) gain -= 0.6;
-  // แรงกดดันที่หายไปของตัวเดิมคิดอยู่ใน gain แล้ว เหลือแค่ค่าอื่นของยูนิท (เป็นตัวอินเตอร์เซปต์ ฯลฯ)
+  // The pressure lost from the replaced unit is already in gain; only the unit's other value remains (interceptor etc.)
   const loss = old && !old.hollowed && !old.retireAtTurnEnd ? 0.35 : 0;
-  // มือหลังคอลใบนี้ต้องยังพอกันการโจมตีเทิร์นหน้าที่โดนแล้วแพ้ (คู่แข่งสไตรด์ + แนวที่มี) ถ้าไม่พอ การ์ดใบนี้มีค่ามากขึ้น
+  // After calling this card the hand must still guard next turn's lethal attacks (opponent strides + existing columns); if not, this card is worth more
   const handShield = ps.hand.reduce((n, h) => n + (isSentinel(db[h.key]) ? 15000 : shieldIn(db, h)), 0);
   const short = handShield - (isSentinel(card) ? 15000 : shieldIn(db, inst)) < nextTurnNeed(db, s, p);
   const danger = short ? 1.6 : ps.damage.length >= 4 ? 1.25 : 1;
@@ -201,7 +201,7 @@ function wantAct(db: CardDB, s: GameState, p: PlayerId, uid: string, index: numb
   const ab = db[at.inst.key].abilities[index];
   const cost = ab.cost ?? [];
   if (cost.includes("soul-in(self)")) {
-    // ตัวที่ไม่ได้ช่วยโจมตี (แถวหน้า หรือแถวหลังที่ไม่มีใครให้บูสท์) เข้าโซลแลกจั่ว
+    // Units that don't help attack (front row, or back row with nobody to boost) go to the soul in exchange for a draw
     const c = at.circle!;
     if (FRONT.includes(c)) return true;
     const front = FRONT.find((f) => BEHIND[f] === c);
@@ -224,7 +224,7 @@ function mainAction(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "next-phase" };
 }
 
-// ---------- แบทเทิลเฟส ----------
+// ---------- Battle phase ----------
 
 export function attackPower(db: CardDB, ps: PlayerState, a: Circle, booster?: Circle) {
   return powerOf(db, ps, a) + (booster ? powerOf(db, ps, booster) : 0);
@@ -249,9 +249,9 @@ interface Swing { attacker: Circle; booster?: Circle; power: number; crit: numbe
 
 const ceil5k = (n: number) => (n > 0 ? Math.ceil(n / 5000) * 5000 : 0);
 
-// การโจมตีทั้งหมดที่เหลือในเทิร์นนี้ (ใส่แวนการ์ด) คู่แข่งกันจนไม่ถึงดาเมจ 6 ได้ไหม
-// คู่แข่งเลือกปล่อยการโจมตีที่ดาเมจรวมยังไม่ถึง 6 แล้วกันที่เหลือ ใช้ Shield ที่คาดว่ามี + G การ์เดี้ยน พิทักษ์กันได้ลูกละใบ
-// คืน Shield ที่ขาด (> 0 = น่าจะฆ่าได้)
+// Can the opponent guard every remaining attack this turn (into the vanguard) so they don't reach damage 6?
+// The opponent lets attacks through while total damage stays under 6 and guards the rest, using expected Shield + G guardians; sentinels stop one attack each
+// Returns the missing Shield (> 0 = probably lethal)
 export function lethalGap(db: CardDB, s: GameState, p: PlayerId, list: Swing[]): number {
   const q = other(p);
   const opp = s.players[q];
@@ -280,8 +280,8 @@ function swingsOf(db: CardDB, s: GameState, p: PlayerId): Swing[] {
     .map((o) => ({ attacker: o.attacker, booster: o.booster, power: attackPower(db, ps, o.attacker, o.booster), crit: criticalOf(db, ps.circles[o.attacker]!) }));
 }
 
-// โอกาสเปิดทริกเกอร์ชนิดนี้อย่างน้อย 1 ใบจากการเช็ค n ใบ
-// Power สูงสุดที่ทริกเกอร์ชนิดนี้ให้ได้ (จากไฟล์การ์ด) ใช้ประมาณผลของทริกเกอร์ที่ยังไม่เปิด
+// Chance of revealing at least 1 trigger of this kind from checking n cards
+// Highest Power this kind of trigger can give (from the card files), used to estimate unrevealed triggers
 const strongestTrigger = (db: CardDB, kind: string) =>
   Object.values(db).reduce((m, c) => (c.trigger === kind ? Math.max(m, triggerPower(c)) : m), 0);
 
@@ -296,7 +296,7 @@ function attackAction(db: CardDB, s: GameState, p: PlayerId): Action {
   if (!list.length) return { type: "next-phase" };
   const oppVc = powerOf(db, opp, "vc");
   const lethal = lethalGap(db, s, p, list) > 0;
-  // ลำดับ: ปกติแวนการ์ดก่อน (ทริกเกอร์ลงยูนิทที่ยังไม่ตี) แต่ถ้ากองเรามี Stand มากพอ ให้เรียร์การ์ดตีก่อน Stand จะได้ตีซ้ำ
+  // Order: normally the vanguard first (triggers go to units that haven't attacked), but if our deck has enough Stands, rear-guards attack first so Stand lets them attack again
   const vcSwing = list.find((w) => w.attacker === "vc");
   const drives = vcSwing ? driveOf(db, ps.circles.vc!) : 0;
   const rcFirst = !lethal && !!vcSwing && list.length > 1 && chanceOf(db, s, p, "stand", drives) >= 0.35;
@@ -305,7 +305,7 @@ function attackAction(db: CardDB, s: GameState, p: PlayerId): Action {
     return b.power - a.power;
   });
   const w = list[0];
-  // เป้า: แวนการ์ด (ดาเมจ/บังคับใช้การ์ด) หรือเรียร์การ์ดที่อันตราย (อ่านสกิลและทรัพยากรของคู่แข่ง)
+  // Target: the vanguard (damage/forcing guards) or a dangerous rear-guard (reads the opponent's skills and resources)
   let target: Circle = "vc";
   if (!lethal) {
     const d = opp.damage.length;
@@ -321,19 +321,19 @@ function attackAction(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "attack", attacker: w.attacker, target, booster: w.booster };
 }
 
-// ---------- การ์ด ----------
+// ---------- Guarding ----------
 
 interface GuardItem { uid?: string; intercept?: Circle; shield: number; cost: number }
 
-// โอกาสเปิดทริกเกอร์ต่อการเช็ค 1 ใบ และสัดส่วนคริติคัลในทริกเกอร์
-// นับทริกเกอร์ที่เหลือในกองของ p (กองซ่อน: นับจากรายการเด็คลบการ์ดที่เปิดแล้ว)
+// Chance of a trigger per checked card, and the share of criticals among triggers
+// Count triggers left in p's deck (hidden deck: deck list minus revealed cards)
 function triggerOdds(db: CardDB, s: GameState, p: PlayerId) {
   const d = deckOdds(db, s, p);
   const trig = d.count((c) => !!c.trigger);
   return { N: d.size, T: trig, crit: trig ? d.count((c) => c.trigger === "critical") / trig : 0 };
 }
 
-// โอกาสเปิดทริกเกอร์ k ใบจากการเช็ค n ใบ (จั่วไม่คืนกอง: hypergeometric) dist[k]
+// Chance of revealing k triggers from checking n cards (drawn without replacement: hypergeometric) dist[k]
 export function triggerDist(N: number, T: number, n: number): number[] {
   let dist = [1];
   for (let i = 0; i < Math.min(n, N); i++) {
@@ -354,8 +354,8 @@ const binom = (n: number, k: number, q: number) => {
   return c * q ** k * (1 - q) ** (n - k);
 };
 
-// ราคาที่เสียเมื่อโดนดาเมจเพิ่ม n (รวม CB ที่ได้)
-// heal = โอกาสเปิด Heal ต่อดาเมจเช็ค 1 ใบ (ถ้า Heal ทำงานได้) ดาเมจที่ถึง 6 ยังรอดได้ถ้าเปิด Heal พอ
+// Cost of taking n more damage (including the CB gained)
+// heal = chance of revealing a Heal per damage check (if Heal can work); damage reaching 6 can still survive with enough Heals
 export function damageCost(d: number, n: number, heal = 0): number {
   if (d + n < 6) return DAMAGE_COST[d + n] - DAMAGE_COST[d] - CB_VALUE * n;
   const need = d + n - 5;
@@ -364,7 +364,7 @@ export function damageCost(d: number, n: number, heal = 0): number {
   return 25 * (1 - survive) + survive * (DAMAGE_COST[5] - DAMAGE_COST[d]);
 }
 
-// ราคาคาดหวังเมื่อการโจมตีนี้โดน โดยทริกเกอร์อย่างน้อย kNeed ใบ (kNeed = จำนวนทริกเกอร์ที่ต้องเปิดจึงโดน)
+// Expected cost if this attack hits with at least kNeed triggers (kNeed = triggers needed for it to hit)
 function expectedHitCost(db: CardDB, s: GameState, p: PlayerId, kNeed: number): number {
   const b = s.battle!;
   const atkSide = s.turnPlayer;
@@ -410,7 +410,7 @@ function guardItems(db: CardDB, s: GameState, p: PlayerId): GuardItem[] {
   return items.sort((a, b) => b.shield - a.shield);
 }
 
-// ชุดการ์ดที่ใช้น้อยที่สุดให้ได้ Shield อย่างน้อย need
+// The fewest cards that give at least need Shield
 function cheapest(items: GuardItem[], need: number): { picks: GuardItem[]; cost: number } | undefined {
   if (need <= 0) return { picks: [], cost: 0 };
   let best: { picks: GuardItem[]; cost: number } | undefined;
@@ -426,7 +426,7 @@ function cheapest(items: GuardItem[], need: number): { picks: GuardItem[]; cost:
   return best;
 }
 
-// Shield ที่ G การ์เดี้ยนให้ได้จริง (รวมความสามารถเมื่อเข้า GC ที่จ่ายคอสต์ได้)
+// Shield a G guardian can actually give (including on-GC abilities whose cost can be paid)
 function gGuardianShield(db: CardDB, s: GameState, p: PlayerId, g: CardInstance): number {
   const ps = s.players[p];
   const card = db[g.key];
@@ -434,7 +434,7 @@ function gGuardianShield(db: CardDB, s: GameState, p: PlayerId, g: CardInstance)
   for (const ab of card.abilities) {
     if (ab.kind !== "AUTO") continue;
     const gb = (ab.cond ?? []).map((c) => c.match(/GB\((\d+)\)/)).find(Boolean);
-    if (gb && generationBreak(db, ps) < +gb[1]) continue;   // G การ์เดี้ยนเพิ่ม GB ตอนกลับ G โซนหลังจบการต่อสู้ ไม่ใช่ตอนคอล
+    if (gb && generationBreak(db, ps) < +gb[1]) continue;   // a G guardian adds GB when it returns to the G zone after the battle, not when called
     const cost = ab.cost ?? [];
     if (cost.some((c) => c.startsWith("CB")) && !ps.damage.some((d) => d.faceUp)) continue;
     if (cost.some((c) => c.startsWith("retire-own")) && !RC.some((c) => ps.circles[c])) continue;
@@ -450,7 +450,7 @@ function gGuardianShield(db: CardDB, s: GameState, p: PlayerId, g: CardInstance)
   return v;
 }
 
-// Shield ที่ได้จากการคอลการ์ดในดรอปโซน 2 ใบเกรดต่างกันลง GC (ใบละเกรด เลือกใบ Shield สูงสุด)
+// Shield from calling 2 drop zone cards of different grades to GC (one per grade, pick the highest Shield)
 function dropPairShield(db: CardDB, ps: PlayerState): number {
   const best = new Map<number, number>();
   for (const d of ps.drop) {
@@ -460,7 +460,7 @@ function dropPairShield(db: CardDB, ps: PlayerState): number {
   return [...best.values()].sort((a, b) => b - a).slice(0, 2).reduce((n, x) => n + x, 0);
 }
 
-// การโจมตีที่ยังเหลือในเทิร์นนี้ (ยูนิทแถวหน้าที่ยังไม่พัก) กับ Shield ที่ต้องใช้กันแต่ละครั้ง ถ้าตีแวนการ์ด (ไม่นับทริกเกอร์)
+// Attacks still left this turn (front-row units not yet rested) and the Shield needed to guard each if it hits the vanguard (not counting triggers)
 function laterAttacks(db: CardDB, s: GameState, p: PlayerId): { need: number; crit: number }[] {
   const atk = s.players[s.turnPlayer];
   const def = powerOf(db, s.players[p], "vc");
@@ -474,7 +474,7 @@ function laterAttacks(db: CardDB, s: GameState, p: PlayerId): { need: number; cr
     const need = powerOf(db, atk, c) + boost - def + 1;
     if (need > 0) out.push({ need: Math.ceil(need / 5000) * 5000, crit: criticalOf(db, u) });
   }
-  // แวนการ์ดคู่แข่งที่กำลังตีอยู่เปิด Stand ได้ เรียร์การ์ดที่ตีไปแล้วจะตีได้อีกครั้ง
+  // If the opponent's attacking vanguard reveals a Stand, a rear-guard that already attacked can attack again
   const b = s.battle!;
   const vc = atk.circles.vc;
   if (b.attacker === "vc" && vc && chanceOf(db, s, s.turnPlayer, "stand", driveOf(db, vc)) >= 0.3) {
@@ -485,12 +485,12 @@ function laterAttacks(db: CardDB, s: GameState, p: PlayerId): { need: number; cr
   return out;
 }
 
-// ใช้การ์ดชุดนี้แล้วกันการโจมตีที่เหลือซึ่งโดนแล้วแพ้ไม่พอ: ราคาสูง (เก็บการ์ดไว้กันลูกที่ถึงตาย)
+// After guarding with this set, not enough left to guard the remaining lethal attacks: high cost (keep cards for the lethal hit)
 const SHORT_PENALTY = 12;
 
 export interface GuardPlan { actions: Action[]; cost: number; label: string }
 
-// แผนการ์ดที่เป็นไปได้ พร้อมราคารวม (การ์ดที่เสีย + ดาเมจที่คาดว่าจะโดน)
+// Possible guard plans with their total cost (cards lost + expected damage taken)
 export function guardPlans(db: CardDB, s: GameState, p: PlayerId): GuardPlan[] {
   const b = s.battle!;
   const ps = s.players[p];
@@ -501,13 +501,13 @@ export function guardPlans(db: CardDB, s: GameState, p: PlayerId): GuardPlan[] {
   const D = powerOf(db, ps, b.target) + ps.guardian.reduce((n, g) => n + shieldOf(db, g), 0);
   const atk = atkPs.circles[b.attacker];
   const drives = atk && b.attacker === "vc" ? driveOf(db, atk) : 0;
-  // kNeed ของ Shield S: ต้องเปิดทริกเกอร์กี่ใบการโจมตีจึงโดน
+  // kNeed of Shield S: how many triggers must be revealed for the attack to hit
   const kNeedOf = (S: number) => (D + S > A ? Math.ceil((D + S - A) / 5000) : 0);
   const items = guardItems(db, s, p);
   const d = ps.damage.length;
   const later = laterAttacks(db, s, p);
   const sentinels = ps.hand.filter((h) => !isHidden(h) && isSentinel(db[h.key]));
-  // หลังใช้การ์ดชุดนี้ (used) และอยู่ที่ดาเมจ dAfter ยังกันการโจมตีที่เหลือซึ่งโดนแล้วแพ้ได้ไหม
+  // After using this set (used) and sitting at damage dAfter, can we still guard the remaining lethal attacks?
   const short = (used: Set<string>, usedG: boolean, dAfter: number) => {
     const lethal = later.filter((x) => dAfter + x.crit >= 6).map((x) => x.need).sort((a, b) => b - a);
     if (!lethal.length) return 0;
@@ -529,7 +529,7 @@ export function guardPlans(db: CardDB, s: GameState, p: PlayerId): GuardPlan[] {
     const c = cheapest(items, need);
     if (c && c.picks.length) plans.push({ actions: [toAction(c.picks)], cost: c.cost + expectedHitCost(db, s, p, L) + short(idsOf(c.picks), false, d), label: `pass-${L - 1}` });
   }
-  // พิทักษ์: ไม่โดนแน่นอน ต้องมีการ์ดอีกใบให้ทิ้ง
+  // Sentinel: guaranteed no hit, needs another card to discard
   const others = ps.hand.filter((h) => !isG(db[h.key]));
   for (const sen of distinctByKey(ps.hand.filter((h) => !isHidden(h) && isSentinel(db[h.key])))) {
     const card = db[sen.key];
@@ -545,12 +545,12 @@ export function guardPlans(db: CardDB, s: GameState, p: PlayerId): GuardPlan[] {
     const cost = keepValue(db, s, p, sen) + keepValue(db, s, p, discards[0]) + short(new Set([sen.uid, discards[0].uid]), false, d);
     plans.push({ actions: [{ type: "guard", uids: [sen.uid] }], cost, label: "sentinel" });
   }
-  // G การ์เดี้ยน
+  // G guardian
   if (!gGuardianBlocked(db, s, p)) {
     const heal = ps.hand.filter((h) => db[h.key].trigger === "heal").sort((x, y) => keepValue(db, s, p, x) - keepValue(db, s, p, y))[0];
     for (const g of distinctByKey(ps.gZone.filter((x) => !x.faceUp && db[x.key].type === "g-guardian"))) {
       const sh = gGuardianShield(db, s, p, g);
-      const base = keepValue(db, s, p, heal) - 0.45;   // เสีย Heal แต่ได้ GB และความสามารถตอนทิ้ง
+      const base = keepValue(db, s, p, heal) - 0.45;   // lose a Heal but gain GB and the on-discard ability
       const rest = items.filter((x) => x.uid !== heal.uid);
       for (let L = Math.max(1, kNeedOf(0) + 1); L <= drives + 1; L++) {
         const need = A + 5000 * (L - 1) - D + 1 - sh;
@@ -566,7 +566,7 @@ function guard(db: CardDB, s: GameState, p: PlayerId): Action {
   return guardPlans(db, s, p)[0].actions[0];
 }
 
-// ---------- ความสามารถ ----------
+// ---------- Abilities ----------
 
 function wantHollow(db: CardDB, s: GameState, entry: QueueEntry): boolean {
   const at = locate(s, entry.uid);
@@ -592,7 +592,7 @@ export function wantUse(db: CardDB, s: GameState, entry: QueueEntry): boolean {
   return true;
 }
 
-// ลำดับที่ควรทำ: ได้ CC/SC ก่อน (เอาไปจ่ายคอสต์ต่อ) ฮอลโล่ว์ก่อน (ผลที่ต้องติดฮอลโล่ว์จะได้ทำงาน) ที่ต้องจ่าย CB ทีหลัง
+// Preferred order: CC/SC first (to pay later costs), hollow first (so effects that need hollow can work), CB payers later
 function priority(db: CardDB, s: GameState, entry: QueueEntry): number {
   const eff = entry.ability.effect.join(" ");
   const cost = (entry.ability.cost ?? []).join(" ");
@@ -605,8 +605,8 @@ function priority(db: CardDB, s: GameState, entry: QueueEntry): number {
   return v;
 }
 
-// ความสามารถที่คอลการ์ดที่เพิ่งตกดรอปกลับ (ไนท์โรส หมอกยามค่ำคืน 1/Turn): เลือกใบที่คุ้มที่สุด
-// กรูนาชได้ CC2 อีกรอบเมื่อติดฮอลโล่ว์แล้วถูกรีไทร์ซ้ำ จึงคุ้มมากตอน CB เหลือน้อย
+// Abilities that call back a card that just went to the drop (Nightrose, Night Fog 1/Turn): pick the most worthwhile card
+// Grunatch gets CC2 again when hollowed and retired again, so it's very worthwhile when CB is low
 function recallValue(db: CardDB, s: GameState, entry: QueueEntry): number {
   const e = entry.event;
   const inst = e && "uid" in e ? locate(s, e.uid)?.inst : undefined;
@@ -618,7 +618,7 @@ function recallValue(db: CardDB, s: GameState, entry: QueueEntry): number {
   return (refund && generationBreak(db, ps) >= 1 ? (cbLeft < 2 ? 3 : 1.5) : 0) + unitValue(db, { ...inst, hollowed: false });
 }
 
-// ผลหลักที่ต้องเกิดจึงคุ้มคอสต์ ตรวจจาก event ระหว่างความสามารถนี้ทำงาน (เกิดอย่างใดอย่างหนึ่งก็พอ)
+// The main effect must happen for the cost to be worth it; checked from events while this ability resolves (any one is enough)
 type Ev = { code: string; player: PlayerId; text: { key: string } };
 const MAIN_EFFECT: [RegExp, (e: Ev, p: PlayerId) => boolean][] = [
   [/^call\((?!self|G→)/, (e, p) => e.code === "call" && e.player === p],
@@ -626,11 +626,11 @@ const MAIN_EFFECT: [RegExp, (e: Ev, p: PlayerId) => boolean][] = [
   [/^draw\(/, (e, p) => e.code === "draw" && e.player === p],
   [/^retire\(opp-RC/, (e, p) => e.code === "retired" && e.player !== p],
 ];
-// ผลที่คะแนนสนามมองไม่เห็น (ช่วยกันหรือช่วยตีในการต่อสู้นี้ รวมคอลลง GC) ไม่ใช้คะแนนตัดสิน
+// Effects the board score can't see (help guard or attack in this battle, including calls to GC) aren't judged by score
 const COMBAT_EFFECT = /^(shield|power|critical|no-hit)\(|→GC/;
 let simulating = false;
 
-// เดินต่อด้วย policy จนความสามารถที่กำลังทำงานและคิวของ p หมด
+// Keep stepping with the policy until the resolving ability and p's queue are empty
 function settleOwn(db: CardDB, r: ReturnType<typeof tryApply>, p: PlayerId, events: Ev[]) {
   for (let i = 0; r && i < 40 && r.state.awaiting?.player === p && (r.state.resolving || r.state.queue.some((e) => e.owner === p)); i++) {
     r = tryApply(db, r.state, p, policy(db, r.state, p));
@@ -639,7 +639,7 @@ function settleOwn(db: CardDB, r: ReturnType<typeof tryApply>, p: PlayerId, even
   return r;
 }
 
-// CB ที่ควรเหลือไว้ใช้นอกเทิร์น: G การ์เดี้ยนที่ความสามารถต้องจ่าย CB (ต้องมี Heal ไว้คอลด้วย)
+// CB to keep for the opponent's turn: G guardians whose ability costs CB (a Heal is also needed to call them)
 function cbReserve(db: CardDB, s: GameState, p: PlayerId): number {
   const ps = s.players[p];
   if (!ps.hand.some((h) => !isHidden(h) && db[h.key].trigger === "heal")) return 0;
@@ -653,9 +653,9 @@ function dipsBelowReserve(db: CardDB, s: GameState, p: PlayerId, cost: string[])
   return s.players[p].damage.filter((d) => d.faceUp).length - pay < cbReserve(db, s, p);
 }
 
-// ลองใช้ความสามารถที่มีคอสต์ในหัว (ทำตาม policy จนจบ) ก่อนจ่ายจริง
-// ไม่ใช้ถ้า: ผลหลักไม่เกิด (เช่น ไม่มีการ์ดให้คอล) หรือ จ่าย CB/SB แล้วสนามแย่กว่าไม่ใช้
-// ตรวจเร็วโดยไม่จำลอง: ผลคอล/ค้นที่ไม่มีการ์ดต้นทางให้เลือกเลย
+// Try a costed ability in the head (follow the policy to the end) before actually paying
+// Don't use it if: the main effect doesn't happen (e.g. no card to call), or paying CB/SB leaves the board worse than not using it
+// Fast check without simulating: call/search effects with no source card to choose at all
 function nothingToTake(db: CardDB, s: GameState, p: PlayerId, entry: QueueEntry): boolean {
   const ps = s.players[p];
   return entry.ability.effect.every((e) => {
@@ -667,7 +667,7 @@ function nothingToTake(db: CardDB, s: GameState, p: PlayerId, entry: QueueEntry)
   });
 }
 
-// ระหว่างจำลองเกม (search) ใช้แค่การตรวจเร็ว เพื่อให้จำลองได้หลายรอบ
+// During game simulation (search) only the fast check is used, so many rollouts fit
 export const fastMode = { on: false };
 
 function worthPaying(db: CardDB, s: GameState, p: PlayerId, index: number): boolean {
@@ -726,21 +726,21 @@ function currentOp(s: GameState) {
   return r ? parseCode(r.ops[r.i] ?? "") : undefined;
 }
 
-// ค่ายูนิทเมื่อคอลลงสนาม
+// Value of a unit when called to the board
 function fieldValue(db: CardDB, inst: CardInstance, fromDrop: boolean) {
   const card = db[inst.key];
   return (card.power ?? 0) / 10000 + (fromDrop && dropCallPayoff(card) ? 1.5 : 0) + (hollowPayoff(card) ? 0.3 : 0) - (card.trigger ? 0.6 : 0);
 }
 
-// ค่าของการ์ดเมื่อส่งลงดรอปโซน (ค้นลงดรอป): ใบที่คอลจากดรอปได้ผลดี ไม่เอาทริกเกอร์ออกจากกอง
+// Value of a card sent to the drop zone (search to drop): cards that work well when called from the drop; don't pull triggers out of the deck
 function dropValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance) {
   const card = db[inst.key];
-  // ไนท์โรส (G ยูนิท) ได้ Power ตามจำนวนการ์ดชื่อ "ไนท์โรส" ในดรอปโซน
+  // Nightrose (G unit) gains Power per card named "Nightrose" in the drop zone
   const named = s.players[p].gZone.some((g) => !isHidden(g) && db[g.key].abilities.some((a) => a.effect.some((e) => e.includes("count-in-drop(name(") && e.includes(card.name.split(", ").at(-1) ?? "\u0000"))));
   return (dropCallPayoff(card) ? 2 : 0) + (card.abilities.some((a) => a.effect.includes("hollow(self)")) ? 1 : 0) + (card.type === "normal" && !card.trigger ? 0.5 : -1) + (named ? 0.8 : 0);
 }
 
-// ค่าของการ์ดที่ค้นขึ้นมือ: เกรดที่ยังไม่มีบนมือก่อน
+// Value of a card searched to hand: grades not yet in hand first
 function searchValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance) {
   const card = db[inst.key];
   const hand = s.players[p].hand;
@@ -750,7 +750,7 @@ function searchValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance) 
 
 function threat(db: CardDB, s: GameState, q: PlayerId, inst: CardInstance) {
   const c = circleOf(s, q, inst.uid);
-  // ตัวที่ยังไม่ได้ตีในเทิร์นคู่แข่ง (ตอนเรายิงนอกเทิร์น) อันตรายกว่า
+  // Units that haven't attacked yet on the opponent's turn (when we shoot off-turn) are more dangerous
   return unitThreat(db, s, q, inst.uid) + (s.turnPlayer === q && c && !inst.rested ? 0.5 : 0);
 }
 
@@ -772,7 +772,7 @@ function selectTarget(db: CardDB, s: GameState, p: PlayerId): Action {
     case "search":
       uids = dst === "hand" ? top((i) => searchValue(db, s, p, i), c.max)
         : insts.filter((i) => dropValue(db, s, p, i) > 0).sort((a, b) => dropValue(db, s, p, b) - dropValue(db, s, p, a))
-          .slice(0, Math.max(0, Math.min(c.max, ps.deck.length - 10))).map((i) => i.uid);   // กองเหลือน้อย ไม่ส่งลงดรอปเพิ่ม
+          .slice(0, Math.max(0, Math.min(c.max, ps.deck.length - 10))).map((i) => i.uid);   // deck is low, don't send more to the drop
       break;
     case "call":
       if (dst === "GC") {
@@ -802,7 +802,7 @@ function selectTarget(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "select-target", uids: uids.slice(0, c.max) };
 }
 
-// ยูนิทที่ได้ประโยชน์จาก Power เพิ่ม: ตัวที่ยังจะโจมตี หรือยังจะบูสท์
+// Units that benefit from extra Power: those that will still attack or still boost
 function statTargetValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance) {
   const c = circleOf(s, p, inst.uid);
   if (!c) return 0;
@@ -836,7 +836,7 @@ export function pickCircle(db: CardDB, s: GameState, p: PlayerId, options: Circl
   return best && score(best) > -0.5 ? best : undefined;
 }
 
-// ---------- ทริกเกอร์ ----------
+// ---------- Triggers ----------
 
 function triggerTarget(db: CardDB, s: GameState, p: PlayerId): Action {
   const b = s.battle!;
@@ -852,7 +852,7 @@ function triggerTarget(db: CardDB, s: GameState, p: PlayerId): Action {
   const ap = powerOf(db, ps, b.attacker);
   const dp = powerOf(db, opp, b.target) + opp.guardian.reduce((n, g) => n + shieldOf(db, g), 0);
   const blocked = b.noHit || !opp.circles[b.target];
-  // ยูนิทแถวหน้าที่ยังไม่โจมตี และ Power จากทริกเกอร์ทำให้แรงกดดันเพิ่ม
+  // Front-row units that haven't attacked, where trigger Power adds pressure
   const oppVc = powerOf(db, opp, "vc");
   const waiting = (["front_left", "front_right"] as Circle[]).filter((c) => ps.circles[c] && !ps.circles[c]!.rested)
     .sort((x, y) => {

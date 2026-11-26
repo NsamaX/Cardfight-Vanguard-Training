@@ -1,5 +1,5 @@
-// ข้อความที่ engine และ lib ส่งออกไปเป็น key + ค่าตัวแปร หน้าจอแปลตามภาษาที่เลือกตอนแสดงผล
-// ค่าตัวแปรที่เป็นตัวเลขจัดรูปแบบด้วย fmt ส่วน Msg ซ้อนจะถูกแปลก่อนแทนค่า
+// Text the engine and lib emit as a key + values; the screen translates into the chosen language when displaying
+// Numeric values are formatted with fmt; nested Msgs are translated before substitution
 import type { en } from "./en";
 
 export type MsgKey = keyof typeof en;
@@ -11,7 +11,7 @@ export interface Msg {
   params?: Params;
 }
 
-// แม่แบบเป็นข้อความที่มี {ชื่อ} หรือฟังก์ชัน (ใช้เมื่อต้องเปลี่ยนรูปคำตามจำนวน เช่นภาษาอังกฤษ)
+// A template is text with {name} placeholders, or a function (used when words change with count, e.g. English)
 export type Template = string | ((p: Record<string, string>) => string);
 export type Dict = Record<MsgKey, Template>;
 

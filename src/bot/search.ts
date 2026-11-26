@@ -1,5 +1,5 @@
-// ค้นหาด้วยการจำลอง: แต่ละตัวเลือกถูกลองเล่นต่อหลายรอบ (สุ่มข้อมูลที่ซ่อนใหม่ทุกรอบ ทั้งสองฝ่ายเดินด้วย policy)
-// แล้วให้คะแนนสนามตอนจบช่วงที่มองล่วงหน้า เลือกตัวเลือกที่คะแนนเฉลี่ยดีที่สุด
+// Search by simulation: each option is played forward many times (hidden information re-randomized every rollout, both sides moving by policy)
+// then the board is scored at the end of the lookahead window, and the option with the best average score wins
 import { nextRandom } from "../engine/rng";
 import { FRONT, type CardDB } from "../engine/rules";
 import type { Action, Circle, Deck, GameState, PlayerId } from "../engine/types";
@@ -9,13 +9,13 @@ import { attackOptions, fastMode, guardPlans, policy, rankedCalls, rideAction, s
 import { determinize } from "./view";
 
 export interface SearchConfig {
-  ms: number;         // เวลาคิดสูงสุดต่อการตัดสินใจ
+  ms: number;         // max thinking time per decision
   maxIter: number;
-  horizon: number;    // มองต่อกี่เทิร์นหลังเทิร์นปัจจุบัน (0 = จบเทิร์นนี้)
-  margin: number;     // ต้องดีกว่าตัวเลือกของ policy เท่านี้จึงเปลี่ยนใจ (กันผลสุ่มหลอก)
+  horizon: number;    // how many turns to look past the current one (0 = end of this turn)
+  margin: number;     // must beat the policy's option by this much to change its mind (guards against random noise)
 }
 
-// เดิน 1 ก้าวด้วย policy ถ้า action ผิดกฎใช้ทางสำรอง
+// Take 1 step with the policy; if the action is illegal, use the fallback
 export function step(db: CardDB, s: GameState): GameState | undefined {
   const p = s.awaiting?.player;
   if (!p || s.winner) return undefined;
@@ -48,7 +48,7 @@ function dedupe(list: (Action | undefined)[]): Action[] {
   return list.filter((a): a is Action => !!a && (seen.has(keyOf(a)) ? false : (seen.add(keyOf(a)), true)));
 }
 
-// ตัวเลือกที่ควรค้น (ตัดตัวเลือกที่ไม่มีเหตุผลออกก่อน ไม่งั้นเวลาคิดไม่พอ)
+// Options worth searching (prune unreasonable ones first, otherwise there isn't enough thinking time)
 export function searchCandidates(db: CardDB, s: GameState, p: PlayerId): Action[] {
   const d = s.awaiting!;
   const pol = policy(db, s, p);
@@ -79,7 +79,7 @@ export function searchCandidates(db: CardDB, s: GameState, p: PlayerId): Action[
       return dedupe([pol, ...candidates(db, s, p).filter((a) => a.type === "trigger-target" && main.includes(a.powerTo) && (!a.extraTo || extra.includes(a.extraTo)))]).slice(0, 12);
     }
     case "order-queue": {
-      // คิวมีใบเดียวที่เลือกไม่ใช้ได้: ข้ามคิว = ไม่ใช้ใบนั้น
+      // The queue has a single card that can be declined: skipping the queue = not using that card
       const q = ownQueue(s, p);
       const single = q.length === 1 && q[0].optional;
       return dedupe([pol, ...candidates(db, s, p).filter((a) => !(single && a.type === "pass-queue"))]).slice(0, 10);
@@ -88,15 +88,15 @@ export function searchCandidates(db: CardDB, s: GameState, p: PlayerId): Action[
   }
 }
 
-// ผลจำลองมีหางยาว (แพ้/ชนะ = ±60) ถ้าเก็บรอบน้อย SE จะต่ำกว่าจริงเพราะยังไม่เจอเกมที่จบ จึงยังไม่ตัดก่อนรอบนี้
+// Rollout results are long-tailed (loss/win = ±60); with few rollouts SE is underestimated because no finished game has appeared yet, so don't prune before this many
 const MIN_ROUNDS = 30;
 
 const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 const pause = () => new Promise<void>((r) => setTimeout(r, 0));
 
-// เทียบแบบจับคู่: แต่ละรอบสุ่มโลก (ข้อมูลที่ซ่อน + ลำดับกอง) ครั้งเดียว แล้วลองทุกตัวเลือกในโลกเดียวกัน
-// ผลต่างกับตัวเลือกของ policy (cands[0]) จึงสะท้อนการตัดสินใจ ไม่ใช่โชค
-// ตัวเลือกที่ไม่มีทางถูกเลือกถูกตัดออกระหว่างทาง เวลาที่เหลือไปลงกับตัวที่สูสี และหยุดทันทีเมื่อคำตอบชัดแล้ว
+// Paired comparison: each rollout samples the world (hidden information + deck order) once, then tries every option in that same world
+// So the difference from the policy's option (cands[0]) reflects the decision, not luck
+// Options that can't win are pruned along the way, the remaining time goes to close ones, and it stops as soon as the answer is clear
 export async function search(
   db: CardDB, view: GameState, decks: Record<PlayerId, Deck>, p: PlayerId, cands: Action[], cfg: SearchConfig, seed: { v: number },
 ): Promise<{ action: Action; stats: { action: Action; n: number; mean: number; se: number }[] }> {
@@ -131,9 +131,9 @@ export async function search(
       x.n++; x.sum += d; x.sq += d * d;
       if (now() - lastPause > 15) { await pause(); lastPause = now(); }
     }
-    // ตัดตัวที่แย่กว่า policy ชัดเจน
+    // Prune options clearly worse than the policy
     if (round >= 3) for (const x of alts) if (x.live && mean(x) + 2 * se(x) < 0) x.live = false;
-    // ตัดตัวที่ไม่มีทางผ่านเกณฑ์เปลี่ยนใจ (ต่ำกว่า margin ชัดเจน หรือแพ้ตัวที่ดีกว่า policy ชัดเจนแล้ว)
+    // Prune options that can't pass the switch threshold (clearly below margin, or clearly losing to an option already better than the policy)
     if (round >= MIN_ROUNDS) {
       const bar = Math.max(cfg.margin, ...alts.filter((x) => x.live).map((x) => mean(x) - 2 * se(x)));
       for (const x of alts) if (x.live && mean(x) + 2 * se(x) < bar) x.live = false;
@@ -141,7 +141,7 @@ export async function search(
   }
   stats[0].n = Math.max(1, ...stats.map((x) => x.n));
   const scored = stats.filter((x) => x.n > 0).map((x) => ({ action: x.action, n: x.n, mean: x === stats[0] ? 0 : x.sum / x.n, se: x === stats[0] ? 0 : se(x) }));
-  // เปลี่ยนจาก policy เมื่อดีกว่าเกินผลสุ่ม (ค่าเฉลี่ย - 1 SE ยังมากกว่า margin)
+  // Switch from the policy when it's better beyond random noise (mean - 1 SE still above margin)
   const best = scored.slice(1).filter((x) => x.n >= 4 && x.mean - x.se > cfg.margin).sort((a, b) => b.mean - b.se - (a.mean - a.se))[0];
   return { action: best?.action ?? cands[0], stats: scored };
 }

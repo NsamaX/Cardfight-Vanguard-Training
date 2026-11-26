@@ -1,16 +1,16 @@
-// ตัวช่วยย้ายการ์ดระหว่างโซนที่ทั้ง game.ts และ abilities.ts ใช้ร่วมกัน
+// Helpers for moving cards between zones, shared by game.ts and abilities.ts
 import { msg, type Msg } from "../i18n/msg";
 import { PLAYERS, other, type CardDB } from "./rules";
 import type { CardInstance, Circle, GameEvent, GameState, PlayerId, PlayerState } from "./types";
 
 export const playerMsg = (p: PlayerId): Msg => msg(`player.${p}`);
 
-// ป้ายความสามารถในคำถาม: แสดงแค่ชนิด เช่น "[AUTO]" ไม่แสดงชื่อการ์ด (การ์ดต้นทางมีขอบสีอยู่แล้ว)
+// Ability label in questions: shows only the kind, e.g. "[AUTO]", not the card name (the source card already has a colored border)
 export const abilityTag = (label: string) => label.match(/\[[^\]]+\]$/)?.[0] ?? label;
 
 export type Out = GameEvent[];
 
-// ล้างสถานะเมื่อการ์ดย้ายโซน (ตามกฎ การ์ดที่ย้ายโซนถือเป็นการ์ดใหม่)
+// Reset state when a card changes zone (by the rules, a card that changes zone is a new card)
 export function reset(inst: CardInstance, faceUp = true): CardInstance {
   inst.rested = false;
   inst.hollowed = false;
@@ -58,7 +58,7 @@ export type PileZone = (typeof PILE_ZONES)[number];
 export const circleOf = (s: GameState, p: PlayerId, uid: string): Circle | undefined =>
   (Object.entries(s.players[p].circles).find(([, i]) => i?.uid === uid)?.[0] as Circle | undefined);
 
-// หาการ์ดจาก uid ทุกโซน
+// Find a card by uid in every zone
 export function locate(s: GameState, uid: string): { player: PlayerId; inst: CardInstance; zone: PileZone | "circle" | "heart"; circle?: Circle } | undefined {
   for (const p of PLAYERS) {
     const ps = s.players[p];
@@ -73,7 +73,7 @@ export function locate(s: GameState, uid: string): { player: PlayerId; inst: Car
   return undefined;
 }
 
-// เอาการ์ดออกจากโซนที่อยู่ (ไม่ใช่สนาม) เพื่อนำไปวางที่อื่น
+// Take a card out of its zone (not the board) to place it elsewhere
 export function pull(s: GameState, uid: string): { inst: CardInstance; zone: string; player: PlayerId } {
   const at = locate(s, uid);
   if (!at) throw new Error("card not found");

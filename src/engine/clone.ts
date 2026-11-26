@@ -1,6 +1,6 @@
-// คัดลอก GameState ทั้งก้อน (เร็วกว่า structuredClone ราว ๆ หลายเท่า เพราะรู้รูปร่างของ state)
-// - object ที่ถูกอ้างจากหลายที่ (เช่น checkCard กับ battle.triggers[].card) ยังเป็นตัวเดียวกันในสำเนา
-// - Ability มาจาก db และไม่ถูกแก้ จึงใช้ร่วมกันได้ไม่ต้องคัดลอก
+// Copies a whole GameState (several times faster than structuredClone, since it knows the state's shape)
+// - objects referenced from several places (e.g. checkCard and battle.triggers[].card) stay the same object in the copy
+// - Abilities come from db and are never modified, so they're shared without copying
 import type { CardInstance, GameState, PlayerState } from "./types";
 
 export function cloneState(s: GameState): GameState {
@@ -24,7 +24,7 @@ export function cloneState(s: GameState): GameState {
     if (p.heart) r.heart = card(p.heart);
     return r;
   };
-  // ส่วนที่เหลือมีขนาดเล็ก: คัดลอกทั่วไป (การ์ดที่อยู่ข้างในชี้ไปที่สำเนาเดียวกับบนสนาม)
+  // The rest is small: generic copy (cards inside point to the same copies as on the board)
   const any = (v: unknown, key?: string): unknown => {
     if (v === null || typeof v !== "object" || key === "ability") return v;
     const hit = seen.get(v);

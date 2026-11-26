@@ -4,7 +4,7 @@ import { useT } from "../i18n/react";
 import type { Light } from "../lib/board";
 import { CardView } from "./CardView";
 
-// onMinimize: ย่อหน้าต่างไว้ดูสนาม (ยังต้องกลับมาเลือกให้เสร็จ)
+// onMinimize: minimize the dialog to look at the board (you still have to come back and finish choosing)
 export function Modal({ title, onClose, onMinimize, footer, children }: { title: ReactNode; onClose?: () => void; onMinimize?: () => void; footer?: ReactNode; children: ReactNode }) {
   const t = useT();
   return (
@@ -20,8 +20,8 @@ export function Modal({ title, onClose, onMinimize, footer, children }: { title:
 
 const DRAG_TYPE = "application/x-vanguard-card";
 
-// การ์ดในหน้าต่างแสดงแบบหงายและตั้งตรงเสมอ เป็นรูปการ์ดอย่างเดียว (หน้าต่างจึงวางได้ 10 x 5 ใบพอดี)
-// onDrop: ลากการ์ดใบอื่นมาวางบนใบนี้ได้ (ส่ง uid ของใบที่ลากมา)
+// Cards in the dialog are always face up and upright, image only (so the dialog fits exactly 10 x 5 cards)
+// onDrop: another card can be dragged onto this one (passes the dragged card's uid)
 export function ModalCard({ inst, picked, light, onClick, onDrop }: { inst: CardInstance; picked?: boolean; light?: Light; onClick: () => void; onDrop?: (uid: string) => void }) {
   const [dragging, setDragging] = useState(false);
   const drag = onDrop && {

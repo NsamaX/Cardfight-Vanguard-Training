@@ -1,62 +1,19 @@
 import { useState, type ChangeEvent } from "react";
-import { cards } from "../../data/cards";
-import { isOptional } from "../../engine/abilities";
-import type { Ability, AbilityKind, Card, CardType } from "../../engine/types";
+import type { Card, CardType } from "../../engine/types";
 import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
-import { USER_SOURCE } from "../../lib/cardStore";
+import { KINDS, codeTemplates, emptyDraft, fill, numbersOf, templateOf, toAbility, toDraft, type Draft, type KindPick, type ListField } from "../../lib/abilityDraft";
+import { shrinkImage } from "../../lib/image";
 
-// สร้าง/แก้การ์ด: ซ้ายคือรูป ข้อมูลการ์ด และข้อความจริงของการ์ด (ช่องเดียว) ขวาคือกล่องความสามารถทีละอัน
-// กล่องเลือกรหัสจาก dropdown (รหัสที่การ์ดในคลังใช้) ตัวเลขในรหัสแยกเป็นช่องกรอก
+// Create/edit a card: the left side has the image, card data, and the card's real text (one field); the right side has the ability boxes
+// Boxes pick codes from a dropdown (codes used by library cards); numbers in a code become input fields
 
-const IMG_W = 408, IMG_H = 595;
+const IMG_W = 408, IMG_H = 595;   // half the size of the library card images
 const TYPES: CardType[] = ["normal", "trigger", "g-unit", "g-guardian"];
 const TRIGGERS = ["critical", "heal", "stand", "draw"] as const;
 const SKILLS = ["boost", "intercept", "twin-drive", "triple-drive"] as const;
 const ZONES = ["VC", "RC", "GC", "VC/RC", "hand", "G zone"];
-// "AUTO+" = AUTO แบบเลือกใช้ (เก็บเป็น optional: true)
-const KINDS = ["AUTO", "AUTO+", "ACT", "CONT", "STRIDE", "ULTIMATE STRIDE", "G GUARDIAN"] as const;
-type KindPick = (typeof KINDS)[number];
-
-type ListField = "cond" | "cost" | "effect";
-interface Draft { kind: KindPick; zone?: string; timing: string; cond: string[]; cost: string[]; effect: string[] }
-
-// ตัวเลขที่เป็นค่าในรหัส (หลัง ( , + - ≤ ≥ = หรือเว้นวรรค) เช่น CB(1), power(+5000, …), grade-3 ส่วน 1/turn ไม่นับ
-const NUM = /(?<=[(,+\-≤≥= ])\d+/g;
-const templateOf = (code: string) => code.replace(NUM, "#");
-const numbersOf = (code: string) => code.match(NUM) ?? [];
-function fill(template: string, nums: string[]) {
-  let i = 0;
-  return template.replace(/#/g, () => nums[i++] || "1");
-}
-
-const templates = (pick: (a: Ability) => string[] | undefined) =>
-  [...new Set(cards.filter((c) => c.source !== USER_SOURCE).flatMap((c) => c.abilities.flatMap((a) => pick(a) ?? [])).map(templateOf))].sort();
-
-const toDraft = (a: Ability): Draft => ({
-  kind: a.kind === "AUTO" && isOptional(a) ? "AUTO+" : a.kind,
-  zone: a.zone,
-  timing: a.timing ?? "",
-  cond: a.cond ?? [],
-  cost: a.cost ?? [],
-  effect: a.effect,
-});
-
-function toAbility(d: Draft): Ability {
-  const kind: AbilityKind = d.kind === "AUTO+" ? "AUTO" : d.kind;
-  const ability: Ability = { kind, effect: d.effect.filter(Boolean) };
-  if (d.zone) ability.zone = d.zone;
-  if (d.timing) ability.timing = d.timing;
-  if (d.cond.some(Boolean)) ability.cond = d.cond.filter(Boolean);
-  if (d.cost.some(Boolean)) ability.cost = d.cost.filter(Boolean);
-  // มีคอสต์หรือผลแรกเป็นแบบ "ได้" ก็เลือกใช้ได้อยู่แล้ว ไม่ต้องเขียน optional ลงไฟล์
-  if (d.kind === "AUTO+" && !isOptional(ability)) ability.optional = true;
-  return ability;
-}
-
-const emptyDraft = (): Draft => ({ kind: "AUTO", timing: "", cond: [], cost: [], effect: [""] });
-
-// dropdown รหัส + ช่องตัวเลขตามจำนวน # ในรหัสที่เลือก
+// Code dropdown + number fields for each # in the chosen code
 function CodePick({ value, options, onChange, onRemove }: { value: string; options: string[]; onChange: (v: string) => void; onRemove?: () => void }) {
   const tpl = templateOf(value);
   const nums = numbersOf(value);
@@ -76,23 +33,6 @@ function CodePick({ value, options, onChange, onRemove }: { value: string; optio
   );
 }
 
-export function emptyCard(): Card {
-  const key = `USER-${Date.now().toString(36).toUpperCase()}`;
-  return { key, ids: [key], name: "", format: ["G"], type: "normal", grade: 0, power: 5000, shield: 10000, critical: 1, race: "", clan: "", abilities: [], text: "", source: USER_SOURCE };
-}
-
-// ย่อรูปที่อัพโหลดให้เท่าครึ่งของรูปการ์ดในคลัง ตัดส่วนเกินจากกึ่งกลาง แล้วเก็บเป็น webp (localStorage มีที่จำกัด)
-async function shrink(file: File): Promise<string> {
-  const img = await createImageBitmap(file);
-  const canvas = document.createElement("canvas");
-  canvas.width = IMG_W;
-  canvas.height = IMG_H;
-  const ctx = canvas.getContext("2d")!;
-  const scale = Math.max(IMG_W / img.width, IMG_H / img.height);
-  const w = img.width * scale, h = img.height * scale;
-  ctx.drawImage(img, (IMG_W - w) / 2, (IMG_H - h) / 2, w, h);
-  return canvas.toDataURL("image/webp", 0.85);
-}
 
 export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSave: (c: Card) => Promise<MsgKey | null>; onCancel: () => void }) {
   const [card, setCard] = useState(initial);
@@ -100,13 +40,12 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.abilities.map(toDraft));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const library = initial.source !== USER_SOURCE;
   const t = useT();
   const [codes] = useState(() => ({
-    timing: templates((a) => (a.timing ? [a.timing] : undefined)),
-    cond: templates((a) => a.cond),
-    cost: templates((a) => a.cost),
-    effect: templates((a) => a.effect),
+    timing: codeTemplates((a) => (a.timing ? [a.timing] : undefined)),
+    cond: codeTemplates((a) => a.cond),
+    cost: codeTemplates((a) => a.cost),
+    effect: codeTemplates((a) => a.effect),
   }));
 
   const set = <K extends keyof Card>(k: K, v: Card[K]) => setCard({ ...card, [k]: v });
@@ -121,7 +60,7 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
     e.target.value = "";
     if (!file) return;
     try {
-      set("image", await shrink(file));
+      set("image", await shrinkImage(file, IMG_W, IMG_H));
     } catch {
       setError(t("cardEd.badImage"));
     }
@@ -151,12 +90,10 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
     <div className="veil card-ed-veil" onClick={onCancel}>
       <div className="card-ed" onClick={(e) => e.stopPropagation()}>
         <div className="card-ed-info">
-          {library
-            ? <div className="card-ed-img fixed">{card.image && <img src={card.image} alt="" />}</div>
-            : <label className="card-ed-img" title={t("cardEd.image")}>
-                {card.image ? <img src={card.image} alt="" /> : <span className="mute">{t("cardEd.image")}</span>}
-                <input type="file" accept="image/*" onChange={upload} />
-              </label>}
+          <label className="card-ed-img" title={t("cardEd.image")}>
+            {card.image ? <img src={card.image} alt="" /> : <span className="mute">{t("cardEd.image")}</span>}
+            <input type="file" accept="image/*" onChange={upload} />
+          </label>
           <label className="fld wide"><span>{t("cardEd.name")}</span><input value={card.name} onChange={(e) => set("name", e.target.value)} /></label>
           <label className="fld"><span>{t("cardEd.type")}</span>
             <select value={card.type} onChange={(e) => set("type", e.target.value as CardType)}>
@@ -186,7 +123,7 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
           <label className="fld wide"><span>{t("cardEd.text")}</span>
             <textarea rows={10} value={card.text} placeholder={t("cardEd.textHint")} onChange={(e) => set("text", e.target.value)} />
           </label>
-          <span className="mute mono code">{library ? card.source : card.key}</span>
+          <span className="mute mono code">{card.key}</span>
         </div>
 
         <div className="card-ed-skills">

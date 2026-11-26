@@ -1,24 +1,10 @@
 import { useState } from "react";
 import { BOT_LEVELS, type BotLevel } from "../../bot";
 import type { PlayerId } from "../../engine/types";
+import { useAuth } from "../../hooks/useAuth";
 import { LOCALES, type Locale } from "../../i18n";
 import { useI18n } from "../../i18n/react";
-
-export const randomSeed = () => Math.floor(Math.random() * 1e9);
-
-// ค่าที่ตั้งไว้สำหรับเกมถัดไป: "random" = สุ่มใหม่ทุกเกม
-export interface GameSettings {
-  seed: number | "random";
-  firstPlayer: PlayerId | "random";
-  bot?: BotLevel;             // ไม่ระบุ = Normal
-}
-
-export function resolveSettings(s: GameSettings): { seed: number; firstPlayer: PlayerId } {
-  return {
-    seed: s.seed === "random" ? randomSeed() : s.seed,
-    firstPlayer: s.firstPlayer === "random" ? (Math.random() < 0.5 ? "me" : "bot") : s.firstPlayer,
-  };
-}
+import type { GameSettings } from "../../lib/settings";
 
 function DiceIcon() {
   return (
@@ -29,16 +15,16 @@ function DiceIcon() {
   );
 }
 
-// ปุ่มลูกเต๋าเปิด/ปิดการสุ่มทุกเกม
+// Dice button toggling randomization every game
 const DiceToggle = ({ on, onToggle, title }: { on: boolean; onToggle: () => void; title: string }) => (
   <button type="button" className={`btn icon-btn ${on ? "on" : ""}`} aria-pressed={on} onClick={onToggle} title={title} aria-label={title}><DiceIcon /></button>
 );
 
-// ตั้งค่าเกม: ใครเล่นก่อน และ seed กดปุ่มแล้วเริ่มเกมใหม่ด้วยค่านี้ ปิดด้วย X หรือคลิกด้านนอก
-// ภาษาเปลี่ยนทันทีที่เลือก ไม่ต้องเริ่มเกมใหม่
+// Game settings: who goes first and the seed; the button starts a new game with these values; close with X or by clicking outside
+// The language changes as soon as it's chosen, no new game needed
 export function SettingsDialog({ settings, current, onApply, onClose }: {
   settings: GameSettings;
-  current: { seed: number; firstPlayer: PlayerId };   // ค่าของเกมนี้ ใช้เป็นค่าเริ่มต้นเมื่อปิดการสุ่ม
+  current: { seed: number; firstPlayer: PlayerId };   // this game's values, used as defaults when randomization is turned off
   onApply: (s: GameSettings) => void;
   onClose: () => void;
 }) {
@@ -48,12 +34,24 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
   const [seedRandom, setSeedRandom] = useState(settings.seed === "random");
   const [bot, setBot] = useState<BotLevel>(settings.bot ?? "normal");
   const { locale, setLocale, t } = useI18n();
+  const auth = useAuth();
+  const userName = auth.user?.user_metadata.full_name ?? auth.user?.email;
 
   return (
     <div className="veil" onClick={onClose}>
       <form className="dialog" onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => { e.preventDefault(); onApply({ seed: seedRandom ? "random" : seed, firstPlayer: firstRandom ? "random" : first, bot }); }}>
         <div className="dialog-head"><span>{t("settings.title")}</span><button type="button" className="btn" onClick={onClose}>×</button></div>
+        {auth.available && (
+          <label>{t("settings.account")}
+            <span className="field-row">
+              <input readOnly value={auth.user ? userName : t("account.signedOut")} />
+              {auth.user
+                ? <button type="button" className="btn" onClick={() => auth.signOut()}>{t("account.signOut")}</button>
+                : <button type="button" className="btn" onClick={() => auth.signIn()}>{t("account.signIn")}</button>}
+            </span>
+          </label>
+        )}
         <label>{t("settings.language")}
           <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
             {Object.entries(LOCALES).map(([l, label]) => <option key={l} value={l}>{label}</option>)}

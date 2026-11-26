@@ -1,9 +1,9 @@
-"""ค้นหาวงจรคอมโบจากรหัสในไฟล์การ์ด (.yaml)
+"""Find combo chains from the codes in card files (.yaml)
 
-ตัวอย่าง:
-  python tools/find_chains.py                              # เทิร์นคู่แข่ง เริ่มจาก G GUARDIAN
-  python tools/find_chains.py --vc "Night Fog" --gb 2         # ระบุแวนการ์ดและ GB เพื่อตัดเส้นทางที่เงื่อนไขไม่ผ่าน
-  python tools/find_chains.py --turn own --start "Obadiah"    # เทิร์นเรา เริ่มจากการ์ดที่ชื่อมีคำนี้
+Examples:
+  python tools/find_chains.py                              # opponent's turn, starting from G GUARDIAN
+  python tools/find_chains.py --vc "Night Fog" --gb 2         # give the vanguard and GB to prune paths whose conditions fail
+  python tools/find_chains.py --turn own --start "Obadiah"    # our turn, starting from cards whose name contains this
 """
 import argparse, glob, os, re, sys
 import yaml
@@ -21,10 +21,10 @@ def load_cards():
     return cards
 
 
-# คอสต์/ผลแบบไหน ก่อเหตุการณ์อะไร และเหตุการณ์นั้นเกิดกับใคร
-#   same   = ความสามารถของการ์ดใบนี้เองเท่านั้น
-#   chosen = การ์ดที่ผลนี้เลือก (ต้องผ่าน filter ของผลนั้น)
-#   any    = การ์ดใบไหนก็ได้ที่เฝ้าเหตุการณ์นี้
+# Which costs/effects cause which events, and who the event happens to
+#   same   = only this card's own abilities
+#   chosen = the card this effect chooses (must pass that effect's filter)
+#   any    = any card watching for this event
 EMITS = [
     (r"^retire-own", [("to-drop(own, from=RC)", "any"), ("retired(self, from=RC)", "chosen")]),
     (r"^retire\(own", [("to-drop(own, from=RC)", "any"), ("retired(self, from=RC)", "chosen")]),
@@ -36,7 +36,7 @@ EMITS = [
     (r"^discard\(1, filter=heal\)", [("discarded(self, from=hand, as=g-guardian-cost)", "chosen")]),
 ]
 
-# รหัสที่ใช้ได้เฉพาะในเทิร์นเรา / เทิร์นคู่แข่ง
+# Codes usable only on our turn / the opponent's turn
 OWN_ONLY_TIMING = ("step(stride, own)", "phase-start(battle, own)", "attack(", "battle-end(")
 OPP_ONLY_TIMING = ("step(guard, opp)", "enter(GC", "discarded(")
 
@@ -135,7 +135,7 @@ def label(a):
 
 
 def add_resources(tally, a):
-    """รวมค่าใช้จ่าย CB/SB และสิ่งที่ได้คืน CC/SC ของความสามารถ a เข้ากับยอดสะสม"""
+    """Add ability a's CB/SB costs and CC/SC gains to the running totals"""
     t = dict(tally)
     for item in a.get("cost", []):
         for kind in ("CB", "SB"):
@@ -144,7 +144,7 @@ def add_resources(tally, a):
                 t[kind] += int(m.group(1))
     for item in a.get("effect", []):
         m = re.fullmatch(r"damage-facedown\((\d+)\)", item)
-        if m:  # คว่ำดาเมจของเราเอง ใช้ทรัพยากรเดียวกับ CB
+        if m:  # flipping our own damage face down uses the same resource as CB
             t["CB"] += int(m.group(1))
             continue
         if item.startswith("choose("):
@@ -165,10 +165,10 @@ def fmt(t):
         if t[key]:
             gains.append(f"{name}+{t[key]}")
         if t[key + "?"]:
-            gains.append(f"{name}+{t[key + '?']} มีเงื่อนไข")
+            gains.append(f"{name}+{t[key + '?']} conditional")
     if t["choice"]:
-        gains.append(f"CC/SC+{t['choice']} เลือก")
-    return "  {" + ", ".join(parts) + (" | ได้คืน " + ", ".join(gains) if gains else "") + "}"
+        gains.append(f"CC/SC+{t['choice']} choice")
+    return "  {" + ", ".join(parts) + (" | regains " + ", ".join(gains) if gains else "") + "}"
 
 
 EMPTY = {"CB": 0, "SB": 0, "CC": 0, "SC": 0, "CC?": 0, "SC?": 0, "choice": 0}
@@ -185,12 +185,12 @@ def walk(a, cards, by_name, args, seen, depth, out, tally):
 
 
 def main():
-    p = argparse.ArgumentParser(description="ค้นหาวงจรคอมโบจากไฟล์การ์ด")
-    p.add_argument("--turn", choices=["opp", "own"], default="opp", help="เทิร์นของใคร (ค่าเริ่มต้น: opp = เทิร์นคู่แข่ง)")
-    p.add_argument("--start", help="เริ่มจากการ์ดที่ชื่อมีคำนี้ (ไม่ระบุ = จุดเริ่มต้นมาตรฐานของเทิร์นนั้น)")
-    p.add_argument("--vc", help="ชื่อ (บางส่วน) ของแวนการ์ด ใช้ตัดความสามารถ (VC) ของใบอื่นออก")
-    p.add_argument("--gb", type=int, help="จำนวน GB ที่มี ใช้ตัดความสามารถที่ต้องการ GB สูงกว่า")
-    p.add_argument("--depth", type=int, default=6, help="ไล่ลึกสุดกี่ชั้น (ค่าเริ่มต้น 6)")
+    p = argparse.ArgumentParser(description="Find combo chains from card files")
+    p.add_argument("--turn", choices=["opp", "own"], default="opp", help="whose turn (default: opp = the opponent's turn)")
+    p.add_argument("--start", help="start from cards whose name contains this (unset = the standard starting points for that turn)")
+    p.add_argument("--vc", help="(partial) name of the vanguard, used to drop (VC) abilities of other cards")
+    p.add_argument("--gb", type=int, help="number of GB available, used to drop abilities needing more GB")
+    p.add_argument("--depth", type=int, default=6, help="maximum search depth (default 6)")
     args = p.parse_args()
     args.vc_name = None
     cards = load_cards()
@@ -198,13 +198,13 @@ def main():
     if args.vc:
         match = [c for c in cards if args.vc in c["name"]]
         if not match:
-            sys.exit(f"ไม่พบการ์ดที่ชื่อมี '{args.vc}'")
+            sys.exit(f"No card whose name contains '{args.vc}'")
         args.vc_name = match[0]["name"]
 
     entry = ("G GUARDIAN",) if args.turn == "opp" else ("STRIDE", "ULTIMATE STRIDE", "ACT")
     pool = [c for c in cards if not args.start or args.start in c["name"]]
     if not pool:
-        sys.exit(f"ไม่พบการ์ดที่ชื่อมี '{args.start}'")
+        sys.exit(f"No card whose name contains '{args.start}'")
     starts = []
     for c in pool:
         usable = [a for a in c["abilities"] if turn_ok(a, args.turn)]

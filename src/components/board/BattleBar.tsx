@@ -12,10 +12,10 @@ const Shield = ({ label }: { label: string }) => (
   <svg className="ico" viewBox="0 0 24 24" aria-label={label}><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>
 );
 
-// แถบการต่อสู้ แยกตามบทบาท: ฝ่ายโจมตีอยู่ซ้าย ฝ่ายป้องกันอยู่ขวา
-// ตัวเลข (BattleNum) อยู่กลางแถบแบบเฉียง: โจมตีซ้ายบน ป้องกันขวาล่าง / การ์ด (BattleSide) อยู่ด้านนอก
-// ฝ่ายโจมตี (เจ้าของเทิร์น): Power + การ์ดไดรฟ์เช็ค / ฝ่ายป้องกัน: Power+Shield + การ์ดบน GC + ดาเมจเช็ค
-// preview: การ์ดที่เลือกจะการ์ดแต่ยังไม่ยืนยัน (พิทักษ์ หรือไม่ฮิทแน่นอนแล้ว แสดง --)
+// Battle bar split by role: attacker on the left, defender on the right
+// Numbers (BattleNum) sit diagonally in the middle of the bar: attack top-left, guard bottom-right / cards (BattleSide) sit outside
+// Attacker (turn player): Power + drive check cards / defender: Power+Shield + cards on GC + damage check
+// preview: cards selected to guard but not yet confirmed (a sentinel, or a guaranteed no-hit, shows --)
 export function BattleNum({ p, s, preview }: { p: PlayerId; s: GameState; preview?: { shield: number; sentinel: boolean } }) {
   const b = battleSummary(db, s);
   const t = useT();
@@ -30,8 +30,8 @@ export function BattleSide({ p, s, lightOf, onInspect, onCheck, onGuardian }: {
   s: GameState;
   lightOf: (uid: string) => Light;
   onInspect: (uid: string) => void;
-  onCheck?: (uid: string) => void;       // คลิกการ์ดที่เปิดเช็ค (เลือกผลทริกเกอร์)
-  onGuardian?: (uid: string) => boolean;  // คลิกการ์ดบน GC: ถอนกลับที่เดิม (false = ถอนไม่ได้ ดูรายละเอียดแทน)
+  onCheck?: (uid: string) => void;       // click a revealed check card (choose the trigger effect)
+  onGuardian?: (uid: string) => boolean;  // click a card on GC: return it to where it came from (false = can't, show details instead)
 }) {
   const b = battleSummary(db, s);
   const atk = p === s.turnPlayer;

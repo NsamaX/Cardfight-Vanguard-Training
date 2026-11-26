@@ -1,5 +1,5 @@
-// ข้อมูลที่บอทเห็นได้ตามกฎ และการเติมข้อมูลที่ซ่อนอยู่ด้วยการสุ่มเพื่อจำลองล่วงหน้า (determinization)
-// บอทรู้รายการเด็คของทั้งสองฝั่ง (เด็คที่เลือกในโปรแกรม) แต่ไม่รู้ลำดับกองการ์ด มือของคู่แข่ง และ G โซนที่คว่ำของคู่แข่ง
+// What the bot may see by the rules, and filling hidden information randomly to simulate ahead (determinization)
+// The bot knows both decklists (the decks chosen in the program) but not the deck order, the opponent's hand, or the opponent's face-down G zone
 import { cloneState } from "../engine/clone";
 import { deckCombos, type DeckCombos } from "./combos";
 import { nextRandom, shuffle } from "../engine/rng";
@@ -11,15 +11,15 @@ export const HIDDEN = "?";
 
 const PLACEHOLDER: Card = {
   key: HIDDEN, ids: [HIDDEN], name: HIDDEN, format: [], type: "normal", grade: 0, power: 0,
-  race: "", clan: "", abilities: [], text: "", source: "",
+  race: "", clan: "", abilities: [], text: "",
 };
 
-// db ที่รู้จักการ์ดซ่อน (ฟังก์ชันของ engine อ่าน db[key] ได้โดยไม่พัง)
+// db that knows the hidden card (engine functions can read db[key] without crashing)
 export const withHidden = (db: CardDB): CardDB => ({ ...db, [HIDDEN]: PLACEHOLDER });
 
 export const isHidden = (inst: CardInstance) => inst.key === HIDDEN;
 
-// seen = uid ของการ์ดที่เคยเปิดให้เห็น (ไดรฟ์เช็ค ค้นขึ้นมือ) ถ้ายังอยู่บนมือคู่แข่งก็ยังรู้ว่าเป็นใบไหน
+// seen = uids of cards that were revealed (drive checks, searches to hand); if still in the opponent's hand we still know which card it is
 export function viewFor(s: GameState, p: PlayerId, seen: ReadonlySet<string> = new Set()): GameState {
   const v = cloneState(s);
   v.rngState = 0;
@@ -48,7 +48,7 @@ function ownedInstances(s: GameState, p: PlayerId): CardInstance[] {
   return list.filter((i) => (seen.has(i.uid) ? false : (seen.add(i.uid), true)));
 }
 
-// การ์ดที่ยังไม่ปรากฏ = รายการเด็ค − การ์ดทุกใบของ p ที่มองเห็น (main = มือที่ไม่รู้ + กองการ์ด, g = G โซนที่คว่ำและไม่รู้)
+// Cards not yet seen = decklist − every visible card of p (main = unknown hand + deck, g = face-down unknown G zone)
 export function unseenPool(db: CardDB, s: GameState, p: PlayerId, deck: Deck) {
   const pool = { main: new Map(Object.entries(deck.main)), g: new Map(Object.entries(deck.g_zone)) };
   const hidden = { main: [] as CardInstance[], g: [] as CardInstance[] };
@@ -63,10 +63,10 @@ export function unseenPool(db: CardDB, s: GameState, p: PlayerId, deck: Deck) {
   return { pool, hidden };
 }
 
-// ข้อมูลที่บอทนับไว้แนบกับ view (สนามที่สุ่มเติมแล้วไม่มี เพราะมองเห็นกองการ์ดอยู่แล้ว)
+// Counts the bot keeps, attached to the view (a randomly filled board has none, since the deck is already visible)
 export interface Reads {
-  oppPassive: number;     // คู่แข่งยอมรับดาเมจตอนดาเมจสูงกี่ครั้ง (บ่งว่า Shield บนมือน้อย)
-  oppRevealedG3: boolean; // คู่แข่งแสดงเกรด 3 จากมือในเทิร์นนี้ (คอสต์ของทอมมี่) จึงรู้ว่ามีเกรด 3 อย่างน้อย 1 ใบ
+  oppPassive: number;     // how often the opponent took damage at high damage (suggests little Shield in hand)
+  oppRevealedG3: boolean; // the opponent revealed a grade 3 from hand this turn (Tommy's cost), so they have at least 1 grade 3
 }
 export interface Intel {
   pools: Record<PlayerId, { main: Map<string, number>; g: Map<string, number> }>;
@@ -83,7 +83,7 @@ export function attachPools(db: CardDB, view: GameState, decks: Record<PlayerId,
   });
 }
 
-// การ์ดที่อาจอยู่ในกองของ p: กองมองเห็น = กองจริง, กองซ่อน = การ์ดที่ยังไม่ปรากฏ (นับจากรายการเด็ค)
+// Cards that may be in p's deck: visible deck = real deck, hidden deck = cards not yet seen (counted from the decklist)
 export function deckOdds(db: CardDB, s: GameState, p: PlayerId): { size: number; count: (f: (c: Card) => boolean) => number } {
   const deck = s.players[p].deck;
   const pool = INTEL.get(s)?.pools[p].main;
@@ -91,11 +91,11 @@ export function deckOdds(db: CardDB, s: GameState, p: PlayerId): { size: number;
     return { size: deck.length, count: (f) => deck.filter((c) => !isHidden(c) && f(db[c.key])).length };
   }
   const total = [...pool.values()].reduce((n, x) => n + Math.max(0, x), 0) || 1;
-  // ใช้สัดส่วนจากการ์ดที่ยังไม่ปรากฏ (มือที่ไม่รู้ + กอง) คูณขนาดกองจริง
+  // Use the ratios from cards not yet seen (unknown hand + deck) times the real deck size
   return { size: deck.length, count: (f) => [...pool].reduce((n, [k, x]) => n + (db[k] && f(db[k]) ? Math.max(0, x) : 0), 0) * deck.length / total };
 }
 
-// เติมการ์ดที่ซ่อนด้วยการ์ดที่ยังไม่ปรากฏตามรายการเด็ค แล้วสุ่ม rng ใหม่ (อนาคตของเกมจำลองไม่ตรงกับเกมจริง)
+// Fill hidden cards with not-yet-seen cards from the decklist, then re-randomize rng (the simulated game's future doesn't match the real one)
 export function determinize(db: CardDB, view: GameState, decks: Record<PlayerId, Deck>, seed: number): GameState {
   const s = cloneState(view);
   let r = seed >>> 0 || 1;

@@ -4,20 +4,20 @@ import type { Deck } from "../../engine/types";
 import { useT } from "../../i18n/react";
 import { coverCard } from "../../lib/deckEdit";
 
-// รายการเด็คทั้งหมด: คลิกเพื่อดูการ์ดในเด็ค / Duplicate / Edit / New Deck
+// List of all decks: click to view the deck's cards / Duplicate / Edit / New Deck
 export function DeckList({ decks, currentId, onOpen, onEdit, onDuplicate, onUse, onNew }: {
   decks: Deck[];
   currentId: string;
   onOpen: (d: Deck) => void;
-  onEdit: (d: Deck) => void;
-  onDuplicate: (d: Deck) => void;
+  onEdit?: (d: Deck) => void;
+  onDuplicate?: (d: Deck) => void;
   onUse: (d: Deck) => void;
-  onNew: () => void;
+  onNew?: () => void;
 }) {
   const t = useT();
   return (
     <div className="deck-list">
-      <button className="deck-tile new" onClick={onNew}>{t("deck.new")}</button>
+      {onNew && <button className="deck-tile new" onClick={onNew}>{t("deck.new")}</button>}
       {decks.map((d) => {
         const errors = validateDeck(d);
         const cover = coverCard(d);
@@ -29,8 +29,8 @@ export function DeckList({ decks, currentId, onOpen, onEdit, onDuplicate, onUse,
             <span className="deck-count">{countCards(d.main)}/50 · G {countCards(d.g_zone)}/16{errors.length ? t("deck.invalid") : ""}</span>
             <div className="deck-btns">
               <button className="btn" disabled={d.id === currentId || errors.length > 0} onClick={(e) => { e.stopPropagation(); onUse(d); }}>{t("deck.use")}</button>
-              <button className="btn" onClick={(e) => { e.stopPropagation(); onDuplicate(d); }}>{t("deck.duplicate")}</button>
-              <button className="btn" onClick={(e) => { e.stopPropagation(); onEdit(d); }}>{t("deck.edit")}</button>
+              {onDuplicate && <button className="btn" onClick={(e) => { e.stopPropagation(); onDuplicate(d); }}>{t("deck.duplicate")}</button>}
+              {onEdit && <button className="btn" onClick={(e) => { e.stopPropagation(); onEdit(d); }}>{t("deck.edit")}</button>}
             </div>
           </div>
         );

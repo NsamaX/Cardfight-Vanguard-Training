@@ -1,4 +1,4 @@
-// replay ที่บันทึกอัตโนมัติ เก็บในเบราว์เซอร์ (ใหม่สุดก่อน ไม่เกิน MAX เกม) อ่าน/เขียนไม่ได้ก็เล่นต่อได้แต่ไม่ถูกจำ
+// Guest replays are kept in the browser (newest first, at most MAX games); if storage can't be read/written, play continues but nothing is remembered
 import type { Replay } from "./types";
 
 const KEY = "vanguard.replays";
@@ -16,8 +16,8 @@ function write(list: Replay[]) {
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
   } catch {
-    // เต็มหรือเขียนไม่ได้: ลองตัดเกมเก่าครึ่งหนึ่งแล้วเขียนใหม่ครั้งเดียว
-    try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, Math.ceil(list.length / 2)))); } catch { /* ใช้ต่อโดยไม่จำ */ }
+    // Full or not writable: try cutting the older half of the games and write once more
+    try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, Math.ceil(list.length / 2)))); } catch { /* keep going without remembering */ }
   }
 }
 

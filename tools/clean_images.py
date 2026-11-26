@@ -1,8 +1,8 @@
-"""ทำความสะอาดรูปการ์ด: crop ชิดการ์ด, ขนาดเท่ากัน, ปรับแสง/สีให้ใกล้กัน, มุมมนโปร่งใส, ตั้งชื่อตามรหัสการ์ดไทยในคลัง
-และรูปสลีฟ: crop ชิดสลีฟ, ขนาดเท่ากัน (ไม่ปรับสี ไม่ทำมุมมน)
+"""Clean up card images: crop to the card, equal size, similar brightness/color, transparent rounded corners, named after the card code in the library
+and sleeve images: crop to the sleeve, equal size (no color adjustment, no rounded corners)
 
-python tools/clean_images.py                # การ์ด: .temp/ → public/images/  สลีฟ: .temp/sleeves/ → public/sleeves/
-ไฟล์ต้นฉบับไม่ถูกแก้ไข เพิ่มรูปใหม่ได้โดยเพิ่มบรรทัดใน SOURCES หรือ SLEEVES
+python tools/clean_images.py                # cards: .temp/ → content/images/  sleeves: .temp/sleeves/ → content/sleeves/
+Source files are never modified; add new images by adding a line to SOURCES or SLEEVES
 """
 import glob, os, re, sys
 import numpy as np
@@ -11,20 +11,20 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, ".temp")
-OUT = os.path.join(ROOT, "public", "images")
-SIZE = (544, 793)          # สัดส่วนเดียวกับรูปต้นฉบับส่วนใหญ่ (~0.686)
-RADIUS = 26                # รัศมีมุมมนที่ขนาด SIZE
-TARGET_LUMA = 128          # ความสว่างเฉลี่ยเป้าหมาย (0-255)
-TARGET_SAT = 0.46          # ความอิ่มสีเฉลี่ยเป้าหมาย (0-1)
+OUT = os.path.join(ROOT, "content", "images")
+SIZE = (544, 793)          # same ratio as most source images (~0.686)
+RADIUS = 26                # corner radius at SIZE
+TARGET_LUMA = 128          # target average brightness (0-255)
+TARGET_SAT = 0.46          # target average saturation (0-1)
 SLEEVE_SRC = os.path.join(SRC, "sleeves")
-SLEEVE_OUT = os.path.join(ROOT, "public", "sleeves")
-SLEEVE_SIZE = (440, 640)   # เท่ากับสลีฟชุดแรก ถ้าสัดส่วนไม่ตรง ตัดส่วนเกินออกจากกึ่งกลาง (ไม่ยืดภาพ)
+SLEEVE_OUT = os.path.join(ROOT, "content", "sleeves")
+SLEEVE_SIZE = (440, 640)   # same as the first sleeve set; if the ratio differs, crop the overflow from the center (no stretching)
 
-# ไฟล์ต้นฉบับใน .temp/sleeves/ → ชื่อไฟล์สลีฟ (ไม่ต้องใส่นามสกุล บันทึกเป็น .jpg)
+# Source file in .temp/sleeves/ → sleeve file name (no extension, saved as .jpg)
 SLEEVES = {
 }
 
-# ไฟล์ต้นฉบับ → ชื่อการ์ด (ตรงกับ name ในไฟล์การ์ด)
+# Source file → card name (matching name in the card file)
 SOURCES = {
     "BT02-026EN_R.webp": "Chappie the Ghostie",
     "D-PV01-028EN-RR_(Sample).webp": "Light Elemental, Honoly",
@@ -71,7 +71,7 @@ def file_code(card_id):
 
 
 def crop_to_card(im):
-    """ตัดพื้นที่โปร่งใสหรือพื้นขาวรอบการ์ดออก"""
+    """Trim the transparent or white area around the card"""
     a = np.asarray(im.convert("RGBA")).astype(int)
     alpha = a[..., 3]
     content = alpha > 128
@@ -83,7 +83,7 @@ def crop_to_card(im):
 
 
 def flatten(im):
-    """เติมมุมโปร่งใสด้วยสีขอบการ์ดใกล้เคียง เพื่อไม่ให้ขอบดำ/ขาวตอนปรับแสง"""
+    """Fill transparent corners with the nearby card edge color, so edges don't turn black/white when adjusting brightness"""
     rgba = im.convert("RGBA")
     base = rgba.convert("RGB").filter(ImageFilter.MaxFilter(9))
     out = base.copy()
@@ -119,29 +119,29 @@ def main():
     ids = card_ids()
     missing = [n for n in SOURCES.values() if n not in ids]
     if missing:
-        sys.exit(f"ไม่พบการ์ดในคลัง: {missing}")
+        sys.exit(f"Card not found in the library: {missing}")
     for src, name in SOURCES.items():
         path = os.path.join(SRC, src)
         if not os.path.exists(path):
-            print(f"ข้าม (ไม่มีไฟล์): {src}")
+            print(f"Skipped (no file): {src}")
             continue
         im = crop_to_card(Image.open(path))
         im = flatten(im).resize(SIZE, Image.LANCZOS)
         im = round_corners(normalize(im))
         dst = file_code(ids[name]) + ".png"
         im.save(os.path.join(OUT, dst), optimize=True)
-        print(f"{src:34} -> public/images/{dst}")
+        print(f"{src:34} -> content/images/{dst}")
 
     os.makedirs(SLEEVE_OUT, exist_ok=True)
     for src, name in SLEEVES.items():
         path = os.path.join(SLEEVE_SRC, src)
         if not os.path.exists(path):
-            print(f"ข้าม (ไม่มีไฟล์): sleeves/{src}")
+            print(f"Skipped (no file): sleeves/{src}")
             continue
         im = crop_to_card(Image.open(path)).convert("RGB")
         im = ImageOps.fit(im, SLEEVE_SIZE, Image.LANCZOS)
         im.save(os.path.join(SLEEVE_OUT, name + ".jpg"), quality=90, optimize=True)
-        print(f"sleeves/{src:26} -> public/sleeves/{name}.jpg")
+        print(f"sleeves/{src:26} -> content/sleeves/{name}.jpg")
 
 
 if __name__ == "__main__":

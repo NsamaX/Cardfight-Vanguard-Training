@@ -9,12 +9,12 @@ html, body { margin: 0; height: 100%; }
 body { background: var(--bg); }
 button { font: inherit; color: inherit; }
 .app {
-  /* การ์ดทุกใบบนสนามขนาดเดียวกัน ย่อตามความสูงจอ: หาร 7 (ไม่ใช่ 6 ที่พอดีจอ) เผื่อที่ให้ G โซน 4 แถวไม่ชนดาเมจ */
+  /* Every card on the board is the same size, scaled to the screen height: divide by 7 (not the 6 that would fit) to leave room for 4 rows of G zone without hitting damage */
   --card-h: clamp(64px, calc((100vh - 260px) / 7), 128px);
   --card-w: calc(var(--card-h) * .6875);
-  --dmg-step: calc(var(--card-h) * .273);  /* ส่วนที่โผล่ของดาเมจแต่ละใบที่ถูกทับ */
-  --lane: 24px;                          /* ช่องระหว่างแถบการต่อสู้กับแถว VC / G โซน / ไบนด์ (ใส่ป้าย SB, GB) */
-  --gap: 8px;                            /* ช่องว่างระหว่างช่องวางการ์ด */
+  --dmg-step: calc(var(--card-h) * .273);  /* visible part of each covered damage card */
+  --lane: 24px;                          /* gap between the battle bar and the VC / G zone / bind row (holds the SB, GB labels) */
+  --gap: 8px;                            /* gap between card circles */
   height: 100vh; min-width: 1200px; display: grid;
   grid-template-columns: 250px minmax(0, 1fr) 300px; background: var(--bg); color: var(--ink);
   font-family: "IBM Plex Sans Thai", sans-serif; font-size: 13px; overflow: hidden;
@@ -22,11 +22,11 @@ button { font: inherit; color: inherit; }
 .mono { font-family: "IBM Plex Mono", monospace; }
 .mute { color: var(--mute); }
 
-/* เฟส (ล่างสุดของแผงซ้าย เต็มความกว้าง เรียงจากล่างขึ้นบน) */
+/* Phases (bottom of the left panel, full width, ordered bottom to top) */
 .phases { flex: none; display: flex; flex-direction: column-reverse; border-top: 1px solid var(--line); }
 .ph { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; padding: 5px 16px; border-bottom: 1px solid var(--line); }
 .ph:first-child { border-bottom: none; }
-/* สามเหลี่ยมกระพริบช้าๆ หน้าเฟสปัจจุบัน (อยู่ในช่องว่างซ้าย ชื่อเฟสจึงไม่ขยับ) */
+/* Slowly blinking triangle before the current phase (sits in the left gap, so the phase name doesn't move) */
 .ph { position: relative; }
 .ph-cursor { position: absolute; left: 5px; top: 10px; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid #fff; animation: ph-blink 1.6s ease-in-out infinite; }
 @keyframes ph-blink { 0%, 100% { opacity: 1; } 50% { opacity: .15; } }
@@ -38,13 +38,13 @@ button { font: inherit; color: inherit; }
 .btn.primary { background: var(--ink); color: var(--inv); border-color: var(--ink); font-weight: 600; }
 .btn:disabled { opacity: .4; cursor: default; }
 
-/* แผงซ้าย */
+/* Left panel */
 aside { min-height: 0; display: flex; flex-direction: column; background: var(--panel); }
 aside.left { border-right: 1px solid var(--line); }
 aside.right { border-left: 1px solid var(--line); }
 .log { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px 0; display: flex; flex-direction: column; }
 .log-body { margin-top: auto; }
-/* ประวัติและช่องดูการ์ดยังเลื่อนด้วยล้อเมาส์ได้ แต่ไม่แสดงแถบเลื่อน */
+/* History and the card viewer still scroll with the mouse wheel, but hide the scrollbar */
 .log, .insp, .collection, .deck-rows, .modal .mb { scrollbar-width: none; }
 .log::-webkit-scrollbar, .insp::-webkit-scrollbar, .collection::-webkit-scrollbar, .deck-rows::-webkit-scrollbar, .modal .mb::-webkit-scrollbar { display: none; }
 .log .tn { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .12em; color: var(--mute); }
@@ -55,7 +55,7 @@ aside.right { border-left: 1px solid var(--line); }
 .dot.bot { border: 1px solid var(--ink); }
 .panel-foot { flex: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 10px 16px 12px; }
 
-/* สนาม: ครึ่งบนเป็นบอท (หมุนกลับหัว) ครึ่งล่างเป็นเรา แถบการต่อสู้อยู่กึ่งกลางจอพอดี */
+/* Board: top half is the bot (upside down), bottom half is us, the battle bar sits exactly at the screen center */
 main {
   position: relative; min-height: 0; display: grid; gap: 4px 8px; padding: 0 16px; overflow: hidden;
   grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
@@ -68,7 +68,7 @@ main {
     "mtray  mhand mstack";
   isolation: isolate;
 }
-/* ออร่าฝั่งเจ้าของเทิร์น (เรา: ฟ้า / บอท: แดง) เรืองจากขอบจอ โค้งขึ้นตามขอบซ้ายขวาแล้วจางหาย อยู่ใต้การ์ดทั้งหมด */
+/* Glow on the turn player's side (us: blue / bot: red) from the screen edge, curving up the left and right edges then fading, under all cards */
 main::before, main::after {
   content: ""; position: absolute; left: 0; right: 0; height: 380px; z-index: -1; pointer-events: none;
   opacity: 0; transition: opacity .5s;
@@ -80,7 +80,7 @@ main::before { top: 0; --aura: #e5484d; --edge: to bottom; }
 main::after { bottom: 0; --aura: #3b9eff; --edge: to top; }
 main.turn-bot::before, main.turn-me::after { opacity: 1; }
 
-/* หน้าเลือก/สร้างเด็ค แทนที่ครึ่งสนามของฝั่งที่เลือก */
+/* Deck pick/build screen, replaces the chosen side's half of the board */
 .deck-panel { z-index: 5; grid-column: 1 / -1; min-height: 0; display: flex; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
 .deck-panel.bot { grid-row: 1 / 3; }
 .deck-panel.me { grid-row: 4 / 6; }
@@ -116,8 +116,14 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .collect.full .card { opacity: .4; }
 .collect { position: relative; }
 .collect .edit-card { position: absolute; bottom: 0; right: 0; height: 20px; width: 20px; padding: 0; background: var(--panel); font-size: 11px; }
-.new-card { height: var(--card-h); width: var(--card-w); border: 1px dashed var(--line); border-radius: 5px; background: transparent; color: var(--ink); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.new-card { height: var(--card-h); width: var(--card-w); text-align: center; border: 1px dashed var(--line); border-radius: 5px; background: transparent; color: var(--ink); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
 .new-card:hover { border-color: var(--ink); }
+label.new-card { display: flex; align-items: center; justify-content: center; }
+.new-card.busy { opacity: .5; cursor: progress; }
+.collection-bar .tabs { display: flex; gap: 6px; margin-left: 12px; }
+.collection-bar .tabs:first-child { margin-left: auto; }
+.sleeve-tile .card { cursor: default; }
+.sleeve-tile .edit-card { top: 0; bottom: auto; }
 .card-ed-veil { position: fixed; z-index: 30; }
 .card-ed { color-scheme: dark; }
 .card-ed option { background: var(--panel); color: var(--ink); }
@@ -125,8 +131,6 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .card-ed-info { min-height: 0; overflow-y: auto; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; border-right: 1px solid var(--line); scrollbar-width: none; }
 .card-ed-img { grid-column: 1 / -1; justify-self: center; position: relative; width: 190px; height: 277px; border: 1px dashed var(--line); border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; }
 .card-ed-img:hover { border-color: var(--ink); }
-.card-ed-img.fixed { border-style: solid; cursor: default; }
-.card-ed-img.fixed:hover { border-color: var(--line); }
 .card-ed-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .card-ed-img input { display: none; }
 .card-ed .fld { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -152,15 +156,13 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .copies { height: 16px; font: 600 11px/16px "IBM Plex Mono", monospace; }
 .deck-side { min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); }
 .deck-head { flex: none; display: flex; align-items: center; gap: 8px; margin: 10px; }
-.deck-cover { position: relative; flex: none; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: var(--card) center 20% / cover; cursor: pointer; }
-.deck-cover:hover { border-color: var(--ink); }
-.deck-cover select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .deck-title { flex: 1; min-width: 0; margin: 0; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; font-weight: 700; }
-.deck-sleeves { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
-.deck-sleeves label { display: flex; align-items: center; gap: 8px; font-size: 11px; }
-.deck-sleeves .mono { width: 48px; color: var(--mute); }
-.deck-sleeves select { flex: 1; min-width: 0; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; }
-.sleeve-thumb { flex: none; width: 20px; height: 28px; border-radius: 3px; border: 1px solid var(--line); background: repeating-linear-gradient(45deg, var(--ink) 0 3px, var(--card) 3px 7px) center / cover; }
+.deck-slots { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 7px; }
+.deck-slot { aspect-ratio: 408 / 595; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--card); cursor: pointer; }
+.deck-slot img { width: 100%; height: 100%; object-fit: cover; }
+.deck-slot.cover img { object-position: center 20%; }
+.deck-slot.empty { border-style: dashed; background: transparent; color: var(--mute); font: 600 11px "IBM Plex Mono", monospace; }
+.deck-slot.over { border: 1px solid var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .deck-rows { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px; display: flex; flex-direction: column; gap: 3px; }
 .deck-row { position: relative; flex: none; height: 28px; display: flex; align-items: center; gap: 6px; padding-right: 8px; border: 1px solid var(--line); border-radius: 4px; cursor: pointer;
   background: var(--card) no-repeat right 0 top 30% / 60% auto; overflow: hidden; }
@@ -186,9 +188,9 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .col.r { align-items: flex-end; }
 
-/* ข้างสนาม: tray = G โซน + ดาเมจ, stack = ไบนด์ + กองการ์ด + ดรอป (ฝั่งบอทเรียงจากกลางจอขึ้นไป) */
+/* Board sides: tray = G zone + damage, stack = bind + deck + drop (the bot side stacks upward from the screen center) */
 .tray, .stack { position: relative; z-index: 1; min-height: 0; display: flex; flex-direction: column; }
-.tray { gap: calc(var(--lane) - 18px); }          /* ป้าย GB สูง 18px + ช่องนี้ = --lane */
+.tray { gap: calc(var(--lane) - 18px); }          /* GB label is 18px tall + this gap = --lane */
 .stack { gap: var(--gap); }
 .tray.me { grid-area: mtray; align-items: flex-start; }
 .tray.bot { grid-area: btray; align-items: flex-end; flex-direction: column-reverse; }
@@ -198,18 +200,18 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .tray.bot .dmg-group { flex-direction: column-reverse; }
 .tray.me .dmg-group { margin-top: auto; }
 .tray.bot .dmg-group { margin-bottom: auto; }
-/* ดาเมจห่างขอบจอแค่ 6px เพื่อให้ G โซน 4 แถวไม่ชนดาเมจ */
+/* Damage is only 6px from the screen edge so 4 rows of G zone don't hit it */
 .tray.me { padding-bottom: 6px; }
 .tray.bot { padding-top: 6px; }
 .zone-row { display: flex; align-items: center; gap: 6px; }
 .zone-row.to-left { flex-direction: row-reverse; }
 .zone-slot { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: calc(var(--card-w) + 2px); height: calc(var(--card-h) + 2px); border: 1px dashed var(--line); border-radius: 5px; cursor: pointer; }
 .zone-slot .back { position: absolute; inset: 0; border-radius: 4px; }
-/* ป้ายจำนวนเหนือช่อง: ป้ายสูง 18px + ช่อง = --lane เหมือน GB เหนือ G โซน (ฝั่งบอทป้ายอยู่ใต้ช่อง) */
+/* Count label above the slot: 18px label + gap = --lane, same as GB above the G zone (on the bot side the label is below) */
 .pile-group { display: flex; flex-direction: column; align-items: inherit; gap: calc(var(--lane) - 18px); cursor: pointer; }
 .stack.bot .pile-group { flex-direction: column-reverse; }
-/* G ที่หงายแล้ว: แถวละ 4 ใบ ใบแรก (ใหม่สุด) เห็นเต็มใบ ใบถัดไปถูกทับ โผล่แถบละ --step
-   แถวถัดไปอยู่ข้างหลัง โผล่ออกทางขอบจอแถบละ --dmg-step (ฝั่งบอทโผล่ขึ้นบน) */
+/* Face-up G units: 4 per row, the first (newest) fully visible, the next ones covered, showing a --step strip each
+   The next row sits behind, showing a --dmg-step strip toward the screen edge (upward on the bot side) */
 .gZone { --step: 28px; align-items: flex-start; }
 .tray.bot .gZone { align-items: flex-end; }
 .g-rows { display: flex; flex-direction: column; }
@@ -222,7 +224,7 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .to-right .fan > span + span { margin-left: calc(var(--step) - var(--card-w)); }
 .to-left .fan { flex-direction: row-reverse; }
 .to-left .fan > span + span { margin-right: calc(var(--step) - var(--card-w)); }
-/* ดาเมจ: การ์ดแนวนอนซ้อนกัน ใบถัดไปทับใบก่อน เห็นเต็มเฉพาะใบสุดท้าย */
+/* Damage: horizontal cards stacked, each covering the previous, only the last one fully visible */
 .damage { display: flex; flex-direction: column; cursor: pointer; }
 .damage.bot { flex-direction: column-reverse; }
 .dmg-slot { position: relative; width: calc(var(--card-h) + 2px); height: var(--dmg-step); border: 1px dashed var(--line); border-radius: 5px; }
@@ -235,12 +237,12 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .slot { position: relative; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; }
 .slot.vc { border-style: solid; border-color: var(--mute); }
 .slot.target, .slot.source { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
-/* ความสามารถ: ขอบเหลือง = รอให้คลิกเลือก, ขอบส้ม = เลือกอยู่/กำลังทำงาน (การ์ดในกอง/ดาเมจ/โซล ไฮไลต์ทั้งโซน) */
+/* Abilities: yellow border = waiting to be clicked, orange border = selected/resolving (cards in piles/damage/soul highlight the whole zone) */
 .slot.atk { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
-/* ยูนิทที่ถูกโจมตี: น้ำเงิน ตรงข้ามตัวโจมตีสีแดง (เหลือง = สิ่งที่คลิกได้ เช่น อินเตอร์เซปต์) */
+/* Attacked unit: blue, opposite the red attacker (yellow = clickable, e.g. intercept) */
 .slot.aimed { border: 2px solid #3b9eff; background: color-mix(in srgb, #3b9eff 12%, transparent); }
 .slot.active { border: 2px solid var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
-/* ยูนิทในการต่อสู้ที่มีความสามารถรอ (เช่น เนโครโบนตอนจบการต่อสู้) แสดงขอบเหลืองแทนขอบแดง ตัวโจมตีที่เลือกรับผลทริกเกอร์ได้ยังเป็นขอบแดง */
+/* A unit in battle with a pending ability (e.g. Negrobone at battle end) shows a yellow border instead of red; an attacker that can take trigger effects stays red */
 .slot.atk.source, .slot.aimed.source, .slot.aimed.target { border-color: var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
 .zone-slot.source, .damage.source, .card.source { outline: 3px solid var(--hi); outline-offset: 2px; }
 .zone-slot.active, .damage.active, .card.active { outline: 3px solid var(--act); outline-offset: 2px; }
@@ -255,7 +257,7 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .soul-peek { position: absolute; transform: translateX(calc(var(--card-w) * -.45)); }
 .heart.lit { opacity: 1; pointer-events: auto; }
 
-/* การ์ด */
+/* Cards */
 .card { position: relative; height: var(--card-h); width: var(--card-w); flex: none; border: 1px solid var(--ink); border-radius: 5px; overflow: hidden; padding: 0; cursor: pointer; background: var(--card) repeating-linear-gradient(135deg, var(--soft) 0 3px, transparent 3px 7px); text-align: left; transition: transform .2s; display: block; }
 .card.small { height: calc(var(--card-h) * .7); width: calc(var(--card-w) * .7); }
 .card.sel { outline: 3px solid var(--hi); outline-offset: 1px; }
@@ -264,11 +266,11 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .card.ghost, .back.ghost { position: fixed; z-index: 9; margin: 0; pointer-events: none; transition: none; }
 .card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .card .back { position: absolute; inset: 0; }
-/* หลังการ์ด: สลีฟของเด็คแต่ละฝั่ง (Board ตั้ง --sleeve-me ฯลฯ) ไม่มีก็ใช้ลายทาง */
+/* Card back: each side's deck sleeve (Board sets --sleeve-me etc.); stripes sit underneath, so the back still shows if the image fails to load */
 .me { --sleeve: var(--sleeve-me); --g-sleeve: var(--g-sleeve-me); }
 .bot { --sleeve: var(--sleeve-bot); --g-sleeve: var(--g-sleeve-bot); }
-.back { background: var(--sleeve, repeating-linear-gradient(45deg, var(--ink) 0 4px, var(--card) 4px 9px)) center / cover; }
-.back.g { background: var(--g-sleeve, repeating-linear-gradient(45deg, var(--ink) 0 4px, var(--card) 4px 9px)) center / cover; }
+.back { background: var(--sleeve, none) center / cover, repeating-linear-gradient(45deg, var(--ink) 0 4px, var(--card) 4px 9px); }
+.back.g { background: var(--g-sleeve, none) center / cover, repeating-linear-gradient(45deg, var(--ink) 0 4px, var(--card) 4px 9px); }
 .card .grade { position: absolute; top: 3px; left: 3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 3px; background: var(--ink); color: var(--inv); font: 600 10px/16px "IBM Plex Mono", monospace; text-align: center; }
 .card .mark { position: absolute; top: 3px; right: 3px; height: 16px; padding: 0 4px; border-radius: 3px; background: var(--card); border: 1px solid var(--ink); font: 600 8px/14px "IBM Plex Mono", monospace; }
 .card .strip { position: absolute; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--ink) 88%, transparent); color: var(--inv); padding: 1px 4px 2px; display: flex; flex-direction: column; }
@@ -282,16 +284,16 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .card .pw .cri { padding: 0 3px; border-radius: 2px; background: var(--hi); color: var(--inv); }
 
 
-/* แถบการต่อสู้ + ปุ่มถัดไป */
-/* คอลัมน์ซ้ายสุด/ขวาสุดกว้างเท่าคอลัมน์ข้างสนาม (G โซน/ดาเมจ, กองการ์ด) ตรงกันพอดี */
+/* Battle bar + next button */
+/* The far-left/far-right columns are as wide as the side columns (G zone/damage, deck), so they line up exactly */
 .mid { position: relative; z-index: 2; grid-area: mid; height: 90px; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: calc(var(--card-h) + 4px) minmax(0, 1fr) calc(var(--card-h) + 4px); align-items: center; column-gap: 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-/* ปุ่มซ้าย/ขวากว้างเท่าการ์ดหนึ่งใบ ชิดขอบเดียวกับการ์ดในคอลัมน์นั้น (ซ้ายชิดซ้าย ขวาชิดขวา) */
+/* Left/right buttons are one card wide, aligned to the same edge as the cards in that column (left to left, right to right) */
 .mid-history { display: flex; gap: 4px; width: calc(var(--card-w) + 2px); }
 .mid-history .icon-btn { flex: 1; width: auto; }
 .mid-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; }
 .mid-actions .btn { width: calc(var(--card-w) + 2px); min-width: 0; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* กลางแถบ: แบ่งสองซีกเท่ากัน ตัวเลขบอทชิดเส้นกลางจากซ้ายบน ตัวเลขเราชิดเส้นกลางจากขวาล่าง ข้อความ/ปุ่มอยู่ระหว่างกลาง
-   ตัวเลขไม่ขยับตามความยาวข้อความ การ์ดของแต่ละฝั่งอยู่ด้านนอก */
+/* Bar center: two equal halves, the bot's number hugs the center line from the top-left, ours from the bottom-right, text/buttons in between
+   The numbers don't move with text length; each side's cards sit outside */
 .mid-main { min-width: 0; height: 100%; display: flex; justify-content: center; gap: 14px; }
 .mid-center { flex: 0 1 auto; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; row-gap: 2px; align-content: center; justify-items: center; }
 .mid-center > .prompt, .mid-center > .steps { grid-column: 1 / -1; }
@@ -300,11 +302,11 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .mid-center .prompt { min-width: 0; max-width: min(520px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
 .mid-center .prompt.long { white-space: normal; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .num { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.num.atk { grid-column: 1; justify-self: end; color: #e5484d; }   /* สีเดียวกับขอบในสนาม: โจมตี = แดง ป้องกัน = น้ำเงิน */
+.num.atk { grid-column: 1; justify-self: end; color: #e5484d; }   /* same colors as the borders on the board: attack = red, guard = blue */
 .num.def { grid-column: 2; justify-self: start; color: #3b9eff; }
 .num .big { font-family: "IBM Plex Mono", monospace; font-size: 19px; font-weight: 600; }
 .num .ico { width: 18px; height: 18px; flex: none; }
-/* การ์ดขนาดเท่าบนสนาม ล้นแถบขึ้นลงได้แต่ไม่ดันความสูงแถบ ถ้าที่ไม่พอการ์ดซ้อนกัน (ใบที่ใกล้กลางเห็นเต็ม) */
+/* Cards the same size as on the board, may overflow the bar up and down without growing it; when space runs out cards overlap (the one nearest the center fully visible) */
 .bside { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: center; }
 .bside.left { justify-content: flex-end; }
 .bside.right { flex-direction: row-reverse; justify-content: flex-end; }
@@ -313,15 +315,14 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .bside.right > span:last-child { flex: 0 1 calc(var(--card-w) + 6px); }
 .bside.right > span:first-child { flex: none; }
 .thinking { position: absolute; top: 8px; left: 16px; z-index: 3; padding: 4px 10px; border-radius: 6px; background: var(--panel); white-space: nowrap; }
-.res-tag { padding: 1px 7px; border-radius: 4px; background: var(--ink); color: var(--inv); font-size: 11px; font-weight: 600; margin-left: 6px; }
-/* มือชิดขอบจอ แถวละ 10 ใบ ถ้าที่ไม่พอการ์ดจะซ้อนกัน แถวถัดไปลอยซ้อนเข้าหากลางสนาม */
+/* Hand hugs the screen edge, 10 cards per row; when space runs out cards overlap, later rows float overlapping toward the board center */
 .hand { position: relative; z-index: 3; min-width: 0; padding-top: 6px; min-height: calc(var(--card-h) + 6px); }
 .hand.bot { padding: 0 0 6px; }
 .hand-row { position: relative; display: flex; justify-content: center; align-items: flex-end; }
 .hand.bot .hand-row { align-items: flex-start; }
 .hand-slot { flex: 0 1 calc(var(--card-w) + 6px); min-width: 0; }
 .hand-slot:last-child { flex: none; width: var(--card-w); }
-/* ใบที่ 11 ขึ้นไป: แถวหลังซ่อนใต้แถวแรก โผล่ 30% ของความสูงการ์ด ชี้เมาส์ที่แถวหลังแล้วแถวที่อยู่ข้างหน้าเลื่อนออกให้เห็นเต็มใบ */
+/* Cards 11+: back rows hide under the first row showing 30% of the card height; hovering a back row slides the rows in front aside to show it fully */
 .hand-more { position: absolute; left: 0; right: 0; bottom: calc(var(--card-h) * .3); display: flex; flex-direction: column-reverse; }
 .hand-more .hand-row + .hand-row { margin-bottom: calc(var(--card-h) * -.7); }
 .hand.bot .hand-more { bottom: auto; top: calc(var(--card-h) * .3); flex-direction: column; }
@@ -334,8 +335,8 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .hand.bot:has(.hand-more .card:hover) > .hand-row,
 .hand.bot .hand-more .hand-row:has(~ .hand-row .card:hover) { transform: translateY(calc(var(--card-h) * -.7)); }
 
-/* แผงขวา */
-/* แผงขวาแบ่งครึ่ง: บอทบน เราล่าง */
+/* Right panel */
+/* Right panel split in half: bot on top, us at the bottom */
 .insp-pane { position: relative; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
 .insp-close { position: absolute; right: 12px; top: 10px; width: 32px; padding: 0; background: var(--panel); }
 .insp { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -343,7 +344,7 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .insp .big-card { width: 110px; aspect-ratio: .686; border-radius: 6px; overflow: hidden; border: 1px solid var(--ink); background: var(--card); }
 .insp .big-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .insp .side-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.insp .type { padding-right: 36px; font-size: 15px; font-weight: 700; line-height: 1.35; white-space: nowrap; }   /* เว้นที่ให้ปุ่ม X */
+.insp .type { padding-right: 36px; font-size: 15px; font-weight: 700; line-height: 1.35; white-space: nowrap; }   /* room for the X button */
 .insp .clan { padding-right: 36px; font-size: 12px; font-weight: 600; line-height: 1.4; }
 .insp .name { padding-right: 36px; font-size: 12px; line-height: 1.4; color: var(--mute); }
 .insp .code { font-size: 10px; }
@@ -366,11 +367,11 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .abil.coded .skill p { font-family: "IBM Plex Mono", monospace; font-size: 11px; }
 .abil.coded .skill p.field .k { font-size: 9px; }
 
-/* หน้าต่าง */
+/* Dialogs */
 .veil { position: absolute; inset: 0; background: var(--veil); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 10; }
 .modal { width: calc(10 * var(--card-w) + 9 * 6px + 32px); max-width: 100%; max-height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .modal .mh { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; font-weight: 600; }
-/* การ์ดขนาดเท่าในมือ ห่างกัน 6px แถวละ 10 ใบ 5 แถวพอดี เกินนั้นเลื่อนดู (ถ้าหน้าต่างแคบกว่า การ์ดจะซ้อนกันแบบในมือ) */
+/* Cards the size of the hand, 6px apart, 10 per row, exactly 5 rows; scroll for more (on a narrower window cards overlap like the hand) */
 .modal .mb { flex: none; height: calc(5 * var(--card-h) + 4 * 8px + 32px); max-height: 100%; overflow-x: hidden; overflow-y: auto; padding: 16px; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); grid-auto-rows: var(--card-h); gap: 8px 6px; align-content: start; }
 .modal .mb > .mute { grid-column: 1 / -1; }
 .modal .mcard { position: relative; }
@@ -378,8 +379,8 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 .modal .mcard.dragging { opacity: 0.4; }
 .toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--bad); color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 600; z-index: 20; }
 
-/* หน้าเริ่มเกม */
-/* หน้าต่างตั้งค่า */
+/* Start screen */
+/* Settings dialog */
 .dialog { width: 420px; max-width: 100%; display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .dialog-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
 .dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
@@ -394,7 +395,7 @@ main.turn-bot::before, main.turn-me::after { opacity: 1; }
 
 .slot .tag { position: absolute; bottom: -7px; padding: 0 5px; border: 1px solid var(--ink); border-radius: 3px; background: var(--bg); font-size: 9.5px; line-height: 13px; white-space: nowrap; z-index: 1; }
 
-/* replay: รายการเกมที่บันทึก และแถบควบคุมตอนดูย้อนหลัง */
+/* replay: list of saved games, and the controls bar while watching */
 .dialog.replays { width: 520px; }
 .replay-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
 .replay-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }

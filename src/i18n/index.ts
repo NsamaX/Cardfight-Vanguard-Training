@@ -5,7 +5,7 @@ import type { Dict, Msg, MsgKey, Params } from "./msg";
 
 export type Locale = "en" | "ja";
 
-// ชื่อภาษาแสดงด้วยภาษานั้นเอง ไม่แปล
+// Language names are shown in that language itself, not translated
 export const LOCALES: Record<Locale, string> = { en: "English", ja: "日本語" };
 export const DEFAULT_LOCALE: Locale = "en";
 

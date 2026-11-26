@@ -3,13 +3,13 @@ import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
 import { groupByTurn, type LogEntry } from "../../lib/board";
 
-// บรรทัดที่เกมทำเองหรือเป็นแค่ขั้นตอน ไม่แสดงในประวัติ (ให้เหลือแต่สิ่งที่ผู้เล่นทำและผลของมัน)
+// Lines the game does by itself or that are just steps aren't shown in the history (keep only what the player did and its results)
 const HIDDEN = new Set<MsgKey>([
   "log.turnStart", "log.standUp", "log.battlePhase", "log.battleEnd", "log.gReturn",
   "log.abilityStart", "log.skip", "log.blocked", "log.shuffle",
 ]);
 
-// ประวัติเรียงจากเก่าไปใหม่ (ล่างขึ้นบน ชิดแถบเฟส) ชื่อเทิร์นอยู่ใต้รายการของเทิร์นนั้น มีรายการใหม่แล้วเลื่อนขึ้นบนสุด
+// History runs old to new (bottom to top, next to the phase bar); the turn name sits below that turn's entries; new entries scroll to the top
 export function LogPanel({ log, onInspect, children }: { log: LogEntry[]; onInspect: (uid: string) => void; children: ReactNode }) {
   const logRef = useRef<HTMLDivElement>(null);
   const t = useT();

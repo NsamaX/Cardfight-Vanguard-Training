@@ -1,33 +1,54 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { cardByKey as db } from "../data/cards";
-import { presetDecks } from "../data/decks";
-import { loadUserDecks } from "../lib/deckStore";
 import { createGame } from "../engine/game";
 import type { Deck, GameState, PlayerId } from "../engine/types";
-import { I18nProvider } from "../i18n/react";
+import { useAuth } from "../hooks/useAuth";
+import { useLibrary } from "../hooks/useLibrary";
+import { useT } from "../i18n/react";
+import { DEFAULT_SETTINGS, resolveSettings, type GameSettings } from "../lib/settings";
 import { timelineOf, type Timeline } from "../replay/play";
 import type { RecordedAction, ReplaySource } from "../replay/types";
 import { Board } from "./board/Board";
 import { ReplayViewer } from "./ReplayViewer";
-import { resolveSettings, type GameSettings } from "./board/SettingsDialog";
 
 interface Running {
   state: GameState;
   started: boolean;
   settings: GameSettings;
   decks: Record<PlayerId, Deck>;
-  n: number;              // นับเกม ใช้เป็น key ให้หน้าสนามเริ่มใหม่ทุกครั้ง แม้ seed เดิม
-  base?: { start?: GameState; actions: RecordedAction[] };   // เล่นต่อจาก replay
+  n: number;              // game counter, used as the board key so it restarts every time, even with the same seed
+  base?: { start?: GameState; actions: RecordedAction[] };   // continuing from a replay
 }
 
-// เปิดมาที่หน้าสนามเลย เริ่มด้วยเด็คสำเร็จรูปใบแรกทั้งสองฝั่ง seed สุ่ม คุณเล่นก่อน บอทระดับ Normal กด Start เพื่อเริ่มเกม
+const replaceDeck = (decks: Record<PlayerId, Deck>, d: Deck) =>
+  ({ me: decks.me.id === d.id ? d : decks.me, bot: decks.bot.id === d.id ? d : decks.bot });
+
+const newGame = (settings: GameSettings, decks: Record<PlayerId, Deck>, n: number, fixed?: { seed: number; firstPlayer: PlayerId }): Running =>
+  ({ state: createGame(db, { ...(fixed ?? resolveSettings(settings)), decks }), started: false, settings, decks, n });
+
+// Opens straight onto the board with the first library deck on both sides; press Start to begin.
+// Each library load (first visit, sign-in, sign-out) starts a fresh game with the new library.
 export function GameApp() {
+  const auth = useAuth();
   const [game, setGame] = useState<Running | null>(null);
   const [deckOpen, setDeckOpen] = useState(false);
   const [viewing, setViewing] = useState<{ src: ReplaySource; tl: Timeline } | null>(null);
+  const { library, failed, retry } = useLibrary(auth.ready, auth.user?.id, (lib) => {
+    const first = lib.decks[0];
+    setViewing(null);
+    setDeckOpen(false);
+    setGame((g) => newGame(g?.settings ?? DEFAULT_SETTINGS, { me: first, bot: first }, (g?.n ?? 0) + 1));
+  });
 
-  // เล่นต่อจากก้าวที่ดูอยู่: replay ของเกมใหม่รวมก้าวก่อนหน้าไว้ด้วย (ไฟล์แบบ states เริ่มจากสนามนั้นแทน)
+  if (failed) return <LoadFailed onRetry={retry} />;
+  if (!game || !library) return null;
+  const { settings, decks } = game;
+
+  const start = (s: GameSettings, d: Record<PlayerId, Deck>, fixed?: { seed: number; firstPlayer: PlayerId }) => setGame(newGame(s, d, game.n + 1, fixed));
+  const inUse = (d: Deck) => decks.me.id === d.id || decks.bot.id === d.id;
+
+  // Continue from the step being viewed: the new game's replay includes the earlier steps (states files start from that board instead)
   function continueFrom(step: number) {
     if (!viewing || !game) return;
     const { src, tl } = viewing;
@@ -38,51 +59,40 @@ export function GameApp() {
     setGame({ ...game, state, started: true, decks: src.decks, n: game.n + 1, base });
   }
 
-  function start(settings: GameSettings, decks: Record<PlayerId, Deck>, fixed?: { seed: number; firstPlayer: PlayerId }) {
-    const state = createGame(db, { ...(fixed ?? resolveSettings(settings)), decks });
-    setGame((g) => ({ state, started: false, settings, decks, n: (g?.n ?? 0) + 1 }));
-  }
-
-  // สุ่มในเบราว์เซอร์หลังโหลดหน้า ค่าที่ render จาก server จะได้ไม่ขัดกับฝั่งเบราว์เซอร์
-  // เด็คตัวอย่างที่ผู้เล่นแก้ไว้ใช้ฉบับที่แก้
-  useEffect(() => {
-    const first = loadUserDecks().find((d) => d.id === presetDecks[0].id) ?? presetDecks[0];
-    start({ seed: "random", firstPlayer: "me", bot: "normal" }, { me: first, bot: first });
-  }, []);
-
-  if (!game) return null;
-  const { settings, decks } = game;
-  const current = { seed: game.state.seed, firstPlayer: game.state.firstPlayer };
   if (viewing) {
-    return (
-      <I18nProvider>
-        <ReplayViewer tl={viewing.tl} decks={viewing.src.decks} settings={settings} onContinue={continueFrom} onClose={() => setViewing(null)} />
-      </I18nProvider>
-    );
+    return <ReplayViewer tl={viewing.tl} decks={viewing.src.decks} settings={settings} onContinue={continueFrom} onClose={() => setViewing(null)} />;
   }
   return (
-    <I18nProvider>
-      <Board
-        key={game.n}
-        base={game.base}
-        onOpenReplay={(src) => setViewing({ src, tl: timelineOf(db, src) })}
-        initial={game.state}
-        started={game.started}
-        onStart={() => setGame({ ...game, started: true })}
-        settings={settings}
-        decks={decks}
-        deckOpen={deckOpen}
-        onDeckOpen={setDeckOpen}
-        onNewGame={() => start(settings, decks)}
-        onApplySettings={(s) => start(s, decks)}
-        onSwapDecks={() => start(settings, { me: decks.bot, bot: decks.me }, current)}
-        onPickDeck={(p, d) => start(settings, { ...decks, [p]: d })}
-        onDeckReordered={(d) => setGame((g) => g && { ...g, decks: { me: g.decks.me.id === d.id ? d : g.decks.me, bot: g.decks.bot.id === d.id ? d : g.decks.bot } })}
-        onDeckChanged={(d) => {
-          if (decks.me.id !== d.id && decks.bot.id !== d.id) return;
-          start(settings, { me: decks.me.id === d.id ? d : decks.me, bot: decks.bot.id === d.id ? d : decks.bot });
-        }}
-      />
-    </I18nProvider>
+    <Board
+      key={game.n}
+      library={library}
+      base={game.base}
+      onOpenReplay={(src) => setViewing({ src, tl: timelineOf(db, src) })}
+      initial={game.state}
+      started={game.started}
+      onStart={() => setGame({ ...game, started: true })}
+      settings={settings}
+      decks={decks}
+      deckOpen={deckOpen}
+      onDeckOpen={setDeckOpen}
+      onNewGame={() => start(settings, decks)}
+      onApplySettings={(s) => start(s, decks)}
+      onSwapDecks={() => start(settings, { me: decks.bot, bot: decks.me }, { seed: game.state.seed, firstPlayer: game.state.firstPlayer })}
+      onPickDeck={(p, d) => start(settings, { ...decks, [p]: d })}
+      onDeckUpdated={(d) => { if (inUse(d)) setGame((g) => g && { ...g, decks: replaceDeck(g.decks, d) }); }}
+      onDeckChanged={(d) => { if (inUse(d)) start(settings, replaceDeck(decks, d)); }}
+    />
+  );
+}
+
+function LoadFailed({ onRetry }: { onRetry: () => void }) {
+  const t = useT();
+  return (
+    <div className="veil">
+      <div className="dialog">
+        <span>{t("library.loadFailed")}</span>
+        <button className="btn primary" onClick={onRetry}>{t("library.retry")}</button>
+      </div>
+    </div>
   );
 }

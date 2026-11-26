@@ -2,26 +2,26 @@ import { useLayoutEffect, useRef } from "react";
 import type { CardInstance, PlayerId } from "../../engine/types";
 import type { Light } from "../../lib/board";
 import { CardView } from "../CardView";
-import { DEAL_GAP_MS, MOVE_EASE, MOVE_MS, type Spot } from "./motion";
+import { DEAL_GAP_MS, MOVE_EASE, MOVE_MS, type Spot } from "../../hooks/useCardFlight";
 
 const PER_ROW = 10;
 
-// มือชิดขอบจอ แถวละไม่เกิน 10 ใบ (ถ้าที่ไม่พอการ์ดจะซ้อนกัน) ใบที่ 11 ขึ้นไปอยู่แถวหลัง โผล่ 30% ชี้เมาส์แล้วเด้งให้เห็นเต็มใบ
+// The hand hugs the screen edge, at most 10 cards per row (cards overlap if space runs out); cards 11+ go to a back row showing 30%, popping up fully on hover
 export function Hand({ p, hidden, cards, seen, selUid, lightOf, picks, onClick, onHover }: {
   p: PlayerId;
-  hidden?: boolean;                                // มือของบอท: แสดงหลังการ์ด
+  hidden?: boolean;                                // the bot's hand: show card backs
   cards: CardInstance[];
-  seen: Map<string, Spot>;                         // ตำแหน่งบนกระดานก่อนหน้า: การ์ดที่เข้ามือบินมาจากที่เดิม (ไม่เห็นที่เดิมก็บินจากกองการ์ด)
+  seen: Map<string, Spot>;                         // previous positions on the board: cards entering the hand fly from where they were (from the deck if unknown)
   selUid?: string;
   lightOf: (uid: string) => Light;
   picks: string[];
   onClick: (inst: CardInstance) => void;
-  onHover: (uid: string | undefined) => void;     // ชี้เมาส์แล้วแผงรายละเอียดแสดงการ์ดใบนั้นชั่วคราว
+  onHover: (uid: string | undefined) => void;     // on hover the detail panel temporarily shows that card
 }) {
   const slots = useRef(new Map<string, HTMLElement>());
   const lastRects = useRef(new Map<string, DOMRect>());
 
-  // FLIP: เทียบตำแหน่งก่อน/หลัง render การ์ดเดิมเลื่อนจากที่เก่า การ์ดใหม่บินจากที่เดิมบนกระดาน
+  // FLIP: compare positions before/after render; existing cards slide from their old place, new cards fly from where they were on the board
   useLayoutEffect(() => {
     const deck = document.querySelector(`.stack.${p} .deck .zone-slot`)?.getBoundingClientRect();
     const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -45,7 +45,7 @@ export function Hand({ p, hidden, cards, seen, selUid, lightOf, picks, onClick, 
   const slotRef = (uid: string) => (el: HTMLElement | null) => { if (el) slots.current.set(uid, el); else slots.current.delete(uid); };
   const rows: CardInstance[][] = [];
   for (let i = 0; i < cards.length; i += PER_ROW) rows.push(cards.slice(i, i + PER_ROW));
-  // แถวที่ใกล้ขอบจออยู่บนสุด แถวถัดไปซ่อนอยู่ข้างหลังและโผล่ออกมา 30%
+  // The row nearest the screen edge is on top; the next rows hide behind it, showing 30%
   const row = (list: CardInstance[], i: number) => (
     <div key={i} className="hand-row" style={{ zIndex: rows.length - i }}>
       {list.map((h) => (

@@ -1,16 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { VanguardBot } from "../../bot";
 import { cardByKey as db } from "../../data/cards";
-import { presetDecks } from "../../data/decks";
-import { sleeveUrl } from "../../data/sleeves";
+import { DEFAULT_SLEEVES } from "../../data/sleeves";
 import { generationBreak } from "../../engine/rules";
 import type { Deck, GameState, PlayerId } from "../../engine/types";
 import { useBoard } from "../../hooks/useBoard";
+import { MOVE_MS, useCardFlight } from "../../hooks/useCardFlight";
+import { offlineLibrary, type LibraryHandle } from "../../hooks/useLibrary";
 import { useT } from "../../i18n/react";
 import { nextLabel, undealt, type LogEntry, type Zone } from "../../lib/board";
-import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
-import { loadUserDecks, saveUserDecks } from "../../lib/deckStore";
 import { moveG } from "../../lib/deckEdit";
+import { publicUrl } from "../../lib/library";
+import type { GameSettings } from "../../lib/settings";
+import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { DeckPanel } from "../deck/DeckPanel";
 import { CardHover } from "../CardView";
 import { Inspector } from "../Inspector";
@@ -21,10 +23,9 @@ import { DamageZone } from "./DamageZone";
 import { FieldSide } from "./FieldSide";
 import { Hand } from "./Hand";
 import { LogPanel } from "./LogPanel";
-import { MOVE_MS, useCardFlight } from "./motion";
 import { PhaseTrack } from "./PhaseTrack";
 import { ReplayModal } from "./ReplayModal";
-import { SettingsDialog, type GameSettings } from "./SettingsDialog";
+import { SettingsDialog } from "./SettingsDialog";
 import { GZoneRow, PileSlot } from "./ZoneRow";
 
 function ArrowIcon({ flip }: { flip?: boolean }) {
@@ -37,67 +38,60 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, onDeckReordered, base, view, onOpenReplay }: {
-  initial: GameState;          // สนามหลังแจกการ์ด
-  started: boolean;            // false = รอกด Start (แสดงสนามที่ยังไม่แจกการ์ด)
+export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, onDeckUpdated, base, view, onOpenReplay, library = offlineLibrary }: {
+  initial: GameState;          // board after dealing
+  started: boolean;            // false = waiting for Start (shows the board before dealing)
   onStart: () => void;
   settings: GameSettings;
   decks: Record<PlayerId, Deck>;
-  deckOpen: boolean;           // หน้าเลือกเด็คทั้งสองฝั่ง (เก็บไว้นอกหน้าสนาม จึงยังเปิดอยู่หลังเลือกเด็คแล้วเริ่มเกมใหม่)
+  deckOpen: boolean;           // deck pick screen for both sides (kept outside the board, so it stays open after picking a deck starts a new game)
   onDeckOpen: (open: boolean) => void;
   onNewGame: () => void;
   onApplySettings: (s: GameSettings) => void;
   onSwapDecks: () => void;
   onPickDeck: (p: PlayerId, d: Deck) => void;
-  onDeckChanged: (d: Deck) => void;  // เด็คถูกแก้/คืนค่า ฝั่งที่ใช้เด็คนี้อยู่ต้องได้ฉบับใหม่
-  onDeckReordered?: (d: Deck) => void;   // ลำดับ G โซนเปลี่ยน: เปลี่ยนเด็คโดยไม่เริ่มเกมใหม่
-  base?: { start?: GameState; actions: RecordedAction[] };   // เกมที่เล่นต่อจาก replay: ก้าวก่อนหน้าที่ต้องรวมไว้ใน replay ของเกมนี้
-  view?: { log: LogEntry[]; action: ReactNode; foot: ReactNode };   // หน้าดูย้อนหลัง: แสดงสนามอย่างเดียว action = ช่องขวาของแถบกลาง, foot = ล่างแผงขวา
+  onDeckChanged: (d: Deck) => void;      // the deck's cards changed: the side using it restarts with the new version
+  onDeckUpdated?: (d: Deck) => void;     // only the G zone order or sleeves changed: update the deck without restarting
+  base?: { start?: GameState; actions: RecordedAction[] };   // a game continued from a replay: earlier steps to include in this game's replay
+  view?: { log: LogEntry[]; action: ReactNode; foot: ReactNode };   // replay viewer: board only; action = right slot of the middle bar, foot = bottom of the right panel
   onOpenReplay?: (src: ReplaySource) => void;
+  library?: LibraryHandle;
 }) {
-  // บอทเริ่มคิดเมื่อกด Start แล้ว (หน้าสนามถูกสร้างใหม่ทุกเกม บอทจึงเริ่มจำใหม่ทุกเกม)
-  const bot = useMemo(() => (started && !view ? new VanguardBot(db, settings.bot ?? "normal", decks) : undefined), [started, view, settings.bot]);   // ลำดับ G โซนเปลี่ยนไม่ต้องสร้างบอทใหม่ (เปลี่ยนเด็คจริงจะเริ่มหน้าสนามใหม่อยู่แล้ว)
+  // The bot starts thinking after Start (the board is recreated every game, so the bot's memory resets every game)
+  const bot = useMemo(() => (started && !view ? new VanguardBot(db, settings.bot ?? "normal", decks) : undefined), [started, view, settings.bot]);   // a G zone reorder doesn't need a new bot (a real deck change restarts the board anyway)
   const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log });
   const t = useT();
   const [showSettings, setShowSettings] = useState(false);
   const [showReplays, setShowReplays] = useState(false);
   const [record] = useState(() => ({ id: newId(), createdAt: new Date().toISOString() }));
 
-  // replay ของเกมนี้ ณ ตอนนี้ (บันทึกเมื่อกดปุ่มใน Replays เท่านั้น; action ที่ย้อนทิ้งไม่อยู่ใน replay)
+  // This game's replay as of now (saved only via the button in Replays; undone actions aren't in the replay)
   const replay = (): Replay => ({
     version: 1, ...record, title: `${decks.me.name} vs ${decks.bot.name}`,
     seed: initial.seed, firstPlayer: initial.firstPlayer, decks, start: base?.start, bot: settings.bot,
     actions: [...(base?.actions ?? []), ...board.actions], winner: board.s.winner, turn: board.s.turn,
   });
-  const [userDecks, setUserDecks] = useState(loadUserDecks);
   const [editing, setEditing] = useState<Record<PlayerId, boolean>>({ bot: false, me: false });
+  const signedIn = !!library.userId;
   function saveDeck(d: Deck) {
-    const next = userDecks.some((x) => x.id === d.id) ? userDecks.map((x) => (x.id === d.id ? d : x)) : [...userDecks, d];
-    setUserDecks(next);
-    saveUserDecks(next);
+    library.saveDeck(d);
     onDeckChanged(d);
   }
+  // Guests may reorder the G zone too; it lasts for this session only
   function reorderG(p: PlayerId, from: string, to: string) {
     const d = moveG(decks[p], from, to);
     if (d === decks[p]) return;
-    const next = userDecks.some((x) => x.id === d.id) ? userDecks.map((x) => (x.id === d.id ? d : x)) : [...userDecks, d];
-    setUserDecks(next);
-    saveUserDecks(next);
-    onDeckReordered?.(d);
+    library.saveDeck(d);
+    onDeckUpdated?.(d);
   }
-  function deleteDeck(id: string) {
-    const next = userDecks.filter((x) => x.id !== id);
-    setUserDecks(next);
-    saveUserDecks(next);
-    const original = presetDecks.find((x) => x.id === id);
-    if (original) onDeckChanged(original);
+  async function deleteSleeve(path: string) {
+    for (const d of await library.deleteSleeve(path)) onDeckUpdated?.(d);
   }
-  // โหมดเปลี่ยนเด็ค: กล่องเทาคลุมแต่ละฝั่งให้คลิกเลือกฝั่ง ฝั่งที่เลือกกลายเป็นหน้าเลือก/สร้างเด็ค และปุ่มสลับเด็คกลางแถบการต่อสู้
 
   const { s, actor, mode, selUid, picks } = board;
   const mainRef = useRef<HTMLElement>(null);
   const seen = useCardFlight(mainRef, s);
-  // กด Start: แวนการ์ดเริ่มต้นออกจากกองไปที่ VC ก่อน แล้วจึงจั่ว 5 ใบ (ไม่มีตัวจับเวลาให้ยกเลิก เพราะหน้าสนามรอกด Start ได้ครั้งเดียว)
+  // Press Start: the starting vanguard leaves the deck for VC first, then 5 cards are drawn (no timer to cancel, since the board only waits for Start once)
   const dealPending = useRef(!started);
   useEffect(() => {
     if (!started || !dealPending.current) return;
@@ -107,9 +101,9 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   }, [started]);
   const next = nextLabel(db, s);
   const question = board.question();
-  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;   // ปุ่มจบการป้องกัน (Pass) อยู่ขวาสุดกับปุ่มป้องกัน
+  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;   // the end-guard (Pass) button sits far right with the guard buttons
   const sleeveVars = Object.fromEntries((["me", "bot"] as const).flatMap((p) => [
-    [`--sleeve-${p}`, sleeveUrl(decks[p].sleeve)], [`--g-sleeve-${p}`, sleeveUrl(decks[p].g_sleeve)],
+    [`--sleeve-${p}`, publicUrl(decks[p].sleeve ?? DEFAULT_SLEEVES[p].sleeve)], [`--g-sleeve-${p}`, publicUrl(decks[p].g_sleeve ?? DEFAULT_SLEEVES[p].g_sleeve)],
   ]).filter(([, u]) => u).map(([k, u]) => [k, `url(${u})`])) as CSSProperties;
 
   const side = (p: PlayerId) => (
@@ -129,7 +123,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const hand = (p: PlayerId) => (
     <Hand p={p} hidden={p === "bot" && board.hideBotHand} cards={s.players[p].hand} seen={seen} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
   );
-  // ข้างสนาม: ฝั่งเรา G โซน+ดาเมจอยู่ซ้าย กองการ์ด+ดรอป+ไบนด์อยู่ขวา ฝั่งบอทหมุนกลับหัว
+  // Board sides: on our side the G zone + damage are on the left, deck + drop + bind on the right; the bot side is upside down
   const open = (p: PlayerId, zone: Zone) => () => board.setPile({ player: p, zone });
   const tray = (p: PlayerId) => (
     <div className={`tray ${p}`}>
@@ -157,10 +151,10 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {tray("bot")}
         {stack("bot")}
         {started && !deckOpen && board.botTurn && <span className="thinking">{t("ui.botThinking")}</span>}
-        {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} userDecks={userDecks} onSaveDeck={saveDeck} onDeleteDeck={deleteDeck} onPick={(d) => onPickDeck(p, d)}
+        {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} decks={library.decks} editable={signedIn} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
           otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}
         <div className="mid">
-          {/* ซ้ายสุด: ย้อนกลับ/ไปหน้า | กลาง: ฝ่ายโจมตี (พลัง + ไดรฟ์เช็ค) | ข้อความคำถาม + ปุ่มขั้นตอนเกม | ฝ่ายป้องกัน (พลัง + การ์ดป้องกัน) | ขวาสุด: ปุ่มตอบความสามารถและการป้องกัน */}
+          {/* Far left: undo/redo | middle: attacker (power + drive check) | question text + game step buttons | defender (power + guard cards) | far right: ability and guard answer buttons */}
           <div className="mid-history">
             {started && !deckOpen && !view && <>
               <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
@@ -182,7 +176,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
                   const label = typeof q.label === "string" ? q.label : t(q.label);
                   return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
                 })}
-                {showNext && next !== "next.noMoreGuard" && (board.canNext || !s.battle) && (   /* ระหว่างการต่อสู้ ปุ่มที่กดไม่ได้ไม่แสดง */
+                {showNext && next !== "next.noMoreGuard" && (board.canNext || !s.battle) && (   /* during a battle, buttons that can't be pressed aren't shown */
                   <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
                 )}
               </div>
@@ -205,9 +199,9 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {tray("me")}
         {stack("me")}
         {hand("me")}
-        <PileModal board={board} started={started} decks={decks} onMoveG={onDeckReordered && reorderG} />
+        <PileModal board={board} started={started} decks={decks} onMoveG={onDeckUpdated && reorderG} />
         <ChoiceModal board={board} />
-        {showReplays && <ReplayModal current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
+        {showReplays && <ReplayModal signedIn={signedIn} current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
         {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={onApplySettings} onClose={() => setShowSettings(false)} />}
         {board.error && <div className="toast">{t(board.error)}</div>}
         {(board.trigTip ?? board.choiceTip) && <CursorTip text={t((board.trigTip ?? board.choiceTip)!.text)} kind={(board.trigTip ?? board.choiceTip)!.kind} />}
@@ -232,8 +226,8 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   );
 }
 
-// ข้อความคำถามกลางแถบ: ยาวเกินบรรทัดเดียว ขึ้นบรรทัดที่สองและตัวเล็กลง
-// วัดใหม่ทุกครั้งที่ข้อความเปลี่ยนหรือพื้นที่ตรงกลางเปลี่ยน (เช่น เริ่มการต่อสู้แล้วมีตัวเลขสองข้าง)
+// Question text in the middle of the bar: if it's longer than one line, wrap to a second line in a smaller size
+// Remeasure whenever the text or the middle space changes (e.g. a battle starts and numbers appear on both sides)
 function PromptText({ text }: { text: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {

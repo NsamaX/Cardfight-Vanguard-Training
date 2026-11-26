@@ -1,4 +1,4 @@
-// การกระทำที่เป็นไปได้ ณ จุดที่ engine รอ: สร้างจากกฎแบบหยาบ แล้วให้ engine ตัดสินว่าถูกกฎไหม (กฎอยู่ที่ engine ที่เดียว)
+// Possible actions where the engine is waiting: generated from rough rules, then the engine decides legality (rules live only in the engine)
 import { apply, usableActs, type Result } from "../engine/game";
 import { BEHIND, FRONT, RC, RuleError, SAME_COLUMN, bothVanguardsGrade3, canBoost, isG, other, vcGrade, type CardDB } from "../engine/rules";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
@@ -9,7 +9,7 @@ export function tryApply(db: CardDB, s: GameState, p: PlayerId, a: Action): Resu
 
 export const legal = (db: CardDB, s: GameState, p: PlayerId, a: Action) => !!tryApply(db, s, p, a);
 
-// การ์ดต่างใบแต่รหัสเดียวกันให้ผลเหมือนกัน เลือกตัวแทนใบเดียว
+// Different cards with the same code behave identically, pick one representative
 export function distinctByKey(list: CardInstance[]): CardInstance[] {
   const seen = new Set<string>();
   return list.filter((i) => (seen.has(i.key) ? false : (seen.add(i.key), true)));
@@ -19,7 +19,7 @@ export function ownQueue(s: GameState, p: PlayerId) {
   return s.queue.filter((e) => e.owner === p);
 }
 
-// รายการการกระทำทั้งหมดที่ควรพิจารณา (ยังไม่ตรวจกฎ ยกเว้นส่วนที่สร้างจากรายการตัวเลือกของ engine)
+// All actions worth considering (not yet rule-checked, except those built from the engine's option lists)
 export function candidates(db: CardDB, s: GameState, p: PlayerId): Action[] {
   const d = s.awaiting;
   if (!d || d.player !== p) return [];
@@ -37,7 +37,7 @@ export function candidates(db: CardDB, s: GameState, p: PlayerId): Action[] {
       }
       if (s.phase === "ride" && s.step === "stride" && !s.strodeThisTurn && bothVanguardsGrade3(db, s)) {
         for (const g of distinctByKey(ps.gZone.filter((x) => !x.faceUp && db[x.key].type === "g-unit"))) {
-          out.push({ type: "stride", gUid: g.uid, discardUids: [] });   // ใบที่ทิ้งเลือกโดย policy
+          out.push({ type: "stride", gUid: g.uid, discardUids: [] });   // the discards are chosen by the policy
         }
       }
       if (s.phase === "main") {
@@ -109,7 +109,7 @@ export function candidates(db: CardDB, s: GameState, p: PlayerId): Action[] {
   return out;
 }
 
-// ทางหนีเมื่อ action ที่เลือกผิดกฎ: การกระทำที่ "ไม่ทำอะไรเพิ่ม" ของแต่ละจุด
+// Fallback when the chosen action is illegal: the "do nothing more" action at each point
 export function fallbacks(s: GameState): Action[] {
   const d = s.awaiting;
   if (!d) return [];

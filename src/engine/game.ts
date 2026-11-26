@@ -1,5 +1,5 @@
-// กลไกเฟสและการต่อสู้ภาค G + จุดเชื่อมกับระบบความสามารถ (abilities.ts)
-// apply() รับ state + การกระทำ คืน state ใหม่ + events ไม่แก้ state เดิม และสุ่มด้วย seed เท่านั้น
+// G-era phase and battle mechanics + the hook into the ability system (abilities.ts)
+// apply() takes state + an action and returns a new state + events; never modifies the old state, and randomizes only via the seed
 import { blocked, condOk, declineEntry, emit, placeOnRC, retireUnit, settle, startResolving, type ResumeHandlers } from "./abilities";
 import { cloneState } from "./clone";
 import { shuffle } from "./rng";
@@ -32,9 +32,9 @@ function emptyPlayer(): PlayerState {
   return { circles: {}, guardian: [], hand: [], deck: [], drop: [], soul: [], damage: [], gZone: [], bind: [], removed: [] };
 }
 
-// ---------- สร้างเกม ----------
+// ---------- Create a game ----------
 
-export function createGame(db: CardDB, opts: NewGame): GameState {
+export function createGame(_db: CardDB, opts: NewGame): GameState {   // db kept for the same signature as the other engine entry points
   const s: GameState = {
     seed: opts.seed, rngState: opts.seed, turn: 0, turnPlayer: opts.firstPlayer, firstPlayer: opts.firstPlayer,
     phase: "setup", players: { me: emptyPlayer(), bot: emptyPlayer() }, nextUid: 1, mulliganDone: [],
@@ -56,7 +56,7 @@ export function createGame(db: CardDB, opts: NewGame): GameState {
   return s;
 }
 
-// ---------- จุดเข้า ----------
+// ---------- Entry point ----------
 
 export const ANSWERS: Action["type"][] = ["choose", "select-target", "order-queue", "decline-queue", "pass-queue"];
 
@@ -80,7 +80,6 @@ const HANDLERS: { [T in Action["type"]]: Handler<T> } = {
   mulligan, "next-phase": nextPhase, ride, stride, call, move, attack, guard, "end-guard": endGuard,
   "call-g-guardian": callGGuardian, "trigger-target": triggerTarget,
   activate, "order-queue": orderQueue, "decline-queue": declineQueue, "pass-queue": passQueue, "select-target": selectTarget, choose,
-  manual: () => { throw new RuleError("err.manualUnsupported"); },
 };
 
 const RESUME: ResumeHandlers = { close: closeBattle, "close-finish": finishClose, "end-finish": finishEnd, "ride-finish": finishRide, "draw-finish": finishDraw };
@@ -90,7 +89,7 @@ function requirePhase(s: GameState, p: PlayerId, phase: GameState["phase"], step
   if (s.phase !== phase || (step && s.step !== step)) throw new RuleError("err.wrongPhase");
 }
 
-// ---------- ตอบคำถามของความสามารถ ----------
+// ---------- Answer an ability's question ----------
 
 function currentChoice(s: GameState, p: PlayerId): Choice {
   const r = s.resolving;
@@ -119,7 +118,7 @@ function selectTarget(_db: CardDB, s: GameState, p: PlayerId, a: Extract<Action,
   s.resolving!.choice = undefined;
 }
 
-// ใช้ความสามารถที่รออยู่ (ผู้เล่นกดใช้แล้ว จึงไม่ถามคอสต์ซ้ำ)
+// Use a pending ability (the player already chose to use it, so don't ask the cost again)
 function orderQueue(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "order-queue" }>, out: Out) {
   startResolving(db, s, queuedEntry(s, p, a.index), out, !a.ask);
 }
@@ -160,7 +159,7 @@ function activate(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { ty
   if (!s.resolving) throw new RuleError("err.cannotPay");
 }
 
-// ACT ที่ใช้ได้ตอนนี้: เมนเฟสของเจ้าของเทิร์น ไม่มีความสามารถอื่นรออยู่ และจ่ายคอสต์ได้
+// ACT usable now: the turn player's main phase, no other pending ability, and the cost can be paid
 export function usableActs(db: CardDB, s: GameState): { uid: string; index: number; label: string; cost: string[] }[] {
   const p = s.turnPlayer;
   if (s.phase !== "main" || s.awaiting?.kind !== "next-phase") return [];
@@ -172,7 +171,7 @@ export function usableActs(db: CardDB, s: GameState): { uid: string; index: numb
   }));
 }
 
-// ---------- เตรียมเกม ----------
+// ---------- Game setup ----------
 
 function mulligan(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "mulligan" }>, out: Out) {
   if (s.phase !== "setup" || s.mulliganDone.includes(p)) throw new RuleError("err.mulliganDone");
@@ -191,7 +190,7 @@ function mulligan(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { ty
   }
 }
 
-// ---------- เฟส ----------
+// ---------- Phases ----------
 
 function startTurn(db: CardDB, s: GameState, out: Out) {
   const p = s.turnPlayer;
@@ -206,7 +205,7 @@ function startTurn(db: CardDB, s: GameState, out: Out) {
   s.resume = "draw-finish";
 }
 
-// G อาซิสต์สเต็ป: แวนการ์ดยังไม่ถึงเกรด 3 และบนมือไม่มียูนิทเกรดสูงกว่าแวนการ์ด 1 เกรด เลือกใช้ได้
+// G assist step: the vanguard is below grade 3 and the hand has no unit one grade above the vanguard; optional
 function queueGAssist(db: CardDB, s: GameState, p: PlayerId) {
   const ps = s.players[p];
   const vc = ps.circles.vc;
@@ -220,13 +219,13 @@ function finishDraw(_db: CardDB, s: GameState) {
   s.step = "ride";
 }
 
-// สไตรด์สเต็ปมีเมื่อแวนการ์ดทั้งสองฝ่ายเป็นเกรด 3 ขึ้นไป ไม่งั้นเข้าเมนเฟสเลย
+// The stride step happens when both vanguards are grade 3 or higher, otherwise go straight to the main phase
 function enterStrideStep(db: CardDB, s: GameState) {
   if (bothVanguardsGrade3(db, s)) s.step = "stride";
   else { s.phase = "main"; s.step = undefined; }
 }
 
-// ไรด์แล้ว (และความสามารถที่ทำงานจากการไรด์จบแล้ว) ไปสเต็ปถัดไปเอง
+// After riding (and once abilities triggered by the ride are done), go to the next step automatically
 function finishRide(db: CardDB, s: GameState) {
   if (s.phase === "ride" && s.step === "ride") enterStrideStep(db, s);
 }
@@ -235,7 +234,7 @@ function nextPhase(db: CardDB, s: GameState, p: PlayerId, _a: Action, out: Out) 
   if (s.turnPlayer !== p || s.battle) throw new RuleError("err.cannotSkipPhase");
   if (s.phase === "ride" && s.step === "ride") enterStrideStep(db, s);
   else if (s.phase === "ride") { s.phase = "main"; s.step = undefined; }
-  else if (s.phase === "main" && s.turn === 1) endTurn(db, s, out);   // ผู้เล่นที่เล่นก่อนโจมตีในเทิร์นแรกไม่ได้ จึงข้ามแบทเทิลเฟส
+  else if (s.phase === "main" && s.turn === 1) endTurn(db, s, out);   // the first player can't attack on the first turn, so skip the battle phase
   else if (s.phase === "main") {
     s.phase = "battle";
     s.step = "attack";
@@ -245,7 +244,7 @@ function nextPhase(db: CardDB, s: GameState, p: PlayerId, _a: Action, out: Out) 
   else throw new RuleError("err.cannotSkipPhase");
 }
 
-// เอนด์เฟส: 1) G ยูนิทกลับ G โซน 2) รีไทร์ยูนิทฮอลโล่ว์ (AUTO จบเทิร์น) 3) ผลหมดอายุ แล้วเปลี่ยนเทิร์น
+// End phase: 1) G units return to the G zone 2) retire hollowed units (end-of-turn AUTO) 3) effects expire, then the turn changes
 function endTurn(db: CardDB, s: GameState, out: Out) {
   const p = s.turnPlayer;
   const ps = s.players[p];
@@ -277,7 +276,7 @@ function retireEndOfTurn(db: CardDB, s: GameState, out: Out): boolean {
 }
 
 function finishEnd(db: CardDB, s: GameState, out: Out) {
-  // ยูนิทที่ถูกคอลกลับมาระหว่างเอนด์เฟสแล้วติดฮอลโล่ว์อีก จะถูกรีไทร์อีกรอบ
+  // A unit called back during the end phase and hollowed again is retired again
   if (retireEndOfTurn(db, s, out)) { s.resume = "end-finish"; return; }
   for (const q of PLAYERS) {
     for (const inst of fieldUnits(s.players[q])) {
@@ -291,7 +290,7 @@ function finishEnd(db: CardDB, s: GameState, out: Out) {
   startTurn(db, s, out);
 }
 
-// ---------- ไรด์เฟส ----------
+// ---------- Ride phase ----------
 
 function ride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "ride" }>, out: Out) {
   requirePhase(s, p, "ride", "ride");
@@ -332,7 +331,7 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   for (const c of discards) ps.drop.push(reset(takeFrom(ps.hand, c.uid, "hand")));
   takeFrom(ps.gZone, g.uid, "G zone");
   const heart = ps.circles.vc!;
-  // AUTO (VC) "เมื่อ G ยูนิทคุณสไตรด์" ของแวนการ์ดเดิม (ที่กำลังจะเป็นฮาร์ท) ต้องถูกตรวจตอนที่ยังอยู่บน VC
+  // The old vanguard's (about to become the heart) AUTO (VC) "when your G unit strides" must be checked while it's still on VC
   emit(db, s, { kind: "stride", player: p, uid: g.uid });
   g.faceUp = true;
   g.rested = heart.rested;
@@ -343,7 +342,7 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   emit(db, s, { kind: "enter", player: p, uid: g.uid, zone: "VC", from: "G" });
 }
 
-// ---------- เมนเฟส ----------
+// ---------- Main phase ----------
 
 function call(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "call" }>, out: Out) {
   requirePhase(s, p, "main");
@@ -368,7 +367,7 @@ function move(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: 
   ev(out, "move", p, msg("log.move", { player: playerMsg(p), card: name(db, unit), circle: circleMsg(a.to) }), unit.uid);
 }
 
-// ---------- แบทเทิลเฟส ----------
+// ---------- Battle phase ----------
 
 function attack(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "attack" }>, out: Out) {
   requirePhase(s, p, "battle", "attack");
@@ -420,7 +419,7 @@ function guard(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type:
   }
 }
 
-// เหตุที่ผู้เล่นคอล G การ์เดี้ยนไม่ได้ตอนนี้ (undefined = ได้)
+// Why the player can't call a G guardian right now (undefined = can)
 export function gGuardianBlocked(db: CardDB, s: GameState, p: PlayerId): Msg | undefined {
   const ps = s.players[p];
   if (!bothVanguardsGrade3(db, s)) return msg("err.gGuardGrade3");
@@ -456,7 +455,7 @@ function endGuard(db: CardDB, s: GameState, p: PlayerId, _a: Action, out: Out) {
   continueBattle(db, s, out);
 }
 
-// เปิดการ์ดใบบนสุดเพื่อเช็ค คืน false ถ้ากองการ์ดหมด (แพ้)
+// Reveal the top card for a check; returns false if the deck is empty (loss)
 function revealCheck(db: CardDB, s: GameState, p: PlayerId, during: "drive" | "damage", out: Out): boolean {
   const top = s.players[p].deck.shift();
   if (!top) {
@@ -525,7 +524,7 @@ function continueBattle(db: CardDB, s: GameState, out: Out) {
   }
 }
 
-// โคลสสเต็ป: ล้าง GC แล้ว AUTO "เมื่อจบการต่อสู้" ทำงาน จากนั้นผล "จนจบการต่อสู้" หมดอายุ
+// Close step: clear GC, then "at the end of the battle" AUTO abilities trigger, then "until end of battle" effects expire
 function closeBattle(db: CardDB, s: GameState, _out: Out) {
   const b = s.battle!;
   s.step = "close";
@@ -589,7 +588,7 @@ function triggerTarget(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action,
   if (!s.winner) continueBattle(db, s, out);
 }
 
-// ---------- ใครต้องตัดสินใจ ----------
+// ---------- Who must decide ----------
 
 const CHOICE_ACTION = { yesno: "choose", option: "choose", cards: "select-target", circle: "select-target" } as const;
 

@@ -5,7 +5,7 @@ import { findCard } from "../../lib/board";
 import { byGradeThenName } from "../../lib/deckEdit";
 import { Modal, ModalCard } from "../Modal";
 
-// หน้าต่างเลือกการ์ดเมื่อความสามารถถาม
+// Card choice dialog when an ability asks
 export function ChoiceModal({ board }: { board: BoardModel }) {
   const { s, choice, choicePicks, toggleChoicePick, act, fieldChoice, choiceMin, setChoiceMin } = board;
   const t = useT();
@@ -28,9 +28,9 @@ export function ChoiceModal({ board }: { board: BoardModel }) {
   );
 }
 
-// หน้าต่างดูการ์ดในโซน (G โซนคลิกเพื่อสไตรด์/คอล G การ์เดี้ยนได้) เรียงจากใบบนสุด
-// กองการ์ดดูได้ตอนดูย้อนหลัง และกองของทั้งสองฝั่งก่อนกด Start (เรียงตามเกรดแบบหน้าเด็ค ไม่บอกลำดับที่จะจั่ว)
-// G โซนเรียงตามลำดับในเด็ค ลากการ์ดไปวางบนใบอื่นเพื่อเปลี่ยนลำดับ (onMoveG บันทึกลงเด็ค)
+// Dialog for viewing cards in a zone (click a G zone card to stride/call a G guardian), ordered from the top card
+// The deck can be viewed while watching a replay, and both decks before Start (sorted by grade like the deck screen, not revealing the draw order)
+// The G zone follows the deck order; drag a card onto another to reorder (onMoveG saves it to the deck)
 export function PileModal({ board, started, decks, onMoveG }: { board: BoardModel; started: boolean; decks: Record<PlayerId, Deck>; onMoveG?: (p: PlayerId, from: string, to: string) => void }) {
   const { s, pile, setPile, clickPileCard } = board;
   const t = useT();

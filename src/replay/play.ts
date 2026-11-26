@@ -1,4 +1,4 @@
-// แปลง replay เป็นลำดับสนามให้หน้าดูย้อนหลังเลื่อนไปมาได้
+// Turns a replay into a sequence of boards for the replay viewer to step through
 import { apply, createGame } from "../engine/game";
 import { RuleError, type CardDB } from "../engine/rules";
 import type { GameState } from "../engine/types";
@@ -8,8 +8,8 @@ import type { Replay, ReplaySource, StatesFile } from "./types";
 export interface Timeline {
   states: GameState[];
   log: LogEntry[];
-  logAt: number[];           // จำนวนบรรทัดประวัติ ณ แต่ละก้าว
-  brokenAt?: number;         // action ลำดับนี้ใช้กับกฎปัจจุบันไม่ได้ (กฎในโปรแกรมเปลี่ยนหลังบันทึก) เล่นซ้ำได้ถึงก้าวก่อนหน้า
+  logAt: number[];           // number of history lines at each step
+  brokenAt?: number;         // this action can't be applied under the current rules (rules changed after saving); replays up to the step before
 }
 
 export function replayTimeline(db: CardDB, r: Replay): Timeline {
@@ -31,7 +31,7 @@ export function replayTimeline(db: CardDB, r: Replay): Timeline {
   return t;
 }
 
-// ไฟล์แบบ states ไม่รู้ว่าประวัติบรรทัดไหนเกิดก้าวไหน จึงแสดงประวัติถึงเทิร์นของสนามนั้น
+// A states file doesn't know which history line happened at which step, so it shows the history up to that board's turn
 export function statesTimeline(f: StatesFile): Timeline {
   return { states: f.states, log: f.log, logAt: f.states.map((s) => f.log.filter((e) => e.turn <= s.turn).length) };
 }
@@ -44,7 +44,7 @@ export function parseReplayFile(text: string): ReplaySource | undefined {
     if (v?.kind === "states" && Array.isArray(v.states) && v.states.length && v.decks) return v as StatesFile;
     if (v?.version === 1 && Array.isArray(v.actions) && v.decks && typeof v.seed === "number") return v as Replay;
   } catch {
-    // ไม่ใช่ JSON
+    // not JSON
   }
   return undefined;
 }
