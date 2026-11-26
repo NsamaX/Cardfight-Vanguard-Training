@@ -26,7 +26,7 @@ Without Supabase settings the app still runs as an offline guest with the bundle
 
 1. Create a Supabase project and run the SQL files in `supabase/migrations/` in order, in the SQL Editor.
 2. Enable the Google provider under Authentication > Sign In / Providers (needs an OAuth client from Google Cloud Console with the redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`). Add your site URLs under Authentication > URL Configuration.
-3. Create `.env` (git-ignored):
+3. Copy `.env.example` to `.env` (git-ignored) and fill it in:
    ```
    NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
