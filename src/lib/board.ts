@@ -1,5 +1,5 @@
 // Board-screen rules (pure functions, no React): which circles are clickable, battle numbers, and finding the card being viewed
-import { BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost as cardBoosts, canIntercept as cardIntercepts, circleMsg, other, powerOf, shieldOf, type CardDB } from "../engine/rules";
+import { BEHIND, FRONT, RC, SAME_COLUMN, canBoost as cardBoosts, canIntercept as cardIntercepts, circleMsg, isG, other, powerOf, shieldOf, vcGrade, type CardDB } from "../engine/rules";
 import { locate, playerMsg, pull } from "../engine/state";
 import type { CardInstance, Choice, Circle, GameEvent, GameState, PlayerId } from "../engine/types";
 import { msg, type Msg, type MsgKey } from "../i18n/msg";
@@ -50,6 +50,19 @@ export function revealing(state: GameState, uids: string[]): { s: GameState; car
   return { s, cards };
 }
 
+// The steps shown for an action that revealed cards: drive checks go one card at a time (revealed on the battle bar, then into the hand before the next one)
+// Other revealed cards (search, reveal from hand) are shown together in the middle of the board on every step
+export function revealSteps(state: GameState, shown: { player: PlayerId; uids: string[]; drive: string[] }): { s: GameState; cards: CardInstance[]; drive: CardInstance[] }[] {
+  const rest = shown.uids.filter((u) => !shown.drive.includes(u));
+  const drives = shown.drive.length ? shown.drive : [undefined];
+  return drives.map((_, k) => {
+    const mid = revealing(state, [...rest, ...shown.drive.slice(0, k + 1)]);
+    const done = shown.drive.slice(0, k);
+    mid.s.players[shown.player].hand.push(...mid.cards.filter((c) => done.includes(c.uid)));
+    return { s: mid.s, cards: mid.cards.filter((c) => rest.includes(c.uid)), drive: mid.cards.filter((c) => c.uid === shown.drive[k]) };
+  });
+}
+
 export type Zone ="deck" | "drop" | "soul" | "damage" | "gZone" | "bind";
 export type Sel =
   | { kind: "hand"; player: PlayerId; uid: string }
@@ -83,16 +96,22 @@ export const phaseIndex = (s: GameState) => PHASES.findIndex((p) => p.phase === 
 // key = "phase:step" of the current state
 const stepKey = (s: GameState) => `${s.phase}:${s.step ?? ""}`;
 const NEXT_LABEL: Record<string, MsgKey> = {
-  "ride:ride": "next.toStride", "ride:stride": "btn.none", "main:": "next.toBattle", "battle:attack": "next.endTurn",
-  "battle:guard": "next.noMoreGuard", "draw:": "next.toRide",
+  "draw:": "btn.none", "ride:ride": "btn.none", "ride:stride": "btn.none", "main:": "next.toBattle", "battle:attack": "next.endTurn",
+  "battle:guard": "next.noMoreGuard",
 };
-export function nextLabel(db: CardDB, s: GameState): MsgKey | undefined {
+export function nextLabel(s: GameState): MsgKey | undefined {
   if (s.awaiting?.kind === "guard" || (s.awaiting?.kind === "order-queue" && s.battle && s.step === "guard")) return NEXT_LABEL["battle:guard"];
   if (s.awaiting?.kind !== "next-phase" && s.awaiting?.kind !== "order-queue") return undefined;
-  if (stepKey(s) === "ride:ride" && !bothVanguardsGrade3(db, s)) return "next.toMain";   // no stride step
   if (stepKey(s) === "ride:stride" && s.strodeThisTurn) return "next.toMain";                // already strode, not a skip
   if (stepKey(s) === "main:" && s.turn === 1) return NEXT_LABEL["battle:attack"];                     // no battle on the first turn
   return NEXT_LABEL[stepKey(s)];
+}
+
+// Step name shown in the middle of the bar while the turn player can still act in that step (the Skip button sits far right)
+export function stepText(s: GameState): MsgKey | undefined {
+  if (s.phase === "draw" && s.queue.some((e) => e.key === "g-assist")) return "step.gAssist";
+  if (stepKey(s) === "ride:ride") return "step.ride";
+  if (stepKey(s) === "ride:stride" && !s.strodeThisTurn) return "step.stride";
 }
 
 // Seen from our side: the bot's board is upside down, back row on top, and left-right swapped
@@ -131,7 +150,12 @@ export function isTarget({ s, db, actor, choice, sel, mode }: TargetContext, p: 
   if (mode?.kind === "trigger") return p === actor && !!unit;
   if (s.step === "guard" && s.battle) return p === actor && p !== s.turnPlayer && canIntercept(c) && !!unit && cardIntercepts(db[unit.key]) && c !== s.battle.target;
   if (sel?.kind === "hand" && p === actor) {
-    if (s.phase === "ride" && s.step === "ride") return c === "vc";
+    if (s.phase === "ride" && s.step === "ride") {
+      // Ride: the same grade as the vanguard or one higher, once per turn
+      const card = db[s.players[p].hand.find((h) => h.uid === sel.uid)?.key ?? ""];
+      const g = vcGrade(db, s.players[p]);
+      return c === "vc" && !s.rodeThisTurn && !!card && !isG(card) && (card.grade === g || card.grade === g + 1);
+    }
     if (s.phase === "main") return RC.includes(c);
   }
   if (sel?.kind === "circle" && s.phase === "main" && p === actor) return SAME_COLUMN[sel.circle] === c;

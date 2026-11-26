@@ -18,6 +18,7 @@ interface Props {
   light?: Light;
   dim?: boolean;           // used (light gray)
   noName?: boolean;        // card on the board: show Power only
+  noGrade?: boolean;       // hide the grade in the top-left corner (played G units next to the G zone)
   powerUp?: boolean;       // Power above base (boost/effect/trigger) shown in red
   critUp?: number;         // added Critical, shown as +x in yellow
   onClick?: () => void;
@@ -26,7 +27,7 @@ interface Props {
 // Hovering a face-up card temporarily shows it in the detail panel (only on boards that pass a handler)
 export const CardHover = createContext<((uid: string | undefined) => void) | undefined>(undefined);
 
-export function CardView({ inst, power, small, selected, picked, hidden, noRotate, mark, plain, light, dim, noName, powerUp, critUp, onClick }: Props) {
+export function CardView({ inst, power, small, selected, picked, hidden, noRotate, mark, plain, light, dim, noName, noGrade, powerUp, critUp, onClick }: Props) {
   const card = db[inst.key];
   const hover = useContext(CardHover);
   const t = useT();
@@ -38,7 +39,7 @@ export function CardView({ inst, power, small, selected, picked, hidden, noRotat
   return (
     <button className={cls} data-uid={inst.uid} onClick={onClick} title={card.name} onMouseEnter={hover && (() => hover(inst.uid))} onMouseLeave={hover && (() => hover(undefined))}>
       {card.image && <img src={card.image} alt="" draggable={false} />}
-      <span className="grade">{card.grade}</span>
+      {!noGrade && <span className="grade">{card.grade}</span>}
       {mark && (card.trigger || card.type.startsWith("g-")) && <span className="mark">{card.trigger ? t(`mark.${card.trigger}`) : "G"}</span>}
       {!plain && (
         <span className="strip">

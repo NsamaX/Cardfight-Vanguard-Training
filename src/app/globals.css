@@ -196,22 +196,30 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .tray.bot { grid-area: btray; align-items: flex-end; flex-direction: column-reverse; }
 .stack.me { grid-area: mstack; align-items: flex-end; }
 .stack.bot { grid-area: bstack; align-items: flex-start; flex-direction: column-reverse; }
-.dmg-group { display: flex; flex-direction: column; align-items: inherit; gap: calc(var(--lane) - 18px); }
+/* Count labels (GB, damage, deck, drop, bind) are centered over their slot, like SB over the VC */
+.tray > .badge { align-self: center; }
+.dmg-group { display: flex; flex-direction: column; align-items: center; gap: calc(var(--lane) - 18px); }
 .tray.bot .dmg-group { flex-direction: column-reverse; }
 .tray.me .dmg-group { margin-top: auto; }
 .tray.bot .dmg-group { margin-bottom: auto; }
 /* Damage is only 6px from the screen edge so 4 rows of G zone don't hit it */
-.tray.me { padding-bottom: 6px; }
-.tray.bot { padding-top: 6px; }
+.tray.me, .stack.me { padding-bottom: 6px; }
+.tray.bot, .stack.bot { padding-top: 6px; }
+/* Bind sits at the screen edge like the damage zone, drop halfway between deck and bind */
+.stack.me .drop, .stack.me .bind { margin-top: auto; }
+.stack.bot .drop, .stack.bot .bind { margin-bottom: auto; }
 .zone-row { display: flex; align-items: center; gap: 6px; }
 .zone-row.to-left { flex-direction: row-reverse; }
-.zone-slot { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: calc(var(--card-w) + 2px); height: calc(var(--card-h) + 2px); border: 1px dashed var(--line); border-radius: 5px; cursor: pointer; }
-.zone-slot .back { position: absolute; inset: 0; border-radius: 4px; }
+/* Pile slots look like the RC circles: a dashed frame with room around the card; the cards are stacked in the center, the last one on top */
+.zone-slot { position: relative; flex: none; width: calc(var(--card-h) + 4px); height: calc(var(--card-h) + 4px); border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; }
+.zone-slot > .back, .zone-slot > .card { position: absolute; left: calc(50% - var(--card-w) / 2); top: calc(50% - var(--card-h) / 2); width: var(--card-w); height: var(--card-h); }
+.zone-slot > .back { border-radius: 4px; }
 /* Count label above the slot: 18px label + gap = --lane, same as GB above the G zone (on the bot side the label is below) */
-.pile-group { display: flex; flex-direction: column; align-items: inherit; gap: calc(var(--lane) - 18px); cursor: pointer; }
+.pile-group { display: flex; flex-direction: column; align-items: center; gap: calc(var(--lane) - 18px); cursor: pointer; }
 .stack.bot .pile-group { flex-direction: column-reverse; }
-/* Face-up G units: 4 per row, the first (newest) fully visible, the next ones covered, showing a --step strip each
-   The next row sits behind, showing a --dmg-step strip toward the screen edge (upward on the bot side) */
+/* Face-up G units in the order used: 4 per row from the slot outward, each covering the one before it (a --step strip shows);
+   each row sits in front of the one before it (a --dmg-step strip shows on the slot side), so the newest card is fully visible;
+   the stack grows from the G zone slot toward the screen edge (down to the back RC row; upward on the bot side) */
 .gZone { --step: 28px; align-items: flex-start; }
 .tray.bot .gZone { align-items: flex-end; }
 .g-rows { display: flex; flex-direction: column; }
@@ -225,7 +233,9 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .to-left .fan { flex-direction: row-reverse; }
 .to-left .fan > span + span { margin-right: calc(var(--step) - var(--card-w)); }
 /* Damage: horizontal cards stacked, each covering the previous, only the last one fully visible */
-.damage { display: flex; flex-direction: column; cursor: pointer; }
+/* The RC-like frame is drawn around the slots without taking space, so the tray keeps its height */
+.damage { position: relative; display: flex; flex-direction: column; cursor: pointer; }
+.damage::before { content: ""; position: absolute; inset: -4px -1px; border: 1px dashed var(--line); border-radius: 8px; pointer-events: none; }
 .damage.bot { flex-direction: column-reverse; }
 .dmg-slot { position: relative; width: calc(var(--card-h) + 2px); height: var(--dmg-step); border: 1px dashed var(--line); border-radius: 5px; }
 .dmg-slot:last-child { height: calc(var(--card-w) + 2px); }
@@ -244,8 +254,11 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .slot.active { border: 2px solid var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
 /* A unit in battle with a pending ability (e.g. Negrobone at battle end) shows a yellow border instead of red; an attacker that can take trigger effects stays red */
 .slot.atk.source, .slot.aimed.source, .slot.aimed.target { border-color: var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
-.zone-slot.source, .damage.source, .card.source { outline: 3px solid var(--hi); outline-offset: 2px; }
-.zone-slot.active, .damage.active, .card.active { outline: 3px solid var(--act); outline-offset: 2px; }
+.card.source { outline: 3px solid var(--hi); outline-offset: 2px; }
+.card.active { outline: 3px solid var(--act); outline-offset: 2px; }
+/* Pile frames light up like RC circles (the inset shadow makes the 1px border look 2px without moving the cards) */
+.zone-slot.source, .damage.source::before { border: 1px solid var(--hi); box-shadow: inset 0 0 0 1px var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
+.zone-slot.active, .damage.active::before { border: 1px solid var(--act); box-shadow: inset 0 0 0 1px var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
 .badge.source { border-color: var(--hi); background: var(--hi); color: var(--inv); }
 .badge.active { border-color: var(--act); background: var(--act); color: var(--inv); }
 .slot .lbl { position: absolute; top: 2px; left: 5px; font-family: "IBM Plex Mono", monospace; font-size: 9px; color: var(--mute); }
@@ -287,20 +300,21 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 /* Battle bar + next button */
 /* The far-left/far-right columns are as wide as the side columns (G zone/damage, deck), so they line up exactly */
 .mid { position: relative; z-index: 2; grid-area: mid; height: 90px; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: calc(var(--card-h) + 4px) minmax(0, 1fr) calc(var(--card-h) + 4px); align-items: center; column-gap: 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-/* Left/right buttons are one card wide, aligned to the same edge as the cards in that column (left to left, right to right) */
-.mid-history { display: flex; gap: 4px; width: calc(var(--card-w) + 2px); }
+/* Left/right buttons are one card wide, centered in their column like the cards in the pile slots */
+.mid-history { display: flex; gap: 4px; width: calc(var(--card-w) + 2px); justify-self: center; }
 .mid-history .icon-btn { flex: 1; width: auto; }
-.mid-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; }
+.mid-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
 .mid-actions .btn { width: calc(var(--card-w) + 2px); min-width: 0; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Bar center: two equal halves, the bot's number hugs the center line from the top-left, ours from the bottom-right, text/buttons in between
-   The numbers don't move with text length; each side's cards sit outside */
+/* Bar center: attack and guard numbers side by side on the top row, hugging the center line; the question/skill text below spans the bar,
+   wrapping into two balanced centered lines when it doesn't fit; each side's cards sit outside */
 .mid-main { min-width: 0; height: 100%; display: flex; justify-content: center; gap: 14px; }
 .mid-center { flex: 0 1 auto; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; row-gap: 2px; align-content: center; justify-items: center; }
 .mid-center > .prompt, .mid-center > .steps { grid-column: 1 / -1; }
+.mid-center > .num { grid-row: 1; }
 .mid-center .steps { display: flex; gap: 6px; margin-top: 4px; }
 .mid-center .steps:empty { display: none; }
-.mid-center .prompt { min-width: 0; max-width: min(520px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border-radius: 6px; background: var(--panel); }
-.mid-center .prompt.long { white-space: normal; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mid-center .prompt { min-width: 0; max-width: 100%; overflow: hidden; padding: 4px 10px; border-radius: 6px; background: var(--panel); text-align: center; text-wrap: balance; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .num { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .num.atk { grid-column: 1; justify-self: end; color: #e5484d; }   /* same colors as the borders on the board: attack = red, guard = blue */
 .num.def { grid-column: 2; justify-self: start; color: #3b9eff; }
@@ -323,18 +337,19 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .hand.bot .hand-row { align-items: flex-start; }
 .hand-slot { flex: 0 1 calc(var(--card-w) + 6px); min-width: 0; }
 .hand-slot:last-child { flex: none; width: var(--card-w); }
-/* Cards 11+: back rows hide under the first row showing 30% of the card height; hovering a back row slides the rows in front aside to show it fully */
-.hand-more { position: absolute; left: 0; right: 0; bottom: calc(var(--card-h) * .3); display: flex; flex-direction: column-reverse; }
-.hand-more .hand-row + .hand-row { margin-bottom: calc(var(--card-h) * -.7); }
-.hand.bot .hand-more { bottom: auto; top: calc(var(--card-h) * .3); flex-direction: column; }
-.hand.bot .hand-more .hand-row + .hand-row { margin-bottom: 0; margin-top: calc(var(--card-h) * -.7); }
+/* Cards 11+: back rows hide under the first row showing --peek of the card height (filling the gap up to the board); hovering a back row slides the rows in front aside to show it fully */
+.hand { --peek: .6; }
+.hand-more { position: absolute; left: 0; right: 0; bottom: calc(var(--card-h) * var(--peek)); display: flex; flex-direction: column-reverse; }
+.hand-more .hand-row + .hand-row { margin-bottom: calc(var(--card-h) * (var(--peek) - 1)); }
+.hand.bot .hand-more { bottom: auto; top: calc(var(--card-h) * var(--peek)); flex-direction: column; }
+.hand.bot .hand-more .hand-row + .hand-row { margin-bottom: 0; margin-top: calc(var(--card-h) * (var(--peek) - 1)); }
 .hand-row { transition: transform .2s; }
 .hand > .hand-row .card:hover { transform: translateY(-6px); }
 .hand.bot > .hand-row .card:hover { transform: translateY(6px); }
 .hand:has(.hand-more .card:hover) > .hand-row,
-.hand-more .hand-row:has(~ .hand-row .card:hover) { transform: translateY(calc(var(--card-h) * .7)); }
+.hand-more .hand-row:has(~ .hand-row .card:hover) { transform: translateY(calc(var(--card-h) * (1 - var(--peek)))); }
 .hand.bot:has(.hand-more .card:hover) > .hand-row,
-.hand.bot .hand-more .hand-row:has(~ .hand-row .card:hover) { transform: translateY(calc(var(--card-h) * -.7)); }
+.hand.bot .hand-more .hand-row:has(~ .hand-row .card:hover) { transform: translateY(calc(var(--card-h) * (var(--peek) - 1))); }
 
 /* Right panel */
 /* Right panel split in half: bot on top, us at the bottom */

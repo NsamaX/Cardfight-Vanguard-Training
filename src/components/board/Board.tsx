@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { VanguardBot } from "../../bot";
 import { cardByKey as db } from "../../data/cards";
 import { DEFAULT_SLEEVES } from "../../data/sleeves";
@@ -7,9 +7,8 @@ import type { Deck, GameState, PlayerId } from "../../engine/types";
 import { useBoard } from "../../hooks/useBoard";
 import { MOVE_MS, useCardFlight } from "../../hooks/useCardFlight";
 import { offlineLibrary, type LibraryHandle } from "../../hooks/useLibrary";
-import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
-import { nextLabel, undealt, type LogEntry, type Zone } from "../../lib/board";
+import { nextLabel, stepText, undealt, type LogEntry, type Zone } from "../../lib/board";
 import { moveG } from "../../lib/deckEdit";
 import { publicUrl } from "../../lib/library";
 import type { GameSettings } from "../../lib/settings";
@@ -36,9 +35,6 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
     </svg>
   );
 }
-
-// Step buttons that sit far right with the ability/guard answer buttons instead of in the middle
-const AT_RIGHT: (MsgKey | undefined)[] = ["next.noMoreGuard", "next.endTurn", undefined];   // undefined = the plain Next button
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -67,12 +63,13 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const t = useT();
   const [showSettings, setShowSettings] = useState(false);
   const [showReplays, setShowReplays] = useState(false);
-  const [record] = useState(() => ({ id: newId(), createdAt: new Date().toISOString() }));
+  // The decks as the game was dealt: reordering the G zone mid-game edits the deck, but the replay must rebuild the same starting board (same card uids)
+  const [record] = useState(() => ({ id: newId(), createdAt: new Date().toISOString(), decks }));
 
   // This game's replay as of now (saved only via the button in Replays; undone actions aren't in the replay)
   const replay = (): Replay => ({
     version: 1, ...record, title: `${decks.me.name} vs ${decks.bot.name}`,
-    seed: initial.seed, firstPlayer: initial.firstPlayer, decks, start: base?.start, bot: settings.bot,
+    seed: initial.seed, firstPlayer: initial.firstPlayer, start: base?.start, bot: settings.bot,
     actions: [...(base?.actions ?? []), ...board.actions], winner: board.s.winner, turn: board.s.turn,
   });
   const [editing, setEditing] = useState<Record<PlayerId, boolean>>({ bot: false, me: false });
@@ -103,9 +100,10 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     board.setState(undealt(initial, true));
     setTimeout(() => board.setState(initial), MOVE_MS);
   }, [started]);
-  const next = nextLabel(db, s);
+  const next = nextLabel(s);
   const question = board.question();
-  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;   // Pass, end turn and Next sit far right with the guard buttons
+  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;
+  const step = showNext ? stepText(s) : undefined;
   const sleeveVars = Object.fromEntries((["me", "bot"] as const).flatMap((p) => [
     [`--sleeve-${p}`, publicUrl(decks[p].sleeve ?? DEFAULT_SLEEVES[p].sleeve)], [`--g-sleeve-${p}`, publicUrl(decks[p].g_sleeve ?? DEFAULT_SLEEVES[p].g_sleeve)],
   ]).filter(([, u]) => u).map(([k, u]) => [k, `url(${u})`])) as CSSProperties;
@@ -163,7 +161,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} decks={library.decks} editable={signedIn} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
           otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}
         <div className="mid">
-          {/* Far left: undo/redo | middle: attacker (power + drive check) | question text + game step buttons | defender (power + guard cards) | far right: ability and guard answer buttons */}
+          {/* Far left: undo/redo | middle: attacker (power + drive check) | question or step text, plus Start/mulligan/swap | defender (power + guard cards) | far right: answer and phase buttons */}
           <div className="mid-history">
             {started && !deckOpen && !view && <>
               <button className="btn icon-btn" disabled={!board.undo} onClick={board.undo} title={t("btn.undo")} aria-label={t("btn.undo")}><ArrowIcon /></button>
@@ -175,18 +173,12 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             <div className="mid-center">
               {!deckOpen && <BattleNum p={s.turnPlayer} s={s} preview={board.guardPreview} />}
               {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
+              {step && <PromptText text={t(step)} />}
               <div className="steps">
                 {deckOpen && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
                 {!started && !deckOpen && <button className="btn primary" onClick={onStart}>{t("btn.start")}</button>}
                 {started && !deckOpen && board.mulligan && (
                   <button className="btn primary" onClick={board.mulligan.confirm}>{t(board.mulligan.picks ? "btn.change" : "btn.ready")}</button>
-                )}
-                {started && !deckOpen && !board.mulligan && question?.step && question.buttons.map((q) => {
-                  const label = typeof q.label === "string" ? q.label : t(q.label);
-                  return <button key={label} className="btn primary" onClick={q.onClick}>{label}</button>;
-                })}
-                {showNext && !AT_RIGHT.includes(next) && (board.canNext || !s.battle) && (   /* during a battle, buttons that can't be pressed aren't shown */
-                  <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
                 )}
               </div>
               {!deckOpen && <BattleNum p={defender} s={s} preview={board.guardPreview} />}
@@ -195,11 +187,11 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
           </div>
           <div className="mid-actions">
             {view?.action}
-            {started && !deckOpen && !board.mulligan && question && !question.step && question.buttons.map((q) => {
+            {started && !deckOpen && !board.mulligan && question && question.buttons.map((q) => {
               const label = typeof q.label === "string" ? q.label : t(q.label);
               return <button key={label} className="btn primary" onClick={q.onClick} title={label}>{label}</button>;
             })}
-            {showNext && AT_RIGHT.includes(next) && (next || board.canNext || !s.battle) && (
+            {showNext && (next || board.canNext || !s.battle) && (   /* during a battle, a plain Next that can't be pressed isn't shown */
               <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
             )}
           </div>
@@ -235,22 +227,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   );
 }
 
-// Question text in the middle of the bar: if it's longer than one line, wrap to a second line in a smaller size
-// Remeasure whenever the text or the middle space changes (e.g. a battle starts and numbers appear on both sides)
+// Question text in the middle of the bar: wraps into two balanced centered lines when it doesn't fit (CSS)
 function PromptText({ text }: { text: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const fit = () => {
-      el.classList.remove("long");
-      el.classList.toggle("long", el.scrollWidth > el.clientWidth);
-    };
-    fit();
-    if (typeof ResizeObserver === "undefined" || !el.parentElement) return;
-    const ro = new ResizeObserver(fit);
-    ro.observe(el.parentElement);
-    return () => ro.disconnect();
-  }, [text]);
-  return <span ref={ref} className="prompt" title={text}>{text}</span>;
+  return <span className="prompt" title={text}>{text}</span>;
 }

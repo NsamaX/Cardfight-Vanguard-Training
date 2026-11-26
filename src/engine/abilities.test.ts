@@ -267,7 +267,53 @@ describe("other abilities", () => {
   });
 });
 
+describe("1/turn abilities triggered by several cards at once", () => {
+  it("Night Fog Nightrose: two hollowed rear-guards retired at end of turn, either one can be called back, and the other trigger is dropped", () => {
+    newGame();
+    const me = s.players.me;
+    me.circles = { vc: inst(K.mist), front_left: inst(K.serp), front_right: inst(K.gun) };
+    me.damage = [inst(K.star), inst(K.star)];
+    me.gZone = [inst(K.gunit), inst(K.gunit)];
+    s.players.bot.circles.vc = inst(K.mist);
+    me.circles.front_left!.hollowed = true;
+    me.circles.front_right!.hollowed = true;
+    const serp = me.circles.front_left!.uid, gun = me.circles.front_right!.uid;
+    Object.assign(s, { turn: 3, turnPlayer: "me", phase: "battle", step: "attack" });
+    refreshAwaiting(s);
+    act("me", { type: "next-phase" });
+    use("me", "Night Fog");
+    expect((s.awaiting?.choice as { options: string[] }).options).toEqual(expect.arrayContaining([serp, gun]));
+    pick("me", gun);
+    to("me", "front_right");
+    expect(s.players.me.circles.front_right!.uid).toBe(gun);
+    expect(s.queue.some((e) => e.label.includes("Night Fog"))).toBe(false);
+  });
+});
+
 describe("order of simultaneous abilities", () => {
+  it("striding Obadiah over Starlight Nightrose: after King Serpent (called by Nightrose) resolves, Obadiah still waits for a click", () => {
+    newGame();
+    const me = s.players.me;
+    me.circles = { vc: inst(K.star) };
+    me.hand = [inst(K.star)];
+    me.damage = [inst(K.star), inst(K.star, false)];
+    me.drop = [inst(K.serp)];
+    me.gZone = [inst(Object.keys(db).find((k) => db[k].name === "Ghostie Great King, Obadiah")!, false)];
+    s.players.bot.circles.vc = inst(K.star);
+    Object.assign(s, { turn: 3, turnPlayer: "me", phase: "ride", step: "stride" });
+    refreshAwaiting(s);
+    act("me", { type: "stride", gUid: me.gZone[0].uid, discardUids: [me.hand[0].uid] });
+    use("me", "Starlight");                                       // CB1, mill up to 3, call from the drop
+    pick("me", s.players.me.drop.find((c) => c.key === K.serp)!.uid);
+    to("me", "front_left");
+    const soul = s.players.me.soul.length;
+    use("me", "King Serpent");
+    pick("me", s.players.me.damage.find((c) => !c.faceUp)!.uid);  // CC1: choose which face-down damage card to turn up
+    expect(s.players.me.soul).toHaveLength(soul + 1);             // SC1 + CC1 done
+    expect(s.awaiting?.kind).toBe("order-queue");
+    expect(s.queue.map((e) => e.label).join()).toContain("Obadiah");
+  });
+
   it("Negrolazy calls Mick the Ghostie and Family from the drop: hollow first, then the power effect resolves", () => {
     newGame();
     const me = s.players.me;
@@ -285,7 +331,9 @@ describe("order of simultaneous abilities", () => {
     pick("me", s.players.me.drop.find((c) => c.key === "PR/0564TH")!.uid);
     to("me", "back_right");
     use("me", "Mick", "0");                                        // hollow first
-    expect(s.awaiting?.choice?.kind).toBe("cards");               // Mick's power effect continues
+    expect(s.awaiting?.kind).toBe("order-queue");                 // the forced power effect left over waits for a click, not started by itself
+    use("me", "Mick");
+    expect(s.awaiting?.choice?.kind).toBe("cards");
     pick("me", s.players.me.circles.front_left!.uid);
     expect(powerOf(db, s.players.me, "front_left")).toBe(db[K.gun].power! + 10000);
   });

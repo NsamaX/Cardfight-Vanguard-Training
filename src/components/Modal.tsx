@@ -4,11 +4,11 @@ import { useT } from "../i18n/react";
 import type { Light } from "../lib/board";
 import { CardView } from "./CardView";
 
-// onMinimize: minimize the dialog to look at the board (you still have to come back and finish choosing)
+// onMinimize: minimize the dialog to look at the board (you still have to come back and finish choosing); clicking outside does this too when there's no onClose
 export function Modal({ title, onClose, onMinimize, footer, children }: { title: ReactNode; onClose?: () => void; onMinimize?: () => void; footer?: ReactNode; children: ReactNode }) {
   const t = useT();
   return (
-    <div className="veil" onClick={onClose}>
+    <div className="veil" onClick={onClose ?? onMinimize}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="mh"><span>{title}</span>{onMinimize && <button className="btn" title={t("btn.minimize")} onClick={onMinimize}>–</button>}{onClose && <button className="btn" onClick={onClose}>×</button>}</div>
         <div className="mb">{children}</div>

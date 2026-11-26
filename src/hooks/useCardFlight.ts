@@ -12,7 +12,8 @@ const spotOf = (r: DOMRect): Spot => ({ x: r.left + r.width / 2, y: r.top + r.he
 const flights = new WeakMap<HTMLElement, HTMLElement>();
 
 // A card that moved on the board: hide the real one, and let its ghost fly from the old position to the new one
-// The ghost lives in body, so it isn't clipped by the source/target zone and floats above other cards
+// The ghost is position: fixed inside the board (main), so it isn't clipped by the source/target zone and floats above other cards,
+// but stays under dialogs (.veil), which sit in the same isolated layer
 // look: the ghost's appearance (unset = the card's look at its new place) delay: wait before flying; meanwhile the ghost stays at the old place
 function fly(el: HTMLElement, from: Spot, to: Spot, look: HTMLElement = el, delay = 0) {
   const w = el.offsetWidth, h = el.offsetHeight;
@@ -23,7 +24,7 @@ function fly(el: HTMLElement, from: Spot, to: Spot, look: HTMLElement = el, dela
   const css = getComputedStyle(el);
   for (const v of ["--sleeve", "--g-sleeve"]) ghost.style.setProperty(v, css.getPropertyValue(v));
   Object.assign(ghost.style, { left: `${to.x - w / 2}px`, top: `${to.y - h / 2}px`, width: `${w}px`, height: `${h}px` });
-  document.body.appendChild(ghost);
+  (el.closest("main") ?? document.body).appendChild(ghost);
   flights.get(el)?.remove();
   flights.set(el, ghost);
   el.style.visibility = "hidden";

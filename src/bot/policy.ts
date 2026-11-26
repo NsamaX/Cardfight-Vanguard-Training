@@ -610,9 +610,13 @@ function priority(db: CardDB, s: GameState, entry: QueueEntry): number {
 function recallValue(db: CardDB, s: GameState, entry: QueueEntry): number {
   const e = entry.event;
   const inst = e && "uid" in e ? locate(s, e.uid)?.inst : undefined;
-  if (!inst) return 0;
+  return inst ? recallCardValue(db, s, entry.owner, inst) : 0;
+}
+
+// Same value when choosing which of several "that card"s to call back (a 1/turn ability triggered by several cards at once)
+function recallCardValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInstance): number {
   const card = db[inst.key];
-  const ps = s.players[entry.owner];
+  const ps = s.players[p];
   const refund = card.abilities.some((ab) => /by=hollow/.test(ab.timing ?? "") && ab.effect.some((x) => x.startsWith("CC(")));
   const cbLeft = ps.damage.filter((d) => d.faceUp).length;
   return (refund && generationBreak(db, ps) >= 1 ? (cbLeft < 2 ? 3 : 1.5) : 0) + unitValue(db, { ...inst, hollowed: false });
@@ -781,7 +785,8 @@ function selectTarget(db: CardDB, s: GameState, p: PlayerId): Action {
         uids = [...byGrade.values()].sort((a, b) => shieldOf(db, b) - shieldOf(db, a)).slice(0, c.max).map((i) => i.uid);
       } else {
         const fromDrop = (op?.pos[0] ?? "").includes("drop");
-        const best = top((i) => fieldValue(db, i, fromDrop && ps.drop.some((d) => d.uid === i.uid)), 1);
+        const recall = (s.resolving?.ops[s.resolving.i] ?? "").includes("that-card");
+        const best = top((i) => recall ? recallCardValue(db, s, p, i) : fieldValue(db, i, fromDrop && ps.drop.some((d) => d.uid === i.uid)), 1);
         const anyRoom = RC.some((rc) => !ps.circles[rc] || ps.circles[rc]!.hollowed);
         uids = c.min > 0 || anyRoom ? best : [];
       }

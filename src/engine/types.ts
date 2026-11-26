@@ -122,6 +122,7 @@ export interface Resolving extends QueueEntry {
   usedCircles: Circle[];
   hollowMilled: number;
   confirmed?: boolean;  // the player already chose to use it (don't ask again)
+  thatCards?: string[]; // a 1/turn ability triggered by several cards at once: any of them can be "that card", since only one trigger can resolve this turn
 }
 
 export interface GameState {
@@ -144,6 +145,7 @@ export interface GameState {
   resume?: string;                  // game step to continue once the queue is empty
   awaiting?: Decision;              // if set = the game is waiting for this player to decide
   passQueue?: PlayerId;             // the player pressed next with pending abilities: decline the optional ones and resolve the forced ones in order automatically
+  ordering?: PlayerId;              // the player was asked to pick the order of their pending abilities: the last forced one waits for a click too, so the effect of the one just used is seen first
   winner?: PlayerId;
 }
 

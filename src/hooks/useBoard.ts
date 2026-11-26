@@ -10,7 +10,7 @@ import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, s
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
-import { canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealedBy, revealing, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
+import { canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealSteps, revealedBy, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
 
 const BOT_DELAY_MS = 450;   // pause between bot actions so you can follow along
 const REVEAL_MS = 800;      // how long revealed cards stay on show before going on
@@ -60,6 +60,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const active = focusedAct ? [focus!] : choice && s.resolving ? [s.resolving.uid] : [];
   const sources = [...queued, ...acts].map((e) => e.uid).filter((u) => !active.includes(u));
   const waitingPiles = sourcePiles(s, sources), activePiles = sourcePiles(s, active);
+  // Piles a card choice picks from (deck, drop...): yellow for both players, so the opponent sees where a card is being chosen even without the dialog
+  const choicePiles = sourcePiles(s, choice?.kind === "cards" ? choice.options : []);
 
   // Replay viewer: stepping shows that step's board (no new board is created, so cards move continuously)
   useEffect(() => {
@@ -134,11 +136,15 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
         setStaged(true);
         setTimeout(() => { setS(st); setStaged(false); }, MOVE_MS + (action.returnUids.length - 1) * DEAL_GAP_MS);   // redraw once the last card reaches the deck
       } else if (shown) {
-        const mid = revealing(s, shown.uids);
-        setS(mid.s);
-        setReveal({ player: shown.player, cards: mid.cards.filter((c) => !shown.drive.includes(c.uid)), drive: mid.cards.filter((c) => shown.drive.includes(c.uid)) });
+        const steps = revealSteps(s, shown);
         setStaged(true);
-        setTimeout(() => { setS(st); setReveal(undefined); setStaged(false); }, MOVE_MS + REVEAL_MS);
+        const play = (i: number) => {
+          if (i === steps.length) { setS(st); setReveal(undefined); setStaged(false); return; }
+          setS(steps[i].s);
+          setReveal({ player: shown.player, cards: steps[i].cards, drive: steps[i].drive });
+          setTimeout(() => play(i + 1), MOVE_MS + REVEAL_MS);
+        };
+        play(0);
       } else setS(st);
       clearUi();
     } catch (e) {
@@ -339,8 +345,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   // First question of an ability just opened by clicking: the decline/skip button becomes Cancel
-  // step: a stride question, buttons in the middle of the bar instead of the phase button; not a step = ability/guard, buttons far right
-  function question(): { prompt?: Msg; step?: boolean; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
+  function question(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
     const q = baseQuestion();
     if (!opened || !s.resolving || !choice) return q;
     const cancel = { label: msg("btn.cancel"), onClick: cancelOpened };
@@ -349,7 +354,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   // Question in the middle bar: an ability chosen by clicking (yes/no), or a question while an ability resolves (yes/no, choose effect, choose circle)
-  function baseQuestion(): { prompt?: Msg; step?: boolean; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
+  function baseQuestion(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
     const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label: abilityTag(label), cost: cost.join(", ") }) : msg("q.use", { label: abilityTag(label) });
     const yes = msg("btn.yes"), no = msg("btn.no");
     if (botTurn || readOnly) return undefined;
@@ -359,14 +364,14 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
         { label: no, onClick: () => setFocus(undefined) },
       ] };
     }
-    // Stride step: the middle has a Skip button (to the main phase); stride = click the G zone, pick a G unit, then pick hand cards to discard (total grade 3+)
+    // Stride step: stride = click the G zone, pick a G unit, then pick hand cards to discard (total grade 3+)
     if (striding && mode?.kind === "stride") {
       const gs = mode.picks.reduce((n, u) => n + strideCostGrade(db[findCard(s, u)!.inst.key]), 0);
       const g = mode.gUid && db[findCard(s, mode.gUid)!.inst.key].name;
       const gUid = mode.gUid, discardUids = mode.picks;
       const buttons = [{ label: msg("btn.cancel"), onClick: () => setMode(null) }];
       if (gUid && gs >= 3) buttons.unshift({ label: msg("btn.stride"), onClick: () => act({ type: "stride", gUid, discardUids }) });
-      return { prompt: msg("q.stride", { g: g ?? msg("q.pickGUnit"), n: gs }), step: true, buttons };
+      return { prompt: msg("q.stride", { g: g ?? msg("q.pickGUnit"), n: gs }), buttons };
     }
     // Guard: pick hand cards or a G guardian, then confirm
     if (guarding && mode?.kind === "gguard") {
@@ -426,8 +431,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       : undefined,
     fieldChoice: !!fieldChoice, choiceMin, setChoiceMin,
     pileLight: (p: PlayerId, zone: string): Light =>
-      (striding || mode?.kind === "stride") && !botTurn && !readOnly && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "active" : "source")
-      : activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) ? "source" : undefined,
+      (striding || mode?.kind === "stride") && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "active" : "source")
+      : activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) || choicePiles[p].has(zone) ? "source" : undefined,
     choice, ordering, trig, guarding, mode, choicePicks, pile,
     selUid: sel?.kind === "hand" ? sel.uid : sel?.kind === "circle" ? s.players[sel.player].circles[sel.circle]?.uid : undefined,
     // Units chosen to attack/boost (red border) and the Power the boost will give

@@ -152,6 +152,7 @@ export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandler
     if (s.resolving) { if (!runResolving(db, s, out)) return; continue; }
     if (s.events.length) { collectTriggers(db, s); continue; }
     if (s.battle?.pendingTrigger) return;
+    if (s.ordering && !s.queue.some((e) => e.owner === s.ordering)) s.ordering = undefined;
     const p = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.queue.some((e) => e.owner === q));
     if (p) {
       const mine = s.queue.filter((e) => e.owner === p);
@@ -161,7 +162,8 @@ export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandler
       if (s.passQueue === p) {
         const skip = mine.find((e) => e.optional);
         if (skip) { declineEntry(s, skip, out); continue; }
-      } else if (mine.length > 1 || mine[0].optional) return;   // wait for the owner to choose which one / which order
+      } else if (mine.length > 1) { s.ordering = p; return; }   // wait for the owner to choose which one / which order
+      else if (mine[0].optional || s.ordering === p) return;
       startResolving(db, s, mine[0], out);
       continue;
     }
@@ -198,13 +200,24 @@ export function startResolving(db: CardDB, s: GameState, entry: QueueEntry, out:
   const why = blocked(db, s, entry);
   if (why) { ev(out, "skip", entry.owner, msg("log.blocked", { label: entry.label, why }), entry.uid); return; }
   const r = toResolving(entry, activated);
+  if (entry.ability.cond?.includes("1/turn")) {
+    const same = s.queue.filter((e) => e.owner === entry.owner && e.uid === entry.uid && e.key === entry.key);
+    if (same.length) r.thatCards = [entry, ...same].map((e) => eventUid(e.event)).filter((u): u is string => !!u);
+  }
   s.resolving = r;
   ev(out, "ability", entry.owner, msg("log.abilityStart", { label: entry.label }), entry.uid);
   if (r.asked) markUsed(s, r);
 }
 
+const eventUid = (e?: QueueEntry["event"]) => (e && "uid" in e ? e.uid : undefined);
+const thatCards = (r: Resolving) => r.thatCards ?? [eventUid(r.event)].filter((u): u is string => !!u);
+
+// Once a 1/turn ability is used, the same ability's other triggers waiting in the queue can't resolve this turn: drop them
+// (their cards were already offered as "that card")
 function markUsed(s: GameState, r: Resolving) {
-  if (r.ability.cond?.includes("1/turn")) locate(s, r.uid)?.inst.usedThisTurn.push(r.key);
+  if (!r.ability.cond?.includes("1/turn")) return;
+  locate(s, r.uid)?.inst.usedThisTurn.push(r.key);
+  s.queue = s.queue.filter((e) => !(e.owner === r.owner && e.uid === r.uid && e.key === r.key));
 }
 
 function runResolving(db: CardDB, s: GameState, out: Out): boolean {
@@ -253,7 +266,7 @@ function matchFilter(db: CardDB, s: GameState, r: Resolving, inst: CardInstance,
     else if (t === "normal-unit") { if (card.type !== "normal") return false; }
     else if (t === "heal" || t === "heal-trigger") { if (card.trigger !== "heal") return false; }
     else if (t === "G-GUARDIAN") { if (card.type !== "g-guardian") return false; }
-    else if (t === "that-card") { const e = r.event; if (!e || !("uid" in e) || e.uid !== inst.uid) return false; }
+    else if (t === "that-card") { if (!thatCards(r).includes(inst.uid)) return false; }
     else if (t === "different-grades" || t === "grade-sum≥3") { /* checked when choosing */ }
     else if (card.clan !== t) return false;          // clan name, e.g. Granblue
   }
@@ -395,7 +408,11 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
       const opts = ps.gZone.filter((g) => !g.faceUp && matchFilter(db, s, r, g, c.named.filter ?? ""));
       if (!opts.length) return true;
       if (!r.answer?.uids) return askCards(r, msg("choice.flipG"), opts, 1, 1);
-      const g = ps.gZone.find((x) => x.uid === r.answer!.uids![0])!; g.faceUp = true; say("log.flipG", { card: name(db, g) }, g.uid);
+      // Moved to the end so the face-up cards stay in the order they were used (shown that way next to the G zone)
+      const g = ps.gZone.splice(ps.gZone.findIndex((x) => x.uid === r.answer!.uids![0]), 1)[0];
+      g.faceUp = true;
+      ps.gZone.push(g);
+      say("log.flipG", { card: name(db, g) }, g.uid);
       return true;
     }
     case "call": return opCall(db, s, r, c, out);

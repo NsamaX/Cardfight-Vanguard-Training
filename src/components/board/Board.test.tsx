@@ -269,7 +269,8 @@ describe("board", () => {
       expect(host.querySelector(".ph.on")!.textContent).toBe("START");   // still waiting for the bot's mulligan
       await botPlays();
       expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
-      expect(button("To main phase")).toBeTruthy();                         // vanguard below grade 3, next skips the stride
+      expect(host.querySelector(".mid-center .prompt")!.textContent).toBe("Ride");
+      expect(host.querySelector(".mid-actions")!.textContent).toBe("Skip");
       click(handCard("me", db[BONE].name));
       expect(handCard("me", db[BONE].name)!.classList.contains("sel")).toBe(true);
       click(slots(1)[1]);
@@ -348,6 +349,23 @@ describe("board", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("replay keeps the decks as dealt, even after the G zone is reordered mid-game", async () => {
+    localStorage.clear();
+    const s = createGame(db, { seed: 4, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    vi.useFakeTimers();
+    render(s);
+    click(button("Ready"));
+    await botPlays();
+    vi.useRealTimers();
+    const [first, ...rest] = Object.entries(deck.g_zone);
+    const reordered = { ...deck, g_zone: Object.fromEntries([...rest, first]) };
+    act(() => root.render(<Board initial={s} started onStart={() => {}} settings={{ seed: s.seed, firstPlayer: s.firstPlayer }} decks={{ me: reordered, bot: deck }} deckOpen={false} onDeckOpen={() => {}}
+      onNewGame={() => {}} onApplySettings={() => {}} onSwapDecks={() => {}} onPickDeck={() => {}} onDeckChanged={() => {}} />));
+    click(button("Replays"));
+    click(button("Save this game"));
+    expect(Object.keys(loadReplays()[0].decks.me.g_zone)).toEqual(Object.keys(deck.g_zone));
   });
 
   it("replay: not saved automatically; save in Replays, then step through it (both hands visible)", async () => {

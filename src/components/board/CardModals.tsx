@@ -30,7 +30,7 @@ export function ChoiceModal({ board }: { board: BoardModel }) {
 
 // Dialog for viewing cards in a zone (click a G zone card to stride/call a G guardian), ordered from the top card
 // The deck can be viewed while watching a replay, and both decks before Start (sorted by grade like the deck screen, not revealing the draw order)
-// The G zone follows the deck order; drag a card onto another to reorder (onMoveG saves it to the deck)
+// The G zone shows only face-down cards (played ones are already shown face up next to the G zone), in deck order; drag a card onto another to reorder (onMoveG saves it to the deck)
 export function PileModal({ board, started, decks, onMoveG }: { board: BoardModel; started: boolean; decks: Record<PlayerId, Deck>; onMoveG?: (p: PlayerId, from: string, to: string) => void }) {
   const { s, pile, setPile, clickPileCard } = board;
   const t = useT();
@@ -39,7 +39,7 @@ export function PileModal({ board, started, decks, onMoveG }: { board: BoardMode
   const gOrder = Object.keys(decks[pile.player].g_zone);
   const rank = (key: string) => { const i = gOrder.indexOf(key); return i < 0 ? gOrder.length : i; };
   const list = preview ? [...s.players[pile.player].deck].sort((a, b) => byGradeThenName(a.key, b.key))
-    : pile.zone === "gZone" ? [...s.players[pile.player].gZone].sort((a, b) => rank(a.key) - rank(b.key))
+    : pile.zone === "gZone" ? s.players[pile.player].gZone.filter((c) => !c.faceUp).sort((a, b) => rank(a.key) - rank(b.key))
     : s.players[pile.player][pile.zone];
   const p = pile.player;
   const drop = pile.zone === "gZone" && onMoveG && !board.readOnly
