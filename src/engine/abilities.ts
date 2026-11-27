@@ -32,7 +32,7 @@ function abilitiesOf(db: CardDB, inst: CardInstance, grants: Ability[]): [string
 export function abilityZoneOk(zone: string | undefined, where: string): boolean {
   if (!zone) return true;
   return zone.split("/").some((z) =>
-    z === "VC" ? where === "vc" : z === "RC" ? RC.includes(where as Circle) : z === "GC" ? where === "guardian" : z === "hand" ? where === "hand" : false);
+    z === "VC" ? where === "vc" : z === "RC" ? RC.includes(where as Circle) : z === "GC" ? where === "guardian" : z === "hand" ? where === "hand" : z === "G zone" ? where === "gZone" : false);
 }
 
 export function condOk(db: CardDB, s: GameState, owner: PlayerId, inst: CardInstance, key: string, ab: Ability, phase: "trigger" | "resolve"): boolean {

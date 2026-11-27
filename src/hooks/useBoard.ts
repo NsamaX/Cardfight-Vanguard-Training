@@ -7,7 +7,8 @@ import { abilityTag, locate, playerMsg } from "../engine/state";
 import { msg, type Msg } from "../i18n/msg";
 import { fmt } from "../lib/format";
 import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, other, powerOf, shieldOf } from "../engine/rules";
-import { strideCostGrade, strideGradeNeeded } from "../engine/cont";
+import { guardianDiscardFilter, strideCostGrade, strideCostOk } from "../engine/cont";
+import { cardMatches } from "../engine/vocab/filters";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
@@ -319,10 +320,12 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (zone !== "gZone" || p !== actor || inst.faceUp) return;
     const type = db[inst.key].type;
     if (s.phase === "ride" && s.step === "stride" && type === "g-unit") { setMode({ kind: "stride", gUid: inst.uid, picks: mode?.kind === "stride" ? mode.picks : [] }); setPile(null); }
+    // A G zone card's ACT (e.g. Sebreeze): focus it to ask whether to use it
+    if (acts.some((e) => e.uid === inst.uid)) { setFocus(inst.uid); setPile(null); }
     if (guarding && type === "g-guardian") {
       const why = gGuardianBlocked(db, s, p);
       if (why) { setError(why); return; }
-      const heals = s.players[p].hand.filter((c) => db[c.key].trigger === "heal");
+      const heals = s.players[p].hand.filter((c) => cardMatches(db[c.key], guardianDiscardFilter(db[inst.key]), { db }));
       setMode({ kind: "gguard", gUid: inst.uid, discardUid: heals.length === 1 ? heals[0].uid : undefined });   // only one Heal, choose it automatically
       setSel(null);
       setPile(null);
@@ -410,7 +413,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       const g = mode.gUid && db[findCard(s, mode.gUid)!.inst.key].name;
       const gUid = mode.gUid, discardUids = mode.picks;
       const buttons = [{ label: msg("btn.cancel"), onClick: () => setMode(null) }];
-      if (gUid && gs >= strideGradeNeeded(db[findCard(s, gUid)!.inst.key])) buttons.unshift({ label: msg("btn.stride"), onClick: () => act({ type: "stride", gUid, discardUids }) });
+      const picked = mode.picks.map((u) => findCard(s, u)!.inst);
+      if (gUid && strideCostOk(db, s, actor!, db[findCard(s, gUid)!.inst.key], picked)) buttons.unshift({ label: msg("btn.stride"), onClick: () => act({ type: "stride", gUid, discardUids }) });
       return { prompt: msg("q.stride", { g: g ?? msg("q.pickGUnit"), n: gs }), buttons };
     }
     // Guard: pick hand cards or a G guardian, then confirm

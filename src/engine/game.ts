@@ -1,8 +1,8 @@
 // G-era phase and battle mechanics + the hook into the ability system (abilities.ts)
 // apply() takes state + an action and returns a new state + events; never modifies the old state, and randomizes only via the seed
 import { actAt, blocked, condOk, declineEntry, emit, releaseDelayed, settle, startResolving, type ResumeHandlers } from "./abilities";
-import { moveCard, moved, placeOnRC, retireUnit } from "./zones";
-import { guardianDiscardFilter, refreshContinuous, strideCostGrade, strideGradeNeeded } from "./cont";
+import { moveCard, moved, placeOnRC, retireUnit, strideOnto } from "./zones";
+import { attackTaxes, guardianDiscardFilter, isUltimate, payRuleCost, refreshContinuous, strideCostOk } from "./cont";
 import { cardMatches } from "./vocab/filters";
 import { cloneState } from "./clone";
 import { shuffle } from "./rng";
@@ -151,13 +151,13 @@ function passQueue(_db: CardDB, s: GameState, p: PlayerId) {
 function activate(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "activate" }>, out: Out) {
   requirePhase(s, p, "main");
   const at = locate(s, a.cardUid);
-  if (!at || at.player !== p || at.zone !== "circle") throw new RuleError("err.actOwnField");
+  const fromG = at?.zone === "gZone" && !at.inst.faceUp;
+  if (!at || at.player !== p || (at.zone !== "circle" && !fromG)) throw new RuleError("err.actOwnField");
   const { key, ab } = actAt(db, at.inst, a.abilityIndex);
   if (ab?.kind !== "ACT") throw new RuleError("err.notAct");
   const zone = ab.zone ?? "";
-  if (zone && !zone.split("/").some((z) => (z === "VC" ? at.circle === "vc" : z === "RC" ? at.circle !== "vc" : false))) {
-    throw new RuleError("err.actZone", { zone });
-  }
+  const zoneOk = fromG ? zone === "G zone" : !zone || zone.split("/").some((z) => (z === "VC" ? at.circle === "vc" : z === "RC" ? at.circle !== "vc" : false));
+  if (!zoneOk) throw new RuleError("err.actZone", { zone });
   if (!condOk(db, s, p, at.inst, key, ab, "resolve")) throw new RuleError("err.condUnmet");
   const entry = { owner: p, uid: at.inst.uid, key, ability: ab, label: `${name(db, at.inst)} [ACT]`, optional: true };
   s.queue.push(entry);
@@ -169,8 +169,11 @@ function activate(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { ty
 export function usableActs(db: CardDB, s: GameState): { uid: string; index: number; label: string; cost: string[] }[] {
   const p = s.turnPlayer;
   if (s.phase !== "main" || s.awaiting?.kind !== "next-phase") return [];
-  return Object.values(s.players[p].circles).flatMap((inst) => !inst ? [] : [...db[inst.key].abilities, ...(inst.grants ?? [])].flatMap((ab, index) => {
+  // Units' ACT, and ACT of face-down G zone cards that work from the G zone (e.g. Sebreeze)
+  const fromG = s.players[p].gZone.filter((g) => !g.faceUp && db[g.key].abilities.some((ab) => ab.kind === "ACT" && ab.zone === "G zone"));
+  return [...Object.values(s.players[p].circles), ...fromG].flatMap((inst) => !inst ? [] : [...db[inst.key].abilities, ...(inst.grants ?? [])].flatMap((ab, index) => {
     if (ab.kind !== "ACT") return [];
+    if (fromG.includes(inst) !== (ab.zone === "G zone")) return [];
     const label = `${name(db, inst)} [ACT]`;
     if (blocked(db, s, { owner: p, uid: inst.uid, key: actAt(db, inst, index).key, ability: ab, label, optional: true })) return [];
     return [{ uid: inst.uid, index, label, cost: ab.cost ?? [] }];
@@ -202,6 +205,7 @@ function startTurn(db: CardDB, s: GameState, out: Out) {
   const p = s.turnPlayer;
   s.rodeThisTurn = false;
   s.strodeThisTurn = false;
+  s.battlesThisTurn = 0;
   ev(out, "turn-start", p, msg("log.turnStart", { turn: s.turn, player: playerMsg(p) }));
   s.phase = "stand";
   for (const inst of fieldUnits(s.players[p])) inst.rested = false;
@@ -264,6 +268,11 @@ function endTurn(db: CardDB, s: GameState, out: Out) {
     ps.heart = undefined;
     ps.gZone.push(reset(vc, true));
     ev(out, "g-return", p, msg("log.gReturn", { card: name(db, vc) }), vc.uid);
+    if (ps.ultimateStrode) {
+      ps.ultimateStrode = false;
+      for (const g of [...ps.gZone]) moveCard(db, s, g.uid, "removed");
+      ev(out, "g-removed", p, msg("log.gZoneRemoved", { player: playerMsg(p) }));
+    }
   }
   emit(db, s, { kind: "turn-end", player: p });
   releaseDelayed(s, "turn-end");
@@ -292,6 +301,7 @@ function finishEnd(db: CardDB, s: GameState, out: Out) {
       inst.grants = [];
     }
   }
+  s.players[s.turnPlayer].rodeLastTurn = s.rodeThisTurn;
   s.turn++;
   s.turnPlayer = other(s.turnPlayer);
   startTurn(db, s, out);
@@ -327,27 +337,16 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   if (!bothVanguardsGrade3(db, s)) throw new RuleError("err.strideGrade3");
   const g = ps.gZone.find((c) => c.uid === a.gUid);
   if (!g || g.faceUp || db[g.key].type !== "g-unit") throw new RuleError("err.strideNeedG");
-  if (db[g.key].abilities.some((ab) => ab.kind === "ULTIMATE STRIDE")) throw new RuleError("err.ultimateUnsupported");
   const discards = a.discardUids.map((uid) => {
     const c = ps.hand.find((h) => h.uid === uid);
     if (!c) throw new RuleError("err.discardFromHand");
     return c;
   });
-  if (discards.length === 0 || discards.reduce((n, c) => n + strideCostGrade(db, s, p, c), 0) < strideGradeNeeded(db[g.key])) {
-    throw new RuleError("err.strideCost");
-  }
+  if (!strideCostOk(db, s, p, db[g.key], discards)) throw new RuleError(isUltimate(db[g.key]) ? "err.ultimateCost" : "err.strideCost");
   for (const c of discards) moveCard(db, s, c.uid, "drop");
-  takeFrom(ps.gZone, g.uid, "G zone");
-  const heart = ps.circles.vc!;
-  // The old vanguard's (about to become the heart) AUTO (VC) "when your G unit strides" must be checked while it's still on VC
-  emit(db, s, { kind: "stride", player: p, uid: g.uid, key: g.key });
-  g.faceUp = true;
-  g.rested = heart.rested;
-  ps.heart = heart;
-  ps.circles.vc = g;
+  if (isUltimate(db[g.key])) ps.ultimateStrode = true;
   s.strodeThisTurn = true;
-  ev(out, "stride", p, msg("log.stride", { player: playerMsg(p), card: name(db, g), heart: name(db, heart) }), g.uid);
-  moved(db, s, { player: p, uid: g.uid, key: g.key, from: "G", to: "VC" });
+  strideOnto(db, s, p, g.uid, out);
 }
 
 // ---------- Main phase ----------
@@ -390,6 +389,10 @@ function attack(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
     booster = ps.circles[a.booster];
     if (BEHIND[a.attacker] !== a.booster || !booster) throw new RuleError("err.boostBehind");
     if (booster.rested || !canBoost(db[booster.key])) throw new RuleError("err.boostGrade");
+  }
+  s.battlesThisTurn = (s.battlesThisTurn ?? 0) + 1;
+  for (const cost of attackTaxes(db, s, a.attacker, a.target)) {
+    if (!payRuleCost(db, s, p, cost, name(db, atk), out)) throw new RuleError("err.attackTax", { cost });
   }
   atk.rested = true;
   if (booster) {

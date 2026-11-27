@@ -82,7 +82,6 @@ function checkCode(code: string, where: string, out: string[]) {
 const contOk = (code: string) => { const spec = OPS[parseCode(code).name]; return !spec || !!spec.cont || !!spec.passive; };
 
 function checkAbility(ab: Ability, where: string, out: string[]) {
-  if (ab.kind === "ULTIMATE STRIDE") out.push(`${where}: ULTIMATE STRIDE is not supported`);
   if (ab.kind === "CONT") for (const e of ab.effect.filter((x) => !contOk(x))) out.push(`${where}: ${parseCode(e).name} can't be used in a CONT ability`);
   if (ab.timing) {
     const t = parseCode(ab.timing);

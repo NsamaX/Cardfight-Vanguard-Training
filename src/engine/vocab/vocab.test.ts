@@ -12,15 +12,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Card texts the engine doesn't run yet. A new entry here means a card needs a new code in the vocabulary.
-const KNOWN_GAPS = [
-  "Air Element, Sebreeze #2 ACT: unknown condition opp-no-ride-last-turn",
-  "Air Element, Sebreeze #2 ACT: unknown code stride-from-G in stride-from-G(self)",
-  "Light Elemental, Honoly #2 CONT: unknown condition attack-count≥5",
-  "Light Elemental, Honoly #2 CONT: unknown code attack-tax in attack-tax(CB(1), RC)",
-  "Zeroth Dragon of Distant Sea, Megiddo #1 ULTIMATE STRIDE: ULTIMATE STRIDE is not supported",
-  "Zeroth Dragon of Distant Sea, Megiddo #1 ULTIMATE STRIDE: unknown filter same-name-as-VC in discard(1, filter=same-name-as-VC)",
-  "Zeroth Dragon of Distant Sea, Megiddo #1 ULTIMATE STRIDE: unknown code remove-G-zone in remove-G-zone(own, at=return-to-G)",
-];
+const KNOWN_GAPS: string[] = [];
 
 describe("vocabulary", () => {
   it("every card's ability codes are known, except the listed gaps", () => {

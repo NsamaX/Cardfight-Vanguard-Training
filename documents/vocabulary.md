@@ -59,6 +59,7 @@ Used in `cond` and in `if=`. A term is a named condition below, or a counter (se
 | `souled-name("…")` | This ability put a card with this word in its name into the soul | Daylight Angel |
 | `name-in-drop("…")` | A card with this word in its name is in our drop zone | Waterspout Djinn |
 | `called-has-hollow` | A card this ability called has Hollow | Nightrose |
+| `opp-no-ride-last-turn` | No unit was ridden on the opponent's VC during their preceding turn | Sebreeze |
 | `while(stride-cost)` | Only while doing this (CONT): stride-cost = paying the stride cost | Flap Angel, Tommy the Ghostie Brothers |
 
 ## 3. Counters
@@ -74,6 +75,7 @@ Numbers a code can read: in a comparison (`G-faceup≥1`), as an amount (`n≤G-
 | `drop` | Cards in our drop zone |
 | `drop-count` | Cards in our drop zone |
 | `soul` | Cards in our soul |
+| `attack-count` | This turn's battle number (the battle being started counts) |
 | `hand` | Cards in our hand |
 | `damage` | Cards in our damage zone |
 | `count-in-drop(filter)` | Cards in our drop zone matching the filter |
@@ -97,7 +99,7 @@ Codes that can be paid as a cost (the engine checks whether they can be paid bef
 | `SB(#)`<br>`SB(#, filter=name("…"))` | Soul Blast: put cards from the soul into the drop zone (filter= which ones) | Urth, Minerva, Verthandi, Negronora, Nightstorm, Nightrose, Negrolazy |
 | `flip-G-up(#, filter=same-name)`<br>`flip-G-up(#, filter=G-GUARDIAN)` | Turn a face-down card in our G zone face up | Inanna, Urth, Minerva, Laurier, Negronora, Nightrose |
 | `bind(self)`<br>`bind(self + 1 heal-trigger from drop)` | Bind cards face up (this card, and another Heal trigger from the drop zone) | Jotun, Eir, Dewey the Ghostie |
-| `mill(#)` | Put cards from the top of the deck into the drop zone | Deep Corpse Dragon, Nightrose |
+| `mill(#)`<br>`mill(≤#)` | Put cards from the top of the deck into the drop zone (≤n: the player chooses up to n) | Deep Corpse Dragon, Nightrose |
 | `discard(#)`<br>`discard(#, filter=heal)`<br>`discard(n, grade-sum≥3)` | Discard cards from hand (filter= which ones) | Sebreeze, Agleam, Inanna, Iris, Urth, Eir, Minerva, Laurier, Flap Angel, Jotun, Negronora, Deep Corpse Dragon, Obadiah, Negrolily, Nightrose, Immortal Galleon, Gust Jinn, Tommy the Ghostie Brothers, Waterspout Djinn, Megiddo |
 | `reveal(#, filter=…)` | Reveal cards from hand (they stay in hand) | Flap Angel, Tommy the Ghostie Brothers |
 | `soul-in(self)` | Put this unit into the soul (usually a cost) | Daylight Angel, Kukurihime, Rampage Shade, Rough Seas Banshee |
@@ -134,6 +136,9 @@ Codes that can be paid as a cost (the engine checks whether they can be paid bef
 | `grant(AUTO-RC[turn-end → draw(1)], target, until=turn-end)`<br>`grant(ACT-VC[CB(1) → power(+5000, self)], target, until=turn-end)` | Give units an ability until the end of the turn: AUTO-zone[timing → effect & …] or ACT-zone[cost & … → effect & …] | Urth, Verthandi, Negrolazy, Mick the Ghostie and Family, Megiddo |
 | `choose(CC(1), SC(1))` | The player chooses one of the effects | Eir, Negrolazy, Dewey the Ghostie |
 | `stride(self)` | STRIDE this card (the rules do it in the stride step) | Sebreeze, Inanna, Urth, Minerva, Obadiah, Nightrose, Immortal Galleon, Megiddo |
+| `stride-from-G(self)` | STRIDE this card from the G zone onto VC (an ACT used from the G zone) | Sebreeze |
+| `remove-G-zone(own, at=return-to-G)` | The whole G zone is removed from the game when this G unit returns (ultimate stride rule) | Megiddo |
+| `attack-tax(CB(#), RC)` | Rear-guards can't attack a vanguard unless the cost is paid (CONT; Honoly) | Honoly |
 | `keyword(Sentinel)`<br>`keyword(Revelation)` | A keyword (Sentinel: deck limit and guard rules; others are placeholders) | Inanna, Jotun, Gust Jinn, Waterspout Djinn |
 | `all-clan(self)` | Counts as every clan for deck building | Sebreeze, Agleam, Honoly |
 
@@ -171,6 +176,7 @@ Which units an effect acts on (the second argument of `power`, `grant`, `retire`
 | `grade≥#` | Grade n or more |
 | `name("…")` | Has this word in its card name |
 | `same-name` | The same card as the ability's source |
+| `same-name-as-VC` | The same card name as our vanguard |
 | `not-same-name` | A different card name than the source |
 | `normal-unit` | A normal unit (not a trigger or G card) |
 | `heal` | A Heal trigger |

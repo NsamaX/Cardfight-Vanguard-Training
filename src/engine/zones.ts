@@ -3,7 +3,7 @@
 import { msg, type Msg } from "../i18n/msg";
 import { emit } from "./abilities";
 import { circleMsg, type CardDB } from "./rules";
-import { ev, locate, name, playerMsg, pull, reset, type Out } from "./state";
+import { ev, locate, name, playerMsg, pull, reset, takeFrom, type Out } from "./state";
 import type { Ability, CardInstance, Circle, GameState, MoveEvent, PlayerId, Zone } from "./types";
 
 // The zone a located card is in, as move events name it
@@ -51,6 +51,21 @@ export function placeOnRC(db: CardDB, s: GameState, p: PlayerId, inst: CardInsta
   s.players[p].circles[c] = reset(inst);
   ev(out, "call", p, msg("log.call", { player: playerMsg(p), card: name(db, inst), circle: circleMsg(c) }), inst.uid);
   moved(db, s, { player: p, uid: inst.uid, key: inst.key, from, to: "RC" });
+}
+
+// Stride a G unit from the G zone onto VC: the vanguard becomes its heart (the stride step, or an effect such as Sebreeze's)
+export function strideOnto(db: CardDB, s: GameState, p: PlayerId, gUid: string, out: Out) {
+  const ps = s.players[p];
+  const g = takeFrom(ps.gZone, gUid, "G zone");
+  const heart = ps.circles.vc!;
+  // The old vanguard's (about to become the heart) AUTO (VC) "when your G unit strides" must be checked while it's still on VC
+  emit(db, s, { kind: "stride", player: p, uid: g.uid, key: g.key });
+  g.faceUp = true;
+  g.rested = heart.rested;
+  ps.heart = heart;
+  ps.circles.vc = g;
+  ev(out, "stride", p, msg("log.stride", { player: playerMsg(p), card: name(db, g), heart: name(db, heart) }), g.uid);
+  moved(db, s, { player: p, uid: g.uid, key: g.key, from: "G", to: "VC" });
 }
 
 // Take a card out of its zone to put it on a circle, returning the zone it came from

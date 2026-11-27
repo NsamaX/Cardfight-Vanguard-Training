@@ -68,6 +68,7 @@ export interface FilterEnv {
   sourceKey?: string;
   thatUids?: string[];   // cards the triggering event was about ("that card")
   uid?: string;          // the tested card's uid on the board, if any
+  vcName?: string;       // the name of the ability owner's vanguard (same-name-as-VC)
 }
 
 // A move a code causes, for chain search: who moved (self = this card, chosen = a card matching filter, opp = an opponent's card)

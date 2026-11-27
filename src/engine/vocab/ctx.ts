@@ -26,7 +26,8 @@ export const thatCards = (ctx: Ctx) => ctx.r.thatCards ?? [eventUid(ctx.r.event)
 // Cards in a list that pass this step's filter (filter= by default)
 export function matching(ctx: Ctx, list: CardInstance[], flt = ctx.c.named.filter ?? ""): CardInstance[] {
   const source = sourceAt(ctx)?.inst ?? ctx.source;
-  const env = { db: ctx.db, source: source && ctx.db[source.key], sourceKey: source?.key, thatUids: thatCards(ctx) };
+  const vc = ctx.s.players[ctx.owner].circles.vc;
+  const env = { db: ctx.db, source: source && ctx.db[source.key], sourceKey: source?.key, thatUids: thatCards(ctx), vcName: vc && ctx.db[vc.key].name };
   return list.filter((i) => cardMatches(ctx.db[i.key], flt, { ...env, uid: i.uid }));
 }
 

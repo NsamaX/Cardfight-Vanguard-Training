@@ -304,6 +304,7 @@ describe("order of simultaneous abilities", () => {
     refreshAwaiting(s);
     act("me", { type: "stride", gUid: me.gZone[0].uid, discardUids: [me.hand[0].uid] });
     use("me", "Starlight");                                       // CB1, mill up to 3, call from the drop
+    act("me", { type: "choose", option: "3" });                   // how many to mill
     pick("me", s.players.me.drop.find((c) => c.key === K.serp)!.uid);
     to("me", "front_left");
     const soul = s.players.me.soul.length;

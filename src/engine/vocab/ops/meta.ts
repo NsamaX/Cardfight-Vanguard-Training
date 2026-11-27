@@ -4,7 +4,7 @@ import { splitTop } from "../../code";
 import { shuffle } from "../../rng";
 import { isG } from "../../rules";
 import { locate, playerMsg } from "../../state";
-import { moveCard } from "../../zones";
+import { moveCard, strideOnto } from "../../zones";
 import type { Ability } from "../../types";
 import { ask, askCards, say } from "../ctx";
 import { runCode } from "../index";
@@ -76,6 +76,20 @@ export const META_OPS: Record<string, OpSpec> = {
   },
   // STRIDE abilities: the rules do the stride in the stride step (game.ts); as an effect step it does nothing
   stride: { causes: () => [{ stride: true, who: "self" }, { move: { from: "G", to: "VC" }, who: "self" }], forms: ["stride(self)"], text: "STRIDE this card (the rules do it in the stride step)", run: () => true },
+  // Sebreeze's ACT from the G zone: stride this card onto VC (not in the stride step, and without a stride cost)
+  "stride-from-G": {
+    forms: ["stride-from-G(self)"], text: "STRIDE this card from the G zone onto VC (an ACT used from the G zone)",
+    causes: () => [{ stride: true, who: "self" }, { move: { from: "G", to: "VC" }, who: "self" }],
+    run: (ctx) => {
+      const at = locate(ctx.s, ctx.r.uid);
+      if (at?.zone === "gZone" && ctx.s.players[ctx.owner].circles.vc) strideOnto(ctx.db, ctx.s, ctx.owner, ctx.r.uid, ctx.out);
+      return true;
+    },
+  },
+  // Restates rule 6.6.3.5 (an ultimate-strided G unit returning removes the whole G zone), which the rules apply themselves
+  "remove-G-zone": { forms: ["remove-G-zone(own, at=return-to-G)"], text: "The whole G zone is removed from the game when this G unit returns (ultimate stride rule)", passive: true, run: () => true },
+  // CONT: attacking costs something (read by the rules when a unit attacks, see cont.ts)
+  "attack-tax": { forms: ["attack-tax(CB(#), RC)"], text: "Rear-guards can't attack a vanguard unless the cost is paid (CONT; Honoly)", run: () => true, cont: () => {} },
   keyword: { forms: ["keyword(Sentinel)", "keyword(Revelation)"], text: "A keyword (Sentinel: deck limit and guard rules; others are placeholders)", passive: true, run: () => true },
   "all-clan": { forms: ["all-clan(self)"], text: "Counts as every clan for deck building", passive: true, run: () => true },
 };

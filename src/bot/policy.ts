@@ -2,7 +2,7 @@
 // Every function returns an Action intended to be legal; if it isn't, the caller uses fallbacks() instead
 import { gGuardianBlocked, usableActs } from "../engine/game";
 import { actAt } from "../engine/abilities";
-import { strideCostGrade, strideGradeNeeded } from "../engine/cont";
+import { attackTaxes, payRuleCost, strideCostGrade, strideGradeNeeded } from "../engine/cont";
 import { parseCode } from "../engine/code";
 import {
   BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost, canIntercept, criticalOf, driveOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, shieldOf, triggerPower, vcGrade,
@@ -242,7 +242,8 @@ export function attackOptions(db: CardDB, s: GameState, p: PlayerId): Extract<Ac
     const b = BEHIND[a]!;
     const bu = ps.circles[b];
     const booster = bu && !bu.rested && canBoost(db[bu.key]) ? b : undefined;
-    for (const t of FRONT) if (opp.circles[t]) out.push({ type: "attack", attacker: a, target: t, booster });
+    // An attack a CONT taxes (Honoly) is left out when the tax can't be paid
+    for (const t of FRONT) if (opp.circles[t] && attackTaxes(db, s, a, t).every((c) => payRuleCost(db, s, p, c, "", [], true))) out.push({ type: "attack", attacker: a, target: t, booster });
   }
   return out;
 }

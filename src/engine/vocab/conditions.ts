@@ -24,6 +24,7 @@ export const PREDICATES: Record<string, PredicateSpec> = {
   "souled-name": { forms: ['souled-name("$")'], text: "This ability put a card with this word in its name into the soul", test: (sc, a) => (sc.r?.done.souled ?? []).some((d) => sc.db[d.key].name.includes(quoted(a))) },
   "name-in-drop": { forms: ['name-in-drop("$")'], text: "A card with this word in its name is in our drop zone", test: (sc, a) => sc.s.players[sc.owner].drop.some((i) => sc.db[i.key].name.includes(quoted(a))) },
   "called-has-hollow": { forms: ["called-has-hollow"], text: "A card this ability called has Hollow", test: (sc) => (sc.r?.done.called ?? []).some((d) => hasHollow(sc.db[d.key])) },
+  "opp-no-ride-last-turn": { forms: ["opp-no-ride-last-turn"], text: "No unit was ridden on the opponent's VC during their preceding turn", test: (sc) => !sc.s.players[sc.owner === "me" ? "bot" : "me"].rodeLastTurn },
   while: { forms: ["while(stride-cost)"], text: "Only while doing this (CONT): stride-cost = paying the stride cost", test: (sc, a) => sc.mode === a },
 };
 

@@ -82,6 +82,8 @@ export interface PlayerState {
   gZone: CardInstance[];
   bind: CardInstance[];
   removed: CardInstance[];   // removed from the game (e.g. the G assist cost)
+  rodeLastTurn?: boolean;    // a unit was ridden on this player's VC during their preceding turn (Sebreeze)
+  ultimateStrode?: boolean;  // the G unit on VC came by ultimate stride: the whole G zone is removed when it returns (rules 6.6.3.5)
 }
 
 // Zones as move events name them (G = the G zone, GC = the guardian circle)
@@ -161,6 +163,7 @@ export interface GameState {
   mulliganDone: PlayerId[];
   rodeThisTurn: boolean;
   strodeThisTurn: boolean;
+  battlesThisTurn?: number;         // battles started this turn, counting the current one (attack-count)
   battle?: Battle;
   events: TriggerEvent[];           // events not yet checked for which AUTO abilities trigger
   queue: QueueEntry[];              // check timing queue

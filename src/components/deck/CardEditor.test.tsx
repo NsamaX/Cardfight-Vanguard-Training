@@ -22,8 +22,8 @@ describe("card editor", () => {
   });
 
   it("lists codes the engine can't run", () => {
-    const honoly = Object.values(db).find((c) => c.name.includes("Honoly"))!;
-    act(() => root.render(<CardEditor initial={honoly} onSave={async () => null} onCancel={() => {}} />));
-    expect(el.querySelector(".code-problems")?.textContent).toContain("attack-tax");
+    const odd = { ...db["G-BT14/020TH"], abilities: [{ kind: "AUTO" as const, timing: "enter(RC, self)", effect: ["teleport(self)"] }] };
+    act(() => root.render(<CardEditor initial={odd} onSave={async () => null} onCancel={() => {}} />));
+    expect(el.querySelector(".code-problems")?.textContent).toContain("teleport");
   });
 });

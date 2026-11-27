@@ -12,6 +12,7 @@ export const FILTERS: Record<string, FilterSpec> = {
   "grade≥": { forms: ["grade≥#"], text: "Grade n or more", test: (c, n) => c.grade >= +n },
   name: { forms: ['name("$")'], text: "Has this word in its card name", test: (c, arg) => c.name.includes(quoted(arg)) },
   "same-name": { forms: ["same-name"], text: "The same card as the ability's source", test: (c, _a, env) => !env.sourceKey || c.key === env.sourceKey },
+  "same-name-as-VC": { forms: ["same-name-as-VC"], text: "The same card name as our vanguard", test: (c, _a, env) => !!env.vcName && c.name === env.vcName },
   "not-same-name": { forms: ["not-same-name"], text: "A different card name than the source", test: (c, _a, env) => !env.source || c.name !== env.source.name },
   "normal-unit": { forms: ["normal-unit"], text: "A normal unit (not a trigger or G card)", test: (c) => c.type === "normal" },
   heal: { forms: ["heal"], text: "A Heal trigger", test: (c) => c.trigger === "heal" },

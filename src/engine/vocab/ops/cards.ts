@@ -5,7 +5,7 @@ import { drawCard, ev } from "../../state";
 import { moveCard } from "../../zones";
 import type { CardInstance, PlayerState } from "../../types";
 import { range } from "../counters";
-import { askCards, checkChosen, matching, record, say, sourceAt } from "../ctx";
+import { ask, askCards, checkChosen, matching, record, say, sourceAt } from "../ctx";
 import type { Ctx, OpSpec } from "../types";
 import { num } from "./resources";
 
@@ -35,12 +35,17 @@ export const CARD_OPS: Record<string, OpSpec> = {
     forms: ["draw(#)"], text: "Draw cards",
     run: (ctx) => { for (let i = 0; i < num(ctx.c.pos[0]); i++) if (!drawCard(ctx.s, ctx.owner, ctx.out)) return true; return true; },
   },
+  // mill(3) / mill(≤3): "up to" lets the player choose how many
   mill: {
     causes: () => [{ move: { from: "deck", to: "drop" }, who: "chosen" }],
-    forms: ["mill(#)"], text: "Put cards from the top of the deck into the drop zone",
-    canPay: (ctx) => me(ctx).deck.length >= num(ctx.c.pos[0]),
+    forms: ["mill(#)", "mill(≤#)"], text: "Put cards from the top of the deck into the drop zone (≤n: the player chooses up to n)",
+    canPay: (ctx) => me(ctx).deck.length >= (ctx.c.pos[0].includes("≤") ? 0 : num(ctx.c.pos[0])),
     run: (ctx) => {
-      const n = num(ctx.c.pos[0]);
+      const most = Math.min(num(ctx.c.pos[0]), me(ctx).deck.length);
+      if (ctx.c.pos[0].includes("≤") && !ctx.r.answer?.option) {
+        return ask(ctx, { kind: "option", prompt: msg("choice.millUpTo", { n: most }), options: Array.from({ length: most + 1 }, (_, i) => String(most - i)) });
+      }
+      const n = ctx.c.pos[0].includes("≤") ? Number(ctx.r.answer!.option) : num(ctx.c.pos[0]);
       const milled = me(ctx).deck.slice(0, n).map((i) => moveCard(ctx.db, ctx.s, i.uid, "drop"));
       record(ctx, "milled", milled);
       say(ctx, "log.mill", { n });

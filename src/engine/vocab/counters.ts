@@ -25,6 +25,7 @@ export const COUNTERS: Record<string, CounterSpec> = {
   drop: { forms: ["drop"], text: "Cards in our drop zone", count: (sc) => sc.s.players[sc.owner].drop.length },
   "drop-count": { forms: ["drop-count"], text: "Cards in our drop zone", count: (sc) => sc.s.players[sc.owner].drop.length },
   soul: { forms: ["soul"], text: "Cards in our soul", count: (sc) => sc.s.players[sc.owner].soul.length },
+  "attack-count": { forms: ["attack-count"], text: "This turn's battle number (the battle being started counts)", count: (sc) => sc.s.battlesThisTurn ?? 0 },
   hand: { forms: ["hand"], text: "Cards in our hand", count: (sc) => sc.s.players[sc.owner].hand.length },
   damage: { forms: ["damage"], text: "Cards in our damage zone", count: (sc) => sc.s.players[sc.owner].damage.length },
   "count-in-drop": { forms: ["count-in-drop({filter})"], text: "Cards in our drop zone matching the filter", count: (sc, f) => countIn(sc, sc.s.players[sc.owner].drop, f) },
