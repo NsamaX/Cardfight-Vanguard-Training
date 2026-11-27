@@ -46,7 +46,7 @@ export function labBoard(db: CardDB, deck: Deck, sc: Scenario, seed = 1): GameSt
   const pool = new Map(Object.entries(deck.main));
   const placed = [sc.vc, ...sc.hand, ...sc.drop, ...sc.soul, ...Object.values(sc.rc ?? {}).filter((k): k is string => !!k)];
   takeKeys(pool, placed, sc.name);
-  // Damage comes from the triggers; the rest of the deck has none, so drive checks and searches (which shuffle) add no random Power
+  // Damage comes from the triggers; the rest of the deck has none (and noTriggers below covers cards put back into the deck)
   let rest = [...pool].flatMap(([k, n]) => Array<string>(Math.max(0, n)).fill(k));
   [rest, s.rngState] = shuffle(rest, s.rngState);
   rest.sort((a, b) => Number(!!db[a].trigger) - Number(!!db[b].trigger));
@@ -81,7 +81,7 @@ export function labBoard(db: CardDB, deck: Deck, sc: Scenario, seed = 1): GameSt
 
   Object.assign(s, {
     turn: 7, turnPlayer: "me", phase: "ride", step: "stride", rodeThisTurn: true, strodeThisTurn: false,
-    battle: undefined, queue: [], events: [], resolving: undefined, resume: undefined, passQueue: undefined, ordering: undefined,
+    noTriggers: true, battle: undefined, queue: [], events: [], resolving: undefined, resume: undefined, passQueue: undefined, ordering: undefined,
   });
   makeUnhittable(s, "me");
   refreshAwaiting(s);

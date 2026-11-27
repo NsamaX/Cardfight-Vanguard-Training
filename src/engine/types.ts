@@ -154,6 +154,7 @@ export interface GameState {
   passQueue?: PlayerId;             // the player pressed next with pending abilities: decline the optional ones and resolve the forced ones in order automatically
   ordering?: PlayerId;              // the player was asked to pick the order of their pending abilities: the last forced one waits for a click too, so the effect of the one just used is seen first
   winner?: PlayerId;
+  noTriggers?: boolean;             // checks reveal cards without their trigger effects (combo lab boards, so results don't depend on luck)
 }
 
 export interface Battle {

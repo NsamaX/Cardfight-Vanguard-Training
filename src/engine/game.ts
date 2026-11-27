@@ -465,12 +465,13 @@ function revealCheck(db: CardDB, s: GameState, p: PlayerId, during: "drive" | "d
   }
   s.battle!.checkCard = reset(top);
   const card = db[top.key];
-  const text = card.trigger
-    ? msg(during === "drive" ? "log.driveCheckTrigger" : "log.damageCheckTrigger", { card: card.name, trigger: msg(`trigger.${card.trigger}`) })
+  const trigger = s.noTriggers ? undefined : card.trigger;
+  const text = trigger
+    ? msg(during === "drive" ? "log.driveCheckTrigger" : "log.damageCheckTrigger", { card: card.name, trigger: msg(`trigger.${trigger}`) })
     : msg(during === "drive" ? "log.driveCheck" : "log.damageCheck", { card: card.name });
   ev(out, during === "drive" ? "drive-check" : "damage-check", p, text, top.uid);
-  if (card.trigger) {
-    s.battle!.pendingTrigger = { owner: p, kind: card.trigger, during, power: triggerPower(card) };
+  if (trigger) {
+    s.battle!.pendingTrigger = { owner: p, kind: trigger, during, power: triggerPower(card) };
     (s.battle!.triggers ??= []).push({ card: reset(top), during, done: false });
   }
   return true;
