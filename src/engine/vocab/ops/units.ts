@@ -2,13 +2,13 @@
 import { msg } from "../../../i18n/msg";
 import { RC, SAME_COLUMN, isG, other } from "../../rules";
 import { circleOf, ev, locate } from "../../state";
-import type { CardInstance, Circle, PlayerState } from "../../types";
+import type { Ability, CardInstance, Circle, PlayerState, Zone } from "../../types";
 import { moveCard, placeOnRC, retireUnit, takeForCircle } from "../../zones";
 import { amount, range } from "../counters";
 import { ask, askCards, checkChosen, matching, record, say, sourceAt } from "../ctx";
 import { isChoice, pickUnits } from "../selectors";
-import { parseCode } from "../../code";
-import type { Ctx, OpSpec } from "../types";
+import { parseCode, type Code } from "../../code";
+import type { Caused, Ctx, OpSpec } from "../types";
 import { num } from "./resources";
 
 const me = (ctx: Ctx): PlayerState => ctx.s.players[ctx.owner];
@@ -95,14 +95,26 @@ function runCall(ctx: Ctx): boolean {
   }
 }
 
+// The filter of the call in the same ability (what "the called units" can be)
+const callFilter = (ab: Ability) => [...(ab.cost ?? []), ...ab.effect].map(parseCode).find((x) => x.name === "call")?.named.filter;
+
+function callCauses(c: Code): Caused[] {
+  const [src, to] = (c.pos[0] ?? "").split("→") as [string, Zone];
+  if (src === "self") return [{ move: { from: "soul", to }, who: "self" }];
+  if (src === "G") return [{ move: { from: "G", to }, who: "self" }];
+  return src.split("+").map((from) => ({ move: { from: from as Zone, to }, who: "chosen" as const, filter: c.named.filter }));
+}
+
 export const UNIT_OPS: Record<string, OpSpec> = {
   call: {
+    causes: callCauses,
     forms: ["call(drop→RC, n≤#, filter={filter})", "call(hand+drop→RC, n≤#, filter={filter}, to=empty)", "call(drop→RC, n=#, filter=that-card)", "call(drop→GC, n≤#, filter=different-grades)", "call(self→RC)", "call(G→GC, self)"],
     text: "Call cards to rear-guard circles (to= empty / different / not-self / same-column) or to the guardian circle",
     run: runCall,
   },
   // retire(opp-RC, n≤1) / retire(own, target=boosted) / retire(own, target=called): the target= selector wins over the first argument
   retire: {
+    causes: (c) => [{ move: { from: "RC", to: "drop", by: "retire" }, who: (c.named.target ?? c.pos[0]).startsWith("opp") ? "opp" : "chosen" }],
     forms: ["retire({target})", "retire(opp-RC, n≤#)", "retire(own, target=boosted)", "retire(own, target=called, at=turn-end)"], text: "Retire units",
     run: (ctx) => {
       const who = ctx.c.named.target ?? ctx.c.pos[0];
@@ -117,6 +129,7 @@ export const UNIT_OPS: Record<string, OpSpec> = {
     },
   },
   "retire-own": {
+    causes: () => [{ move: { from: "RC", to: "drop", by: "retire" }, who: "chosen" }],
     forms: ["retire-own(#)"], text: "Retire our own rear-guards (usually a cost)",
     canPay: (ctx) => rcUnits(ctx).filter((u) => u.uid !== ctx.r.uid).length >= num(ctx.c.pos[0]),
     run: (ctx) => {
@@ -128,6 +141,7 @@ export const UNIT_OPS: Record<string, OpSpec> = {
   },
   // opp-retires(opp-RC, n=soul-charged(filter)): the opponent chooses that many of their rear-guards and retires them
   "opp-retires": {
+    causes: () => [{ move: { from: "RC", to: "drop", by: "retire" }, who: "opp" }],
     forms: ["opp-retires(opp-RC, n=#)", "opp-retires(opp-RC, n=soul-charged(filter))"], text: "The opponent chooses and retires that many of their own rear-guards",
     run: (ctx) => {
       const n = amount(ctx, (ctx.c.named.n ?? "1"));
@@ -166,6 +180,7 @@ export const UNIT_OPS: Record<string, OpSpec> = {
     },
   },
   hollow: {
+    causes: (c, ab) => [{ move: { from: "RC", to: "drop", by: "hollow" }, who: c.pos[0] === "called" ? "chosen" : "self", filter: c.pos[0] === "called" ? callFilter(ab) : undefined }],
     forms: ["hollow(self)", "hollow(called)"], text: "Hollow: the unit is retired at the end of the turn (the player may choose not to hollow itself)",
     run: (ctx) => {
       if (ctx.c.pos[0] === "called") {

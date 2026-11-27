@@ -20,6 +20,8 @@
     "check-cards": "vite-node scripts/check-cards.ts",
     "prevocab-doc": "npm run content",
     "vocab-doc": "vite-node scripts/vocab-doc.ts",
+    "prechains": "npm run content",
+    "chains": "vite-node scripts/chains.ts --",
     "sync-defaults": "node --env-file=.env scripts/sync-defaults.mjs"
   },
   "dependencies": {

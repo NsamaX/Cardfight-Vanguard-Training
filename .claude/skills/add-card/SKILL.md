@@ -104,19 +104,8 @@ abilities:
 - **Keywords:** Hollow = AUTO `enter(RC, self)` + effect `["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]`; Sentinel = CONT `["keyword(Sentinel)"]`; Forerunner = see `Undying Departed Grenache.yaml`; Cray Elemental cards = CONT `["all-clan(self)"]`.
 - **Words inside codes are English, as on the card:** clan names in `filter=` and `vc-clan(...)` match the `clan` field, e.g. `Granblue`; words in `name("...")` match the card name, e.g. `name("Nightrose")`.
 - **STRIDE / G GUARDIAN:** copy the pattern from a library card of the same type.
-- **No undefined codes:** if the card has an event, condition, or effect with no code yet, add the code to vocabulary.md first and tell the user the engine doesn't support it yet (see the next table).
-
-**Codes the engine (`src/engine/abilities.ts`) actually runs today:**
-
-| Part | Supported |
-|---|---|
-| kind | AUTO, ACT (CONT doesn't run at all, except for the Sentinel deck building check) |
-| timing | `enter`, `stride`, `ridden-upon`, `attack`, `battle-end`, `to-drop` (`from=RC` or `from=soul`, the latter sent by Soul Blast), `retired`, `discarded`, `phase-start`, `attack-hit`, `to-soul(own)`, `turn-end`; `stride(own, filter=…)` checks the G unit's name |
-| cond | `GB(n)`, `1/turn`, `own-turn`, `self-hollowed`, `vc-name(...)`, `heart-name(...)`, `vc-grade≥n`, `vc-clan(...)` |
-| `if=` | `self-hollowed`, `called-has-hollow`, `called≥n`, `hollow-milled≥n`, `name-in-drop(...)`, `souled≥n`, `souled-name(...)`, `G-faceup≥n`, `G-faceup(filter)≥n`, `returned≥n`; any other condition skips the effect |
-| cost / effect | `CB`, `CC`, `SB` (with `filter=`; the player picks when there's a choice), `SC`, `mill`, `draw`, `reveal`, `discard`, `retire-own`, `retire`, `soul-in`, `bind`, `flip-G-up`, `call`, `search`, `power`, `shield`, `critical`, `no-hit`, `choose`, `hollow`, `grant`, `return-to-deck`, `swap`, `damage-facedown`, `to-soul`, `look`, `to-hand`, `drive`, `stand` (also `at=battle-end`), `to-deck`, `to-deck-top`, `shuffle`; `grant` gives AUTO or ACT |
-
-Codes outside this table can still be written (`tools/find_chains.py` uses them for combo search), but during play the effect is skipped with "Effect … isn't automated yet" in the history.
+- **No undefined codes:** every code must be one the engine knows. [vocabulary.md](../../../documents/vocabulary.md) sections 1–8 are generated from the engine's registry (`src/engine/vocab/`), so they list exactly what runs. After writing the file, run `npm run check-cards`: it lists any unknown code, condition, filter, target, or amount.
+- **A card text with no code yet:** add the code to the registry in `src/engine/vocab/` (a filter, counter, condition, selector, timing, or op, with its `forms` and `text`; an op that moves cards also declares `causes` for `npm run chains`), run `npm run vocab-doc`, and add a test for the card. If you can't support it now, tell the user; `npm run check-cards` and the `KNOWN_GAPS` list in `src/engine/vocab/vocab.test.ts` keep track of it, and during play that code is skipped (an unknown condition never holds).
 
 ### Step 5: Write `text` (what the player reads)
 

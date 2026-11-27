@@ -35,6 +35,7 @@ export const RESOURCE_OPS: Record<string, OpSpec> = {
     run: (ctx) => { flipDamage(me(ctx), num(ctx.c.pos[0]), false); say(ctx, "log.damageFacedown"); return true; },
   },
   SB: {
+    causes: (c) => [{ move: { from: "soul", to: "drop" }, who: "chosen", filter: c.named.filter }],
     forms: ["SB(#)", 'SB(#, filter=name("$"))'], text: "Soul Blast: put cards from the soul into the drop zone (filter= which ones)",
     canPay: (ctx) => matching(ctx, me(ctx).soul).length >= num(ctx.c.pos[0]),
     run: (ctx) => {
@@ -48,6 +49,7 @@ export const RESOURCE_OPS: Record<string, OpSpec> = {
     },
   },
   SC: {
+    causes: () => [{ move: { from: "deck", to: "soul" }, who: "chosen" }],
     forms: ["SC(#)"], text: "Soul Charge: put cards from the top of the deck into the soul",
     run: (ctx) => {
       const charged = me(ctx).deck.slice(0, num(ctx.c.pos[0])).map((i) => moveCard(ctx.db, ctx.s, i.uid, "soul"));

@@ -75,7 +75,7 @@ export const META_OPS: Record<string, OpSpec> = {
     },
   },
   // STRIDE abilities: the rules do the stride in the stride step (game.ts); as an effect step it does nothing
-  stride: { forms: ["stride(self)"], text: "STRIDE this card (the rules do it in the stride step)", run: () => true },
+  stride: { causes: () => [{ stride: true, who: "self" }, { move: { from: "G", to: "VC" }, who: "self" }], forms: ["stride(self)"], text: "STRIDE this card (the rules do it in the stride step)", run: () => true },
   keyword: { forms: ["keyword(Sentinel)", "keyword(Revelation)"], text: "A keyword (Sentinel: deck limit and guard rules; others are placeholders)", passive: true, run: () => true },
   "all-clan": { forms: ["all-clan(self)"], text: "Counts as every clan for deck building", passive: true, run: () => true },
 };

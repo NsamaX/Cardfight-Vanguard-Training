@@ -38,6 +38,8 @@ export interface OpSpec extends Doc {
   canPay?(ctx: Ctx): boolean;
   // For codes a CONT ability may use: apply the effect as a "cont" modifier (computed again after every change, see cont.ts)
   cont?(ctx: Ctx): void;
+  // For chain search without a board (vocab/chains.ts): the moves and strides this code causes
+  causes?(c: Code, ab: Ability): Caused[];
   // Name of a code that has no in-game effect (a deck building keyword, etc.): the resolver skips it
   passive?: boolean;
 }
@@ -66,6 +68,14 @@ export interface FilterEnv {
   sourceKey?: string;
   thatUids?: string[];   // cards the triggering event was about ("that card")
   uid?: string;          // the tested card's uid on the board, if any
+}
+
+// A move a code causes, for chain search: who moved (self = this card, chosen = a card matching filter, opp = an opponent's card)
+export interface Caused {
+  move?: { from: import("../types").Zone; to: import("../types").Zone; by?: "retire" | "hollow"; as?: "g-guardian-cost" };
+  stride?: true;
+  who: "self" | "chosen" | "opp";
+  filter?: string;
 }
 
 export type Question = Msg;

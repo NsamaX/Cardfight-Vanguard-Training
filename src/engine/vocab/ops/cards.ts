@@ -36,6 +36,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     run: (ctx) => { for (let i = 0; i < num(ctx.c.pos[0]); i++) if (!drawCard(ctx.s, ctx.owner, ctx.out)) return true; return true; },
   },
   mill: {
+    causes: () => [{ move: { from: "deck", to: "drop" }, who: "chosen" }],
     forms: ["mill(#)"], text: "Put cards from the top of the deck into the drop zone",
     canPay: (ctx) => me(ctx).deck.length >= num(ctx.c.pos[0]),
     run: (ctx) => {
@@ -47,6 +48,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   discard: {
+    causes: (c, ab) => [{ move: { from: "hand", to: "drop", as: ab.kind === "G GUARDIAN" ? "g-guardian-cost" : undefined }, who: "chosen", filter: c.named.filter }],
     forms: ["discard(#)", "discard(#, filter=heal)", "discard(n, grade-sum≥3)"], text: "Discard cards from hand (filter= which ones)",
     canPay: (ctx) => matching(ctx, me(ctx).hand).length > 0,
     run: (ctx) => {
@@ -70,6 +72,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   search: {
+    causes: (c) => [{ move: { from: "deck", to: c.pos[0].endsWith("hand") ? "hand" : "drop" }, who: "chosen", filter: c.named.filter }],
     forms: ["search(deck→hand, n≤#, filter={filter})", "search(deck→drop, n≤#, filter={filter})", "search(deck→hand, n≤#, filter={filter}, look=top-5)"],
     text: "Search the deck (or its top 5) for cards, put them into hand or the drop zone, then shuffle",
     run: (ctx) => {
@@ -88,6 +91,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
   },
   // look(n, hand=1, soul=1 | soul=n≤1, rest=drop): look at the top n, pick some for hand, then for soul; the rest go to the drop zone (unset = stay on top)
   look: {
+    causes: (c) => (["hand", "soul"] as const).filter((d) => c.named[d]).map((to) => ({ move: { from: "deck", to }, who: "chosen" as const })),
     forms: ["look(#, hand=1, soul=1, rest=drop)", "look(#, soul=n≤1, rest=drop)", "look(#, hand=1, soul=1)"],
     text: "Look at the top cards of the deck: some to hand, some to the soul, the rest to the drop zone",
     run: (ctx) => {
@@ -116,6 +120,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
   },
   // to-soul(drop, n≤3 | n=1 | all, filter={filter}) / to-soul(self)
   "to-soul": {
+    causes: (c) => [c.pos[0] === "self" ? { move: { from: "RC", to: "soul" }, who: "self" } : { move: { from: "drop", to: "soul" }, who: "chosen", filter: c.named.filter }],
     forms: ["to-soul(drop, n≤#, filter={filter})", "to-soul(drop, n=#, filter={filter})", "to-soul(drop, all, filter={filter})", "to-soul(self)"],
     text: "Put cards from the drop zone (or this unit) into the soul (filter different-grades = all chosen differ in grade)",
     run: (ctx) => {
@@ -141,6 +146,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   "soul-in": {
+    causes: () => [{ move: { from: "RC", to: "soul" }, who: "self" }],
     forms: ["soul-in(self)"], text: "Put this unit into the soul (usually a cost)",
     canPay: (ctx) => sourceAt(ctx)?.zone === "circle",
     run: (ctx) => {
@@ -153,6 +159,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
   },
   // to-deck(drop, all) / to-deck(drop+soul, n=2..3, filter={filter}): return cards to the deck (shuffle with a separate shuffle(deck))
   "to-deck": {
+    causes: (c) => [{ move: { from: "drop", to: "deck" }, who: "chosen", filter: c.named.filter }],
     forms: ["to-deck(drop, all)", "to-deck(drop+soul, n=#..#, filter={filter})"], text: "Return cards to the deck (filter same-grade = all chosen share a grade)",
     run: (ctx) => {
       const ps = me(ctx);
@@ -174,6 +181,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   "to-deck-top": {
+    causes: () => [{ move: { from: "RC", to: "deck" }, who: "self" }],
     forms: ["to-deck-top(self)"], text: "Put this unit on the top of the deck",
     run: (ctx) => {
       const at = sourceAt(ctx);
@@ -190,6 +198,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   "to-hand": {
+    causes: (c) => [{ move: { from: "drop", to: "hand" }, who: "chosen", filter: c.named.filter }],
     forms: ["to-hand(drop, n≤#, filter={filter})"], text: "Return cards from the drop zone to hand",
     run: (ctx) => {
       const ps = me(ctx), opts = matching(ctx, ps.drop);
