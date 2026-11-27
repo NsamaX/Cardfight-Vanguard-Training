@@ -85,7 +85,8 @@ export function DeckPanel({ p, current, decks, editable, sleeves, onAddSleeve, o
   return (
     <section ref={ref} className={`deck-panel ${p} ${editing && expanded ? "expanded" : ""}`}>
       {editing
-        ? <DeckBuilder p={p} initial={editing} onDone={save} onCancel={() => setEditing(null)} onSaveCard={onSaveCard} sleeves={sleeves} onAddSleeve={onAddSleeve} onDeleteSleeve={onDeleteSleeve}
+        ? <DeckBuilder p={p} initial={editing} onDone={save} onCancel={() => setEditing(null)}
+            onDelete={decks.length > 1 && decks.some((d) => d.id === editing.id) ? () => { onDeleteDeck(editing.id); setEditing(null); setViewing(null); } : undefined} onSaveCard={onSaveCard} sleeves={sleeves} onAddSleeve={onAddSleeve} onDeleteSleeve={onDeleteSleeve}
             expanded={expanded} canExpand={!otherEditing} onToggleExpand={toggleExpand} />
         : viewing
           ? <DeckView deck={viewing} current={viewing.id === current.id} onBack={() => setViewing(null)}

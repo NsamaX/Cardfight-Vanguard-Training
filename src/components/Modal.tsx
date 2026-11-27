@@ -1,15 +1,24 @@
-import { useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import type { CardInstance } from "../engine/types";
 import { useT } from "../i18n/react";
 import type { Light } from "../lib/board";
 import { CardView } from "./CardView";
 
 // onMinimize: minimize the dialog to look at the board (you still have to come back and finish choosing); clicking outside does this too when there's no onClose
+// "Outside" is anywhere on the page, not just the veil: the veil covers only the board, not the log and the right panel
 export function Modal({ title, onClose, onMinimize, footer, children }: { title: ReactNode; onClose?: () => void; onMinimize?: () => void; footer?: ReactNode; children: ReactNode }) {
   const t = useT();
+  const box = useRef<HTMLDivElement>(null);
+  const dismiss = useRef(onClose ?? onMinimize);
+  dismiss.current = onClose ?? onMinimize;
+  useEffect(() => {
+    const down = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) dismiss.current?.(); };
+    document.addEventListener("pointerdown", down);
+    return () => document.removeEventListener("pointerdown", down);
+  }, []);
   return (
-    <div className="veil" onClick={onClose ?? onMinimize}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="veil">
+      <div className="modal" ref={box}>
         <div className="mh"><span>{title}</span>{onMinimize && <button className="btn" title={t("btn.minimize")} onClick={onMinimize}>–</button>}{onClose && <button className="btn" onClick={onClose}>×</button>}</div>
         <div className="mb">{children}</div>
         {footer && <div className="mh" style={{ borderTop: "1px solid var(--line)", borderBottom: "none" }}>{footer}</div>}

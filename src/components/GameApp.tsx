@@ -65,6 +65,7 @@ export function GameApp() {
   return (
     <Board
       key={game.n}
+      openSettings={game.n === 1}
       library={library}
       base={game.base}
       onOpenReplay={(src) => setViewing({ src, tl: timelineOf(db, src) })}
@@ -76,7 +77,7 @@ export function GameApp() {
       deckOpen={deckOpen}
       onDeckOpen={setDeckOpen}
       onNewGame={() => start(settings, decks)}
-      onApplySettings={(s) => start(s, decks)}
+      onApplySettings={(s) => (game.started ? setGame({ ...game, settings: s }) : start(s, decks))}
       onSwapDecks={() => start(settings, { me: decks.bot, bot: decks.me }, { seed: game.state.seed, firstPlayer: game.state.firstPlayer })}
       onPickDeck={(p, d) => start(settings, { ...decks, [p]: d })}
       onDeckUpdated={(d) => { if (inUse(d)) setGame((g) => g && { ...g, decks: replaceDeck(g.decks, d) }); }}

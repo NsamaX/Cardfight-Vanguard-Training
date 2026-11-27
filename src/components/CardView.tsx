@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import { cardByKey as db } from "../data/cards";
+import { isSentinel } from "../engine/rules";
 import type { CardInstance } from "../engine/types";
 import { useT } from "../i18n/react";
 import type { Light } from "../lib/board";
@@ -13,7 +14,7 @@ interface Props {
   picked?: boolean;
   hidden?: boolean;
   noRotate?: boolean;
-  mark?: boolean;          // trigger/G label in the top-right corner (shown in the deck builder; the board shows grade only)
+  mark?: boolean;          // trigger/G label in the top-right corner (shown in the deck builder); the Sentinel label shows everywhere
   plain?: boolean;         // hide the name and power strip (cards in hand)
   light?: Light;
   dim?: boolean;           // used (light gray)
@@ -40,7 +41,8 @@ export function CardView({ inst, power, small, selected, picked, hidden, noRotat
     <button className={cls} data-uid={inst.uid} onClick={onClick} title={card.name} onMouseEnter={hover && (() => hover(inst.uid))} onMouseLeave={hover && (() => hover(undefined))}>
       {card.image && <img src={card.image} alt="" draggable={false} />}
       {!noGrade && <span className="grade">{card.grade}</span>}
-      {mark && (card.trigger || card.type.startsWith("g-")) && <span className="mark">{card.trigger ? t(`mark.${card.trigger}`) : "G"}</span>}
+      {mark && (card.trigger || card.type.startsWith("g-")) ? <span className="mark">{card.trigger ? t(`mark.${card.trigger}`) : "G"}</span>
+        : isSentinel(card) && <span className="mark">{t("mark.sentinel")}</span>}
       {!plain && (
         <span className="strip">
           {!noName && <span className="nm">{card.name}</span>}

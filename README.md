@@ -42,7 +42,7 @@ To deploy on Vercel, set only the two `NEXT_PUBLIC_` variables there, and add th
 |---|---|
 | Phases and battle (`engine/game.ts`) | Complete per [rules-g.md](documents/rules-g.md), except ultimate stride |
 | Card abilities (`engine/abilities.ts`) | AUTO and ACT run automatically from the ability code in card files |
-| Bot (`bot/`) | Three levels: Normal, Hard, Nightmare |
+| Bot (`bot/`) | Beta (default, same as Nightmare; the only selectable level for now), plus Normal, Hard, Nightmare (locked) |
 | Decks and sleeves | Guests view and use the defaults; signed-in players edit their own |
 | Card editor | Signed-in players create/edit cards, including the image |
 | Replays (`replay/`) | Save, step through, change speed, download/open files, continue from any step |
@@ -99,6 +99,7 @@ The bot always plays the bot side. It knows both decklists but not the deck orde
 
 | Level | How it thinks |
 |---|---|
+| Beta | Same as Nightmare; the default and, for now, the only level you can pick (the others are shown locked) |
 | Normal | Decision rules only (`bot/policy.ts`) |
 | Hard | Rules + remembers revealed cards + plays every reasonable option forward to the end of the turn with the hidden information randomized; switches from the rule's choice only when clearly better (≤1.5 s) |
 | Nightmare | Like Hard but knows your real hand |

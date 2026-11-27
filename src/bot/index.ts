@@ -11,10 +11,13 @@ import { search, searchCandidates, type SearchConfig } from "./search";
 import type { Bot } from "./types";
 import { attachPools, viewFor, withHidden, type Reads } from "./view";
 
-export type BotLevel = "normal" | "hard" | "nightmare";
-export const BOT_LEVELS: BotLevel[] = ["normal", "hard", "nightmare"];
+// Beta = Nightmare's settings; while in beta it's the only level players can pick
+export type BotLevel = "beta" | "normal" | "hard" | "nightmare";
+export const BOT_LEVELS: BotLevel[] = ["beta", "normal", "hard", "nightmare"];
+export const SELECTABLE_BOT_LEVELS: BotLevel[] = ["beta"];
 
 const CONFIG: Record<BotLevel, (SearchConfig & { memory: boolean; seesHand?: boolean }) | undefined> = {
+  beta: { ms: 1500, maxIter: 4000, horizon: 0, margin: 0.15, memory: true, seesHand: true },
   normal: undefined,
   hard: { ms: 1500, maxIter: 4000, horizon: 0, margin: 0.15, memory: true },
   nightmare: { ms: 1500, maxIter: 4000, horizon: 0, margin: 0.15, memory: true, seesHand: true },

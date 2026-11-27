@@ -11,7 +11,7 @@ import { useT } from "../../i18n/react";
 import { nextLabel, stepText, undealt, type LogEntry, type Zone } from "../../lib/board";
 import { moveG } from "../../lib/deckEdit";
 import { publicUrl } from "../../lib/library";
-import type { GameSettings } from "../../lib/settings";
+import { DEFAULT_BOT, type GameSettings } from "../../lib/settings";
 import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { DeckPanel } from "../deck/DeckPanel";
 import { CardHover, CardView } from "../CardView";
@@ -38,7 +38,7 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, onDeckUpdated, base, view, onOpenReplay, library = offlineLibrary }: {
+export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, onDeckUpdated, base, view, onOpenReplay, library = offlineLibrary, openSettings }: {
   initial: GameState;          // board after dealing
   started: boolean;            // false = waiting for Start (shows the board before dealing)
   onStart: () => void;
@@ -56,13 +56,15 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   view?: { log: LogEntry[]; action: ReactNode; foot: ReactNode };   // replay viewer: board only; action = right slot of the middle bar, foot = bottom of the right panel
   onOpenReplay?: (src: ReplaySource) => void;
   library?: LibraryHandle;
+  openSettings?: boolean;   // start with the settings dialog open (first board after entering the site)
 }) {
   // The bot starts thinking after Start (the board is recreated every game, so the bot's memory resets every game)
-  const bot = useMemo(() => (started && !view ? new VanguardBot(db, settings.bot ?? "normal", decks) : undefined), [started, view, settings.bot]);   // a G zone reorder doesn't need a new bot (a real deck change restarts the board anyway)
+  const bot = useMemo(() => (started && !view ? new VanguardBot(db, settings.bot ?? DEFAULT_BOT, decks) : undefined), [started, view, settings.bot]);   // a G zone reorder doesn't need a new bot (a real deck change restarts the board anyway)
   const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log });
   const t = useT();
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(!!openSettings);
   const [showReplays, setShowReplays] = useState(false);
+  const [deckCard, setDeckCard] = useState<string>();   // Decks open: the library/deck card under the mouse, shown in the whole right panel
   // The decks as the game was dealt: reordering the G zone mid-game edits the deck, but the replay must rebuild the same starting board (same card uids)
   const [record] = useState(() => ({ id: newId(), createdAt: new Date().toISOString(), decks }));
 
@@ -158,8 +160,8 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             {board.reveal.cards.map((c) => <CardView key={c.uid} inst={c} plain noRotate />)}
           </div>
         )}
-        {deckOpen && (["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} decks={library.decks} editable={signedIn} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
-          otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}
+        {deckOpen && <CardHover.Provider value={setDeckCard}>{(["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} decks={library.decks} editable={signedIn} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
+          otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}</CardHover.Provider>}
         <div className="mid">
           {/* Far left: undo/redo | middle: attacker (power + drive check) | question or step text, plus Start/mulligan/swap | defender (power + guard cards) | far right: answer and phase buttons */}
           <div className="mid-history">
@@ -203,13 +205,13 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         <PileModal board={board} started={started} decks={decks} onMoveG={onDeckUpdated && reorderG} />
         <ChoiceModal board={board} />
         {showReplays && <ReplayModal signedIn={signedIn} current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
-        {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={onApplySettings} onClose={() => setShowSettings(false)} />}
+        {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={(next) => { setShowSettings(false); onApplySettings(next); }} onClose={() => setShowSettings(false)} />}
         {board.error && <div className="toast">{t(board.error)}</div>}
         {(board.trigTip ?? board.choiceTip) && <CursorTip text={t((board.trigTip ?? board.choiceTip)!.text)} kind={(board.trigTip ?? board.choiceTip)!.kind} />}
       </main>
       </CardHover.Provider>
       <aside className="right">
-        {(["bot", "me"] as const).map((p) => {
+        {deckOpen ? <Inspector p="me" cardKey={deckCard} onClose={() => setDeckCard(undefined)} /> : (["bot", "me"] as const).map((p) => {
           const c = board.inspectedOf(p);
           return <Inspector key={p} p={p} cardKey={c?.inst.key} power={c?.power} onClose={() => board.closeInspect(p)} />;
         })}

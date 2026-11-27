@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { BOT_LEVELS, type BotLevel } from "../../bot";
+import { BOT_LEVELS, SELECTABLE_BOT_LEVELS, type BotLevel } from "../../bot";
 import type { PlayerId } from "../../engine/types";
 import { useAuth } from "../../hooks/useAuth";
 import { LOCALES, type Locale } from "../../i18n";
 import { useI18n } from "../../i18n/react";
-import type { GameSettings } from "../../lib/settings";
+import { DEFAULT_BOT, type GameSettings } from "../../lib/settings";
 
 function DiceIcon() {
   return (
@@ -20,7 +20,8 @@ const DiceToggle = ({ on, onToggle, title }: { on: boolean; onToggle: () => void
   <button type="button" className={`btn icon-btn ${on ? "on" : ""}`} aria-pressed={on} onClick={onToggle} title={title} aria-label={title}><DiceIcon /></button>
 );
 
-// Game settings: who goes first and the seed; the button starts a new game with these values; close with X or by clicking outside
+// Game settings: bot, who goes first and the seed; Apply is enabled only when one of them changed; close with X or by clicking outside
+// Apply: the bot level takes effect at once; who goes first and the seed take effect next game (at once if the game hasn't started)
 // The language changes as soon as it's chosen, no new game needed
 export function SettingsDialog({ settings, current, onApply, onClose }: {
   settings: GameSettings;
@@ -32,15 +33,17 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
   const [firstRandom, setFirstRandom] = useState(settings.firstPlayer === "random");
   const [seed, setSeed] = useState(settings.seed === "random" ? current.seed : settings.seed);
   const [seedRandom, setSeedRandom] = useState(settings.seed === "random");
-  const [bot, setBot] = useState<BotLevel>(settings.bot ?? "normal");
+  const [bot, setBot] = useState<BotLevel>(settings.bot && SELECTABLE_BOT_LEVELS.includes(settings.bot) ? settings.bot : DEFAULT_BOT);
   const { locale, setLocale, t } = useI18n();
   const auth = useAuth();
   const userName = auth.user?.user_metadata.full_name ?? auth.user?.email;
+  const next: GameSettings = { seed: seedRandom ? "random" : seed, firstPlayer: firstRandom ? "random" : first, bot };
+  const changed = next.seed !== settings.seed || next.firstPlayer !== settings.firstPlayer || bot !== (settings.bot ?? DEFAULT_BOT);
 
   return (
     <div className="veil" onClick={onClose}>
       <form className="dialog" onClick={(e) => e.stopPropagation()}
-        onSubmit={(e) => { e.preventDefault(); onApply({ seed: seedRandom ? "random" : seed, firstPlayer: firstRandom ? "random" : first, bot }); }}>
+        onSubmit={(e) => { e.preventDefault(); if (changed) onApply(next); }}>
         <div className="dialog-head"><span>{t("settings.title")}</span><button type="button" className="btn" onClick={onClose}>×</button></div>
         {auth.available && (
           <label>{t("settings.account")}
@@ -59,7 +62,10 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
         </label>
         <label>{t("settings.bot")}
           <select value={bot} onChange={(e) => setBot(e.target.value as BotLevel)}>
-            {BOT_LEVELS.map((l) => <option key={l} value={l}>{t(`bot.${l}`)}</option>)}
+            {BOT_LEVELS.map((l) => {
+              const locked = !SELECTABLE_BOT_LEVELS.includes(l);
+              return <option key={l} value={l} disabled={locked} className={locked ? "locked" : undefined}>{t(`bot.${l}`)}</option>;
+            })}
           </select>
         </label>
         <label>{t("settings.first")}
@@ -77,7 +83,7 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
             <DiceToggle on={seedRandom} onToggle={() => setSeedRandom(!seedRandom)} title={t("settings.seedRandom")} />
           </span>
         </label>
-        <button className="btn primary" type="submit">{t("btn.reset")}</button>
+        <button className="btn primary" type="submit" disabled={!changed}>{t("btn.apply")}</button>
       </form>
     </div>
   );

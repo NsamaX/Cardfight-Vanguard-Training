@@ -22,13 +22,13 @@ export function validateDeck(deck: Deck): Msg[] {
   }
   if (errors.length) return errors;
 
-  if (total(deck.main) !== 50) errors.push(msg("deck.err.mainSize", { n: total(deck.main) }));
+  if (total(deck.main) !== 50) errors.push(msg("deck.err.mainSize"));
   const triggers = sumWhere(deck.main, (k) => card(k).type === "trigger");
-  if (triggers !== 16) errors.push(msg("deck.err.triggers", { n: triggers }));
+  if (triggers > 16) errors.push(msg("deck.err.triggers"));
   const heals = sumWhere(deck.main, (k) => card(k).trigger === "heal");
-  if (heals > 4) errors.push(msg("deck.err.heals", { n: heals }));
+  if (heals > 4) errors.push(msg("deck.err.heals"));
   const sentinels = sumWhere(deck.main, (k) => isSentinel(card(k)));
-  if (sentinels > 4) errors.push(msg("deck.err.sentinels", { n: sentinels }));
+  if (sentinels > 4) errors.push(msg("deck.err.sentinels"));
   // Cards with the same name count together even with different codes (reprints in different sets)
   const overCopies = (r: Record<string, number>) => {
     const byName = new Map<string, number>();
@@ -41,7 +41,7 @@ export function validateDeck(deck: Deck): Msg[] {
   }
   if (!deck.main[deck.starter] || card(deck.starter).grade !== 0) errors.push(msg("deck.err.starter"));
 
-  if (total(deck.g_zone) > 16) errors.push(msg("deck.err.gZoneSize", { n: total(deck.g_zone) }));
+  if (total(deck.g_zone) > 16) errors.push(msg("deck.err.gZoneSize"));
   overCopies(deck.g_zone);
   for (const k of Object.keys(deck.g_zone)) {
     if (!card(k).type.startsWith("g-")) errors.push(msg("deck.err.notGInGZone", { card: card(k).name }));

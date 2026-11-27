@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useContext, useState, type ChangeEvent } from "react";
 import { cardByKey as db, cards } from "../../data/cards";
 import { countCards, validateDeck } from "../../data/decks";
 import { DEFAULT_SLEEVES, type Sleeve } from "../../data/sleeves";
@@ -7,17 +7,18 @@ import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
 import { shrinkImage } from "../../lib/image";
 import { publicUrl } from "../../lib/library";
-import { G_ZONE_SIZE, MAIN_SIZE, MAX_COPIES, addCard, byGradeThenName, copiesIn, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
+import { G_ZONE_SIZE, MAIN_SIZE, addCard, byGradeThenName, canAdd, copiesIn, coverCard, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
+import { isSentinel } from "../../engine/rules";
 import { emptyCard } from "../../lib/abilityDraft";
-import { CardView } from "../CardView";
+import { CardHover, CardView } from "../CardView";
 import { CardEditor } from "./CardEditor";
 
 const FILTERS = ["All", "0", "1", "2", "3", "G"] as const;
 type Filter = (typeof FILTERS)[number];
-// Slots above the deck list: drop a card on Deck (cover, card must be in the deck), a sleeve on Main / G
-const SLOTS = ["cover", "sleeve", "g_sleeve"] as const;
+// Slots above the deck list: Deck shows the starting vanguard; Main / G are the sleeves
+const SLOTS = ["starter", "sleeve", "g_sleeve"] as const;
 type Slot = (typeof SLOTS)[number];
-type Drag = { kind: "card"; key: string } | { kind: "sleeve"; path: string };
+type SleeveSlot = Exclude<Slot, "starter">;
 const SLEEVE_W = 440, SLEEVE_H = 640;
 
 function ExpandIcon({ collapse }: { collapse: boolean }) {
@@ -30,21 +31,25 @@ function ExpandIcon({ collapse }: { collapse: boolean }) {
 }
 
 // Create/edit a deck. Left: the card library (click to add) or the sleeve list. Right: the Deck/Main/G slots and the deck list
-// (click to remove, ★ sets the starting vanguard). Drag a card or sleeve onto a slot to set the cover or sleeve.
-export function DeckBuilder({ p, initial, onDone, onCancel, onSaveCard, sleeves, onAddSleeve, onDeleteSleeve, expanded, canExpand, onToggleExpand }: {
+// (click to remove, ★ sets the starting vanguard). The first grade 0 added is the starting vanguard, the first card added is the cover.
+// Sleeves: click a Main/G slot to empty it, then click a sleeve in the list to fill the empty slot (Main first).
+// A slot still empty on Done saves as unset = this side's default sleeve.
+export function DeckBuilder({ p, initial, onDone, onCancel, onDelete, onSaveCard, sleeves, onAddSleeve, onDeleteSleeve, expanded, canExpand, onToggleExpand }: {
   p: PlayerId;
   initial: Deck; onDone: (d: Deck) => void; onCancel: () => void; onSaveCard: (c: Card) => Promise<MsgKey | null>;
+  onDelete?: () => void;   // unset = no Delete button (a new deck not saved yet, or the last deck)
   sleeves: Sleeve[]; onAddSleeve: (name: string, image: string) => Promise<void>; onDeleteSleeve: (path: string) => Promise<void>;
   expanded: boolean; canExpand: boolean; onToggleExpand: () => void;
 }) {
-  const [deck, setDeck] = useState(initial);
+  const [deck, setDeck] = useState<Deck>(() => ({ ...initial, cover: initial.cover ?? coverCard(initial) ?? "" }));   // older decks: pin the automatic cover so adding a card doesn't replace it
   const [tab, setTab] = useState<"cards" | "sleeves">("cards");
   const [uploading, setUploading] = useState(false);
-  const dragging = useRef<Drag | null>(null);   // dataTransfer is unreadable during dragover
-  const [over, setOver] = useState<Slot | null>(null);
+  const [emptied, setEmptied] = useState<SleeveSlot[]>([]);
   const [filter, setFilter] = useState<Filter>("All");
   const [query, setQuery] = useState("");
   const [cardEdit, setCardEdit] = useState<Card | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const hover = useContext(CardHover);
   const t = useT();
 
   async function saveCard(c: Card): Promise<MsgKey | null> {
@@ -54,18 +59,19 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onSaveCard, sleeves,
   }
 
   // A deck without its own sleeve uses this side's default, so the slot and the sleeve list show that one
-  const sleeveOf = (slot: "sleeve" | "g_sleeve") => deck[slot] ?? DEFAULT_SLEEVES[p][slot];
-  const inDeck = (key: string) => !!(deck.main[key] || deck.g_zone[key]);
-  const accepts = (slot: Slot, d: Drag) => (slot === "cover" ? d.kind === "card" && inDeck(d.key) : d.kind === "sleeve");
-  const dragProps = (d: Drag) => ({
-    draggable: true,
-    onDragStart: (e: DragEvent) => { dragging.current = d; e.dataTransfer.effectAllowed = "copy"; e.dataTransfer.setData("text/plain", ""); },
-    onDragEnd: () => { dragging.current = null; setOver(null); },
-  });
-  function drop(slot: Slot) {
-    const d = dragging.current;
-    if (!d || !accepts(slot, d)) return;
-    setDeck({ ...deck, [slot]: d.kind === "card" ? d.key : d.path });
+  const sleeveOf = (slot: SleeveSlot) => (emptied.includes(slot) ? undefined : deck[slot] ?? DEFAULT_SLEEVES[p][slot]);
+  function clickSlot(slot: Slot) {
+    if (slot === "starter") { setTab("cards"); return; }
+    setTab("sleeves");
+    if (emptied.includes(slot)) return;
+    setDeck({ ...deck, [slot]: undefined });
+    setEmptied([...emptied, slot]);
+  }
+  function pickSleeve(path: string) {
+    const slot = (["sleeve", "g_sleeve"] as const).find((s) => emptied.includes(s));
+    if (!slot) return;
+    setDeck({ ...deck, [slot]: path });
+    setEmptied(emptied.filter((s) => s !== slot));
   }
 
   async function removeSleeve(sl: Sleeve) {
@@ -97,7 +103,7 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onSaveCard, sleeves,
 
   // The main deck is sorted by grade, the G zone keeps the order dragged on the board
   const rows = (zone: Record<string, number>) => (zone === deck.main ? Object.keys(zone).sort(byGradeThenName) : Object.keys(zone)).map((k) => (
-    <div key={k} className="deck-row" {...dragProps({ kind: "card", key: k })} style={db[k].image ? { backgroundImage: `url(${db[k].image})` } : undefined} onClick={() => setDeck(removeCard(deck, k))}>
+    <div key={k} className={`deck-row ${isSentinel(db[k]) ? "sentinel" : db[k].type === "trigger" ? "trigger" : ""}`} style={db[k].image ? { backgroundImage: `url(${db[k].image})` } : undefined} onMouseEnter={() => hover?.(k)} onMouseLeave={() => hover?.(undefined)} onClick={() => { hover?.(k); setDeck(removeCard(deck, k)); }}>
       <span className="g">{db[k].type.startsWith("g-") ? "G" : db[k].grade}</span>
       <span className="n">{db[k].name}</span>
       {db[k].grade === 0 && zone === deck.main && (
@@ -129,12 +135,12 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onSaveCard, sleeves,
               <input type="file" accept="image/*" hidden disabled={uploading} onChange={newSleeve} />
             </label>
             {sleeves.map((sl) => (
-              <div key={sl.path} className={`collect sleeve-tile ${sleeveOf("sleeve") === sl.path || sleeveOf("g_sleeve") === sl.path ? "full" : ""}`} {...dragProps({ kind: "sleeve", path: sl.path })}>
+              <div key={sl.path} className={`collect sleeve-tile ${sleeveOf("sleeve") === sl.path || sleeveOf("g_sleeve") === sl.path ? "full" : ""} ${emptied.length ? "pickable" : ""}`} onClick={() => pickSleeve(sl.path)}>
                 <div className="card">
                   <img src={publicUrl(sl.path)} alt="" draggable={false} />
                   <span className="strip"><span className="nm">{sl.name}</span></span>
                 </div>
-                {sl.own && <button className="btn edit-card" title={t("sleeve.delete")} aria-label={t("sleeve.delete")} onClick={() => removeSleeve(sl)}>×</button>}
+                {sl.own && <button className="btn edit-card" title={t("sleeve.delete")} aria-label={t("sleeve.delete")} onClick={(e) => { e.stopPropagation(); removeSleeve(sl); }}>×</button>}
               </div>
             ))}
           </div>
@@ -144,8 +150,8 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onSaveCard, sleeves,
           {pool.map((c) => {
             const n = copiesIn(deck, c.key);
             return (
-              <div key={c.key} className={`collect ${n >= MAX_COPIES ? "full" : ""}`} {...dragProps({ kind: "card", key: c.key })}>
-                <CardView inst={displayInstance(c.key)} mark onClick={() => setDeck(addCard(deck, c.key))} />
+              <div key={c.key} className={`collect ${canAdd(deck, c.key) ? "" : "full"}`}>
+                <CardView inst={displayInstance(c.key)} mark onClick={() => { hover?.(c.key); setDeck(addCard(deck, c.key)); }} />
                 <span className="copies">{n > 0 ? `x${n}` : ""}</span>
                 <button className="btn edit-card" title={t("cardEd.edit")} onClick={() => setCardEdit(c)}>✎</button>
               </div>
@@ -162,14 +168,12 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onSaveCard, sleeves,
         <div className="deck-rows">
           <div className="deck-slots">
             {SLOTS.map((slot) => {
-              const img = slot === "cover" ? (deck.cover && inDeck(deck.cover) ? db[deck.cover].image : undefined) : publicUrl(sleeveOf(slot));
-              const label = t(slot === "cover" ? "deck.slotDeck" : slot === "sleeve" ? "deck.sleeveMain" : "sleeve.g");
+              const sleeve = slot === "starter" ? undefined : sleeveOf(slot);
+              const img = slot === "starter" ? (deck.main[deck.starter] ? db[deck.starter].image : undefined) : sleeve && publicUrl(sleeve);
+              const label = t(slot === "starter" ? "deck.slotDeck" : slot === "sleeve" ? "deck.sleeveMain" : "sleeve.g");
               return (
-                <div key={slot} className={`deck-slot ${slot} ${img ? "" : "empty"} ${over === slot ? "over" : ""}`} title={label}
-                  onClick={() => setTab(slot === "cover" ? "cards" : "sleeves")}
-                  onDragOver={(e) => { if (dragging.current && accepts(slot, dragging.current)) { e.preventDefault(); setOver(slot); } }}
-                  onDragLeave={() => setOver((o) => (o === slot ? null : o))}
-                  onDrop={(e) => { e.preventDefault(); setOver(null); drop(slot); }}>
+                <div key={slot} className={`deck-slot ${slot} ${img ? "" : "empty"}`} title={label}
+                  onClick={() => clickSlot(slot)}>
                   {img ? <img src={img} alt="" draggable={false} /> : <span>{label}</span>}
                 </div>
               );
@@ -184,11 +188,30 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onSaveCard, sleeves,
           {errors[0] && <span className="err">{t(errors[0])}</span>}
           <div className="deck-actions">
             <button className="btn" onClick={onCancel}>{t("deck.cancel")}</button>
+            {onDelete && <button className="btn" onClick={() => setConfirmDelete(true)}>{t("deck.delete")}</button>}
             <button className="btn primary" disabled={countCards(deck.main) !== MAIN_SIZE} onClick={() => onDone(deck)}>{t("deck.done")}</button>
           </div>
         </div>
       </div>
+      {confirmDelete && onDelete && <DeleteDeckDialog name={initial.name} onDelete={onDelete} onClose={() => setConfirmDelete(false)} />}
       {cardEdit && <CardEditor initial={cardEdit} onSave={saveCard} onCancel={() => setCardEdit(null)} />}
+    </div>
+  );
+}
+
+// Deleting a deck asks again: type the deck's saved name to enable Delete; close with X or by clicking outside
+function DeleteDeckDialog({ name, onDelete, onClose }: { name: string; onDelete: () => void; onClose: () => void }) {
+  const [typed, setTyped] = useState("");
+  const t = useT();
+  return (
+    <div className="veil top-veil" onClick={onClose}>
+      <form className="dialog" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); if (typed === name) onDelete(); }}>
+        <div className="dialog-head"><span>{t("deck.confirmDelete", { name })}</span><button type="button" className="btn" onClick={onClose}>×</button></div>
+        <label>{t("deck.typeName", { name })}
+          <input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={name} />
+        </label>
+        <button className="btn primary" type="submit" disabled={typed !== name}>{t("deck.delete")}</button>
+      </form>
     </div>
   );
 }

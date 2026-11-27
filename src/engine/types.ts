@@ -48,7 +48,7 @@ export interface Deck {
   g_zone: Record<string, number>;
   sleeve?: string;                  // path in the card-images bucket; unset = that side's default sleeve (data/sleeves.ts)
   g_sleeve?: string;
-  cover?: string;                   // card code used as the deck cover; unset = chosen automatically
+  cover?: string;                   // card code used as the deck cover (the first card added); "" = none; unset = chosen automatically (older decks)
 }
 
 // ---------- Game state ----------

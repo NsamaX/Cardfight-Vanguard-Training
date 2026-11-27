@@ -5,10 +5,11 @@ import type { PlayerId } from "../engine/types";
 export interface GameSettings {
   seed: number | "random";
   firstPlayer: PlayerId | "random";
-  bot?: BotLevel;             // unset = Normal
+  bot?: BotLevel;             // unset = Beta
 }
 
-export const DEFAULT_SETTINGS: GameSettings = { seed: "random", firstPlayer: "me", bot: "normal" };
+export const DEFAULT_BOT: BotLevel = "beta";
+export const DEFAULT_SETTINGS: GameSettings = { seed: "random", firstPlayer: "me", bot: DEFAULT_BOT };
 
 export const randomSeed = () => Math.floor(Math.random() * 1e9);
 

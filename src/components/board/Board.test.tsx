@@ -294,6 +294,19 @@ describe("board", () => {
     expect(host.querySelectorAll(".modal .card")).toHaveLength(countCards(deck.main));
   });
 
+  it("a card dialog closes when pressing anywhere outside it, including the side panels the veil doesn't cover", () => {
+    render(createGame(db, { seed: 2, firstPlayer: "me", decks: { me: deck, bot: deck } }), false);
+    const down = (el: Element | null) => act(() => { el!.dispatchEvent(new Event("pointerdown", { bubbles: true })); });
+    rawClick(host.querySelector(".stack.me .deck .zone-slot"));
+    down(host.querySelector(".modal .card"));
+    expect(host.querySelector(".modal")).not.toBeNull();
+    down(host.querySelector(".veil"));
+    expect(host.querySelector(".modal")).toBeNull();
+    rawClick(host.querySelector(".stack.me .deck .zone-slot"));
+    down(host.querySelector("aside.right"));
+    expect(host.querySelector(".modal")).toBeNull();
+  });
+
   it("mulligan: the chosen cards go back into the deck first, then new ones are drawn", async () => {
     vi.useFakeTimers();
     try {

@@ -1,8 +1,9 @@
+import { useContext } from "react";
 import { countCards, validateDeck } from "../../data/decks";
 import type { Deck } from "../../engine/types";
 import { useT } from "../../i18n/react";
 import { G_ZONE_SIZE, MAIN_SIZE, byGradeThenName, displayInstance } from "../../lib/deckEdit";
-import { CardView } from "../CardView";
+import { CardHover, CardView } from "../CardView";
 
 // View the deck's cards: Back to the list / Delete / Edit opens the deck editor / Use this deck on this side (illegal decks can't be used)
 export function DeckView({ deck, current, onBack, onEdit, onUse, removeLabel, onRemove }: {
@@ -16,10 +17,11 @@ export function DeckView({ deck, current, onBack, onEdit, onUse, removeLabel, on
 }) {
   const errors = validateDeck(deck);
   const t = useT();
+  const show = useContext(CardHover);
   // The main deck is sorted by grade, the G zone keeps its dragged order
   const cards = (zone: Record<string, number>) => (zone === deck.main ? Object.keys(zone).sort(byGradeThenName) : Object.keys(zone)).map((k) => (
     <div key={k} className="collect">
-      <CardView inst={displayInstance(k)} mark />
+      <CardView inst={displayInstance(k)} mark onClick={() => show?.(k)} />
       <span className="copies">x{zone[k]}{deck.starter === k ? " ★" : ""}</span>
     </div>
   ));
