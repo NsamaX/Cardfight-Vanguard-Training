@@ -3,6 +3,7 @@
 import { parseCode, quoted, splitTop } from "../engine/code";
 import { isG, printedShield, type CardDB } from "../engine/rules";
 import type { Ability, Card, Deck } from "../engine/types";
+import { cardMatches } from "../engine/vocab/filters";
 
 export type ComboKind = "farm" | "attack" | "defense" | "finisher";
 // When in the game the combo becomes playable: early = no GB or stride needed, mid = GB1-2 or a stride, late = GB3+ or a finisher
@@ -91,24 +92,11 @@ function produces(ab: Ability): Ev[] {
   return out;
 }
 
-// Card k matches the filter (checked without a board: filters that need the board count as passing)
+// Card k matches the filter (the engine's filters, checked without a board: "that card" compares the card key, set rules pass)
 function fits(k: Card, flt: string, source: Card, subject?: string): boolean {
-  for (const t of splitTop(flt, "&")) {
-    let m: RegExpMatchArray | null;
-    if ((m = t.match(/^grade-(\d+)$/))) { if (k.grade !== +m[1]) return false; }
-    else if ((m = t.match(/^grade≤(\d+)$/))) { if (k.grade > +m[1]) return false; }
-    else if (t.startsWith("name(")) { if (!k.name.includes(quoted(t))) return false; }
-    else if (t === "not-same-name") { if (k.name === source.name) return false; }
-    else if (t === "same-name") { if (k.key !== source.key) return false; }
-    else if (t === "has-hollow") { if (!k.abilities.some((a) => a.effect.some((e) => e.startsWith("hollow(self")))) return false; }
-    else if (t === "normal-unit") { if (k.type !== "normal") return false; }
-    else if (t === "heal" || t === "heal-trigger") { if (k.trigger !== "heal") return false; }
-    else if (t === "G-GUARDIAN") { if (k.type !== "g-guardian") return false; }
-    else if (t === "that-card") { if (subject && k.key !== subject) return false; }
-    else if (t === "different-grades" || t === "grade-sum≥3" || t === "") { /* checked when choosing */ }
-    else if (k.clan !== t) return false;
-  }
-  return true;
+  const terms = splitTop(flt, "&").filter((t) => t !== "that-card");
+  if (subject && flt.includes("that-card") && k.key !== subject) return false;
+  return cardMatches(k, terms.join(" & "), { db: {}, source, sourceKey: source.key });
 }
 
 const isUnit = (c: Card) => !isG(c);

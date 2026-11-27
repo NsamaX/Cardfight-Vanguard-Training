@@ -57,7 +57,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   reveal: {
-    forms: ["reveal(#, filter=…)"], text: "Reveal cards from hand (they stay in hand)",
+    forms: ["reveal(#, filter={filter})"], text: "Reveal cards from hand (they stay in hand)",
     canPay: (ctx) => matching(ctx, me(ctx).hand).length > 0,
     run: (ctx) => {
       const opts = matching(ctx, me(ctx).hand), n = Math.min(num(ctx.c.pos[0]), opts.length);
@@ -68,7 +68,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   search: {
-    forms: ["search(deck→hand, n≤#, filter=…)", "search(deck→drop, n≤#, filter=…)", "search(deck→hand, n≤#, filter=…, look=top-5)"],
+    forms: ["search(deck→hand, n≤#, filter={filter})", "search(deck→drop, n≤#, filter={filter})", "search(deck→hand, n≤#, filter={filter}, look=top-5)"],
     text: "Search the deck (or its top 5) for cards, put them into hand or the drop zone, then shuffle",
     run: (ctx) => {
       const ps = me(ctx), dst = ctx.c.pos[0].split("→")[1];
@@ -113,9 +113,9 @@ export const CARD_OPS: Record<string, OpSpec> = {
       return true;
     },
   },
-  // to-soul(drop, n≤3 | n=1 | all, filter=…) / to-soul(self)
+  // to-soul(drop, n≤3 | n=1 | all, filter={filter}) / to-soul(self)
   "to-soul": {
-    forms: ["to-soul(drop, n≤#, filter=…)", "to-soul(drop, n=#, filter=…)", "to-soul(drop, all, filter=…)", "to-soul(self)"],
+    forms: ["to-soul(drop, n≤#, filter={filter})", "to-soul(drop, n=#, filter={filter})", "to-soul(drop, all, filter={filter})", "to-soul(self)"],
     text: "Put cards from the drop zone (or this unit) into the soul (filter different-grades = all chosen differ in grade)",
     run: (ctx) => {
       if (ctx.c.pos[0] === "self") {
@@ -152,9 +152,9 @@ export const CARD_OPS: Record<string, OpSpec> = {
       return true;
     },
   },
-  // to-deck(drop, all) / to-deck(drop+soul, n=2..3, filter=…): return cards to the deck (shuffle with a separate shuffle(deck))
+  // to-deck(drop, all) / to-deck(drop+soul, n=2..3, filter={filter}): return cards to the deck (shuffle with a separate shuffle(deck))
   "to-deck": {
-    forms: ["to-deck(drop, all)", "to-deck(drop+soul, n=#..#, filter=…)"], text: "Return cards to the deck (filter same-grade = all chosen share a grade)",
+    forms: ["to-deck(drop, all)", "to-deck(drop+soul, n=#..#, filter={filter})"], text: "Return cards to the deck (filter same-grade = all chosen share a grade)",
     run: (ctx) => {
       const ps = me(ctx);
       const pool = matching(ctx, zonesOf(ctx, ctx.c.pos[0]));
@@ -191,7 +191,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   "to-hand": {
-    forms: ["to-hand(drop, n≤#, filter=…)"], text: "Return cards from the drop zone to hand",
+    forms: ["to-hand(drop, n≤#, filter={filter})"], text: "Return cards from the drop zone to hand",
     run: (ctx) => {
       const ps = me(ctx), opts = matching(ctx, ps.drop);
       if (!opts.length) return true;

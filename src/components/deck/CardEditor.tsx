@@ -2,23 +2,25 @@ import { useState, type ChangeEvent } from "react";
 import type { Card, CardType } from "../../engine/types";
 import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
-import { KINDS, codePath, codeTemplates, emptyDraft, fill, nextSteps, numbersOf, templateFor, templateOf, toAbility, toDraft, type Draft, type KindPick, type ListField } from "../../lib/abilityDraft";
+import { KINDS, codePath, codeTemplates, emptyDraft, fill, nextSteps, templateFor, templateOf, toAbility, toDraft, valuesOf, type Draft, type KindPick, type ListField } from "../../lib/abilityDraft";
+import { validateCard } from "../../engine/vocab";
 import { fromPlainText, toPlainText } from "../../lib/cardText";
 import { shrinkImage } from "../../lib/image";
 
 // Create/edit a card: the left side has the image, card data, and the card's real text (one field); the right side has the ability boxes
-// Boxes pick codes from a dropdown (codes used by library cards); numbers in a code become input fields
+// Boxes pick codes from a dropdown (every code the engine knows, plus codes library cards use); numbers and quoted texts become input fields
 
 const IMG_W = 408, IMG_H = 595;   // half the size of the library card images
 const TYPES: CardType[] = ["normal", "trigger", "g-unit", "g-guardian"];
 const TRIGGERS = ["critical", "heal", "stand", "draw"] as const;
 const SKILLS = ["boost", "intercept", "twin-drive", "triple-drive"] as const;
 const ZONES = ["VC", "RC", "GC", "VC/RC", "hand", "G zone"];
-// Code picked step by step (name, then each argument, e.g. enter → RC → self → from=drop) + number fields for each # in the code
+// Code picked step by step (name, then each argument, e.g. enter → RC → self → from=drop) + a field for each # (number) and "$" (text) in the code
 // Picking a step jumps to the first code that fits it, so the value is always a whole code; "·" = the code stops there
 function CodePick({ value, options, onChange, onRemove }: { value: string; options: string[]; onChange: (v: string) => void; onRemove?: () => void }) {
   const tpl = templateOf(value);
-  const nums = numbersOf(value);
+  const values = valuesOf(value);
+  const nums = values.map((x) => x.v);
   const opts = value && !options.includes(tpl) ? [tpl, ...options] : options;
   const path = value ? codePath(tpl) : [];
   const pick = (i: number, step: string) => {
@@ -47,10 +49,10 @@ function CodePick({ value, options, onChange, onRemove }: { value: string; optio
         ))}
         {path.length > 1 && <span className="punct">)</span>}
       </div>
-      {nums.map((n, i) => (
-        <input key={i} className="mono num" type="number" min={0} value={n}
-          onChange={(e) => onChange(fill(tpl, nums.map((x, j) => (j === i ? e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "") || "0" : x))))} />
-      ))}
+      {values.map((x, i) => x.text
+        ? <input key={i} className="mono" value={x.v} onChange={(e) => onChange(fill(tpl, nums.map((y, j) => (j === i ? e.target.value.replace(/"/g, "") : y))))} />
+        : <input key={i} className="mono num" type="number" min={0} value={x.v}
+          onChange={(e) => onChange(fill(tpl, nums.map((y, j) => (j === i ? e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "") || "0" : y))))} />)}
       {onRemove && <button className="btn" onClick={onRemove}>×</button>}
     </div>
   );
@@ -65,12 +67,9 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const t = useT();
-  const [codes] = useState(() => ({
-    timing: codeTemplates((a) => (a.timing ? [a.timing] : undefined)),
-    cond: codeTemplates((a) => a.cond),
-    cost: codeTemplates((a) => a.cost),
-    effect: codeTemplates((a) => a.effect),
-  }));
+  const [codes] = useState(() => ({ timing: codeTemplates("timing"), cond: codeTemplates("cond"), cost: codeTemplates("cost"), effect: codeTemplates("effect") }));
+  // Codes the engine wouldn't run as written (unknown codes, conditions, filters, targets): shown under the abilities
+  const problems = validateCard({ ...card, abilities: drafts.map(toAbility).filter((a) => a.effect.length || a.timing || a.cost?.length) });
 
   const set = <K extends keyof Card>(k: K, v: Card[K]) => setCard({ ...card, [k]: v });
   const num = (v: string) => (v.trim() === "" ? undefined : Number(v));
@@ -183,6 +182,12 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
             </div>
           ))}
           <button className="btn add-skill" onClick={() => setDrafts([...drafts, emptyDraft()])}>{t("cardEd.addSkill")}</button>
+          {problems.length > 0 && (
+            <div className="code-problems">
+              <span className="err">{t("cardEd.unknownCodes")}</span>
+              <ul className="mono">{problems.map((p) => <li key={p}>{p}</li>)}</ul>
+            </div>
+          )}
         </div>
 
         <div className="card-ed-foot">

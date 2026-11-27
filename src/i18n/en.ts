@@ -128,6 +128,7 @@ export const en = {
   "library.retry": "Retry",
   "library.offline": "Couldn't reach the server. Check your connection and try again",
   "cardEd.save": "Save",
+  "cardEd.unknownCodes": "The game engine can't run these yet (they'll be skipped in a game):",
   "log.setupTurn": "Setup",
   "log.turnLabel": "TURN {n}",
   "modal.pickTitle": ({ prompt, range }) => `${prompt} · pick ${range === "1" ? "1 card" : `${range} cards`}`,

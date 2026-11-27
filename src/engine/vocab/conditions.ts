@@ -18,11 +18,11 @@ export const PREDICATES: Record<string, PredicateSpec> = {
   "own-turn": { forms: ["own-turn"], text: "During our turn", test: (sc) => sc.s.turnPlayer === sc.owner },
   // As a cond it's checked when resolving (the unit may be hollowed by another ability that resolves first)
   "self-hollowed": { forms: ["self-hollowed"], text: "This card is hollowed", test: (sc, _a, phase) => phase === "trigger" || !!sc.source?.hollowed },
-  "vc-name": { forms: ['vc-name("…")'], text: "Our vanguard (or its heart) has this word in its name", test: (sc, a) => vcNames(sc).includes(quoted(a)) },
-  "heart-name": { forms: ['heart-name("…")'], text: "Our heart card has this word in its name", test: (sc, a) => { const h = sc.s.players[sc.owner].heart; return !!h && sc.db[h.key].name.includes(quoted(a)); } },
-  "vc-clan": { forms: ["vc-clan(…)"], text: "Our vanguard is of this clan", test: (sc, a) => { const vc = sc.s.players[sc.owner].circles.vc; return !!vc && sc.db[vc.key].clan === a; } },
-  "souled-name": { forms: ['souled-name("…")'], text: "This ability put a card with this word in its name into the soul", test: (sc, a) => (sc.r?.done.souled ?? []).some((d) => sc.db[d.key].name.includes(quoted(a))) },
-  "name-in-drop": { forms: ['name-in-drop("…")'], text: "A card with this word in its name is in our drop zone", test: (sc, a) => sc.s.players[sc.owner].drop.some((i) => sc.db[i.key].name.includes(quoted(a))) },
+  "vc-name": { forms: ['vc-name("$")'], text: "Our vanguard (or its heart) has this word in its name", test: (sc, a) => vcNames(sc).includes(quoted(a)) },
+  "heart-name": { forms: ['heart-name("$")'], text: "Our heart card has this word in its name", test: (sc, a) => { const h = sc.s.players[sc.owner].heart; return !!h && sc.db[h.key].name.includes(quoted(a)); } },
+  "vc-clan": { forms: ['vc-clan("$")'], text: "Our vanguard is of this clan", test: (sc, a) => { const vc = sc.s.players[sc.owner].circles.vc; return !!vc && sc.db[vc.key].clan === (quoted(a) || a); } },
+  "souled-name": { forms: ['souled-name("$")'], text: "This ability put a card with this word in its name into the soul", test: (sc, a) => (sc.r?.done.souled ?? []).some((d) => sc.db[d.key].name.includes(quoted(a))) },
+  "name-in-drop": { forms: ['name-in-drop("$")'], text: "A card with this word in its name is in our drop zone", test: (sc, a) => sc.s.players[sc.owner].drop.some((i) => sc.db[i.key].name.includes(quoted(a))) },
   "called-has-hollow": { forms: ["called-has-hollow"], text: "A card this ability called has Hollow", test: (sc) => (sc.r?.done.called ?? []).some((d) => hasHollow(sc.db[d.key])) },
   while: { forms: ["while(stride-cost)"], text: "Only while doing this (CONT): stride-cost = paying the stride cost", test: (sc, a) => sc.mode === a },
 };

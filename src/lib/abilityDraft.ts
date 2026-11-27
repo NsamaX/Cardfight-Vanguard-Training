@@ -1,9 +1,11 @@
 import { cards } from "../data/cards";
 import { isOptional } from "../engine/abilities";
+import { validateCard } from "../engine/vocab";
+import { editorTemplates } from "../engine/vocab/editor";
 import type { Ability, AbilityKind, Card } from "../engine/types";
 
 // Editable form of an ability for the card editor, and the code templates its dropdowns offer.
-// A template is an ability code with its numeric values replaced by #, e.g. CB(#) or power(+#, …).
+// A template is an ability code with its numbers replaced by # and its quoted texts by "$", e.g. CB(#) or vc-name("$").
 
 // "AUTO+" = optional AUTO (stored as optional: true)
 export const KINDS = ["AUTO", "AUTO+", "ACT", "CONT", "STRIDE", "ULTIMATE STRIDE", "G GUARDIAN"] as const;
@@ -12,17 +14,30 @@ export type KindPick = (typeof KINDS)[number];
 export type ListField = "cond" | "cost" | "effect";
 export interface Draft { kind: KindPick; zone?: string; timing: string; cond: string[]; cost: string[]; effect: string[]; follows?: boolean }
 
-// Numbers that are values in a code (after ( , + - ≤ ≥ = or a space), e.g. CB(1), power(+5000, …), grade-3; 1/turn doesn't count
-const NUM = /(?<=[(,+\-≤≥= ])\d+/g;
-export const templateOf = (code: string) => code.replace(NUM, "#");
-export const numbersOf = (code: string) => code.match(NUM) ?? [];
-export function fill(template: string, nums: string[]) {
+// Values in a code: quoted texts, and numbers after ( , + - ≤ ≥ = or a space, e.g. CB(1), power(+5000, …), grade-3; 1/turn doesn't count
+const VALUE = /"[^"]*"|(?<=[(,+\-≤≥= ])\d+/g;
+export interface CodeValue { text: boolean; v: string }
+export const templateOf = (code: string) => code.replace(VALUE, (m) => (m.startsWith('"') ? '"$"' : "#"));
+export const valuesOf = (code: string): CodeValue[] => (code.match(VALUE) ?? []).map((m) => (m.startsWith('"') ? { text: true, v: m.slice(1, -1) } : { text: false, v: m }));
+export function fill(template: string, values: string[]) {
   let i = 0;
-  return template.replace(/#/g, () => nums[i++] || "1");
+  return template.replace(/"\$"|#/g, (m) => (m === "#" ? values[i++] || "1" : `"${values[i++] ?? ""}"`));
 }
 
-export const codeTemplates = (pick: (a: Ability) => string[] | undefined) =>
-  [...new Set(cards.flatMap((c) => c.abilities.flatMap((a) => pick(a) ?? [])).map(templateOf))].sort();
+// The templates a field offers: every form in the engine's vocabulary, plus the codes library cards already use
+const PICK: Record<ListField | "timing", (a: Ability) => string[] | undefined> = {
+  timing: (a) => (a.timing ? [a.timing] : undefined), cond: (a) => a.cond, cost: (a) => a.cost, effect: (a) => a.effect,
+};
+// (a code some card uses that the engine can't run isn't offered)
+const runs = (field: ListField | "timing", tpl: string) => {
+  const code = fill(tpl, []);
+  const ab: Ability = field === "timing" ? { kind: "AUTO", timing: code, effect: [] } : { kind: "AUTO", effect: [], [field]: [code] };
+  return validateCard({ ...emptyCard(), abilities: [ab] }).length === 0;
+};
+export const codeTemplates = (field: ListField | "timing") => {
+  const used = cards.flatMap((c) => c.abilities.flatMap((a) => PICK[field](a) ?? [])).map(templateOf).filter((tpl) => runs(field, tpl));
+  return [...new Set([...editorTemplates(field), ...used])].sort();
+};
 
 export const toDraft = (a: Ability): Draft => ({
   kind: a.kind === "AUTO" && isOptional(a) ? "AUTO+" : a.kind,

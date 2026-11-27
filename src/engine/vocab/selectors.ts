@@ -32,7 +32,7 @@ export const SELECTORS: Record<string, SelectorSpec> = {
   own: { forms: ["own"], text: "All our units", pool: (ctx) => fieldUnits(own(ctx)) },
   "own-RC": { forms: ["own-RC"], text: "All our rear-guards", pool: (ctx) => rcUnits(ctx) },
   "other-own": { forms: ["other-own, n≤#"], text: "Our units other than this card (choose)", choose: "n≤1", pool: (ctx) => fieldUnits(own(ctx)).filter((u) => u.uid !== ctx.r.uid) },
-  "own-units": { forms: ["own-units, n=…"], text: "Our units (choose)", choose: "n≤1", pool: (ctx) => fieldUnits(own(ctx)) },
+  "own-units": { forms: ["own-units, n=count-in-drop({filter})"], text: "Our units (choose)", choose: "n≤1", pool: (ctx) => fieldUnits(own(ctx)) },
   "other-own-RC": { forms: ["other-own-RC"], text: "Our rear-guards other than this card (choose)", choose: "n≤1", pool: (ctx) => rcUnits(ctx).filter((u) => u.uid !== ctx.r.uid) },
   "front-row": { forms: ["front-row ≤#"], text: "Units in our front row (choose)", choose: "n≤3", pool: (ctx) => (["vc", "front_left", "front_right"] as Circle[]).map((c) => own(ctx).circles[c]).filter((i): i is CardInstance => !!i) },
   "opp-RC": { forms: ["opp-RC, n≤#"], text: "The opponent's rear-guards (choose)", choose: "n≤1", pool: (ctx) => rcUnits(ctx, other(ctx.owner)) },

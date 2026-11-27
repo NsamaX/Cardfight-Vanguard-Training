@@ -12,7 +12,7 @@ export const TIMINGS: Record<string, TimingSpec> = {
       && (c.pos[1] === "self" ? e.uid === uid : c.pos[1] === "other-own" ? e.player === owner && e.uid !== uid : false),
   },
   stride: {
-    forms: ["stride(own)", 'stride(own, filter=name("…"))'], text: "We stride a G unit (filter on its original card name)",
+    forms: ["stride(own)", 'stride(own, filter=name("$"))'], text: "We stride a G unit (filter on its original card name)",
     matches: (e, c, _u, owner, db) => e.kind === "stride" && e.player === owner && (!c.named.filter || db[e.key].name.includes(quoted(c.named.filter))),
   },
   "attack-hit": {

@@ -59,13 +59,14 @@ const statOp = (stat: Stat, forms: string[], text: string): OpSpec => ({
 
 export const STAT_OPS: Record<string, OpSpec> = {
   power: statOp("power", [
-    "power(+#, self, until=turn-end)", "power(+#, own-VC, until=turn-end)", "power(+#, other-own, n≤#, filter=…, until=turn-end)",
-    "power(+#, front-row ≤#, filter=…)", "power(+#, called, until=turn-end)", "power(+# per souled, own-VC & self, until=turn-end)",
+    "power(+#, {target}, {until})", "power(-#, {target}, {until})",
+    "power(+#, self, until=turn-end)", "power(+#, own-VC, until=turn-end)", "power(+#, other-own, n≤#, filter={filter}, until=turn-end)",
+    "power(+#, front-row ≤#, filter={filter})", "power(+#, called, until=turn-end)", "power(+# per souled, own-VC & self, until=turn-end)",
     "power(+# per # drop, self, until=battle-end)", "power(+#, own-units, n=count-in-drop(filter), until=turn-end)",
     "power(+# per count-in-soul(filter), own-RC)", "power(-#, self)",
   ], "Change Power (until= battle-end or turn-end)"),
-  shield: statOp("shield", ["shield(+#, self, until=battle-end)", "shield(+#, self, per=returned, until=battle-end)"], "Change Shield"),
-  critical: statOp("critical", ["critical(+#, self)"], "Change Critical"),
+  shield: statOp("shield", ["shield(+#, {target}, {until})", "shield(+#, self, until=battle-end)", "shield(+#, self, per=returned, until=battle-end)"], "Change Shield"),
+  critical: statOp("critical", ["critical(+#, self)", "critical(+#, {target}, {until})"], "Change Critical"),
   drive: {
     forms: ["drive(+#, self)", "drive(-#, stood, until=turn-end)"], text: "Change drive (how many drive checks a vanguard makes)",
     cont: (ctx) => contMods(ctx, "drive", parseInt(ctx.c.pos[0], 10)),

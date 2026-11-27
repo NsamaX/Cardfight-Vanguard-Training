@@ -29,7 +29,7 @@ function circleOptions(ctx: Ctx, to?: string): Circle[] {
   return RC;
 }
 
-// call(drop→RC, n≤1, filter=…, to=…) / call(hand+drop→RC, …) / call(drop→GC, n≤2, filter=different-grades) / call(self→RC) (starter from the soul)
+// call(drop→RC, n≤1, filter={filter}, to=…) / call(hand+drop→RC, …) / call(drop→GC, n≤2, filter=different-grades) / call(self→RC) (starter from the soul)
 function runCall(ctx: Ctx): boolean {
   const [src, dst] = ctx.c.pos[0].split("→");
   const ps = me(ctx), r = ctx.r;
@@ -100,13 +100,13 @@ function runCall(ctx: Ctx): boolean {
 
 export const UNIT_OPS: Record<string, OpSpec> = {
   call: {
-    forms: ["call(drop→RC, n≤#, filter=…)", "call(hand+drop→RC, n≤#, filter=…, to=empty)", "call(drop→RC, n=#, filter=that-card)", "call(drop→GC, n≤#, filter=different-grades)", "call(self→RC)", "call(G→GC, self)"],
+    forms: ["call(drop→RC, n≤#, filter={filter})", "call(hand+drop→RC, n≤#, filter={filter}, to=empty)", "call(drop→RC, n=#, filter=that-card)", "call(drop→GC, n≤#, filter=different-grades)", "call(self→RC)", "call(G→GC, self)"],
     text: "Call cards to rear-guard circles (to= empty / different / not-self / same-column) or to the guardian circle",
     run: runCall,
   },
   // retire(opp-RC, n≤1) / retire(own, target=boosted) / retire(own, target=called): the target= selector wins over the first argument
   retire: {
-    forms: ["retire(opp-RC, n≤#)", "retire(own, target=boosted)", "retire(own, target=called, at=turn-end)"], text: "Retire units",
+    forms: ["retire({target})", "retire(opp-RC, n≤#)", "retire(own, target=boosted)", "retire(own, target=called, at=turn-end)"], text: "Retire units",
     run: (ctx) => {
       const who = ctx.c.named.target ?? ctx.c.pos[0];
       const opp = who.startsWith("opp");
@@ -141,9 +141,9 @@ export const UNIT_OPS: Record<string, OpSpec> = {
       return true;
     },
   },
-  // stand(own, filter=…): stand our matching units; they're remembered as "stood" for later steps (e.g. drive(-3, stood))
+  // stand(own, filter={filter}): stand our matching units; they're remembered as "stood" for later steps (e.g. drive(-3, stood))
   stand: {
-    forms: ["stand(own, filter=…)", "stand(own, filter=…, at=battle-end)"], text: "Stand units",
+    forms: ["stand(own, filter={filter})", "stand(own, filter={filter}, at=battle-end)"], text: "Stand units",
     run: (ctx) => {
       const uids = pickUnits(ctx, { who: ctx.c.pos[0], filter: ctx.c.named.filter });
       if (uids === false) return false;
@@ -182,9 +182,9 @@ export const UNIT_OPS: Record<string, OpSpec> = {
       return true;
     },
   },
-  // no-hit(own-attacked, filter=…): "choose one of your units with …": only the attacked unit matters, so it must match
+  // no-hit(own-attacked, filter={filter}): "choose one of your units with …": only the attacked unit matters, so it must match
   "no-hit": {
-    forms: ["no-hit(own-attacked, until=battle-end)", "no-hit(own-attacked, filter=…, until=battle-end)", "no-hit(own-VC-attacked, until=battle-end)"],
+    forms: ["no-hit(own-attacked, until=battle-end)", "no-hit(own-attacked, filter={filter}, until=battle-end)", "no-hit(own-VC-attacked, until=battle-end)"],
     text: "Our attacked unit can't be hit this battle",
     run: (ctx) => {
       const uids = pickUnits(ctx, { who: ctx.c.pos[0], filter: ctx.c.named.filter });

@@ -36,7 +36,7 @@ export const RESOURCE_OPS: Record<string, OpSpec> = {
     run: (ctx) => { flipDamage(me(ctx), num(ctx.c.pos[0]), false); say(ctx, "log.damageFacedown"); return true; },
   },
   SB: {
-    forms: ["SB(#)", 'SB(#, filter=name("…"))'], text: "Soul Blast: put cards from the soul into the drop zone (filter= which ones)",
+    forms: ["SB(#)", 'SB(#, filter=name("$"))'], text: "Soul Blast: put cards from the soul into the drop zone (filter= which ones)",
     canPay: (ctx) => matching(ctx, me(ctx).soul).length >= num(ctx.c.pos[0]),
     run: (ctx) => {
       const ps = me(ctx), n = num(ctx.c.pos[0]);

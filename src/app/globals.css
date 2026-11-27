@@ -155,6 +155,10 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .code-steps .punct { color: var(--mute); font-size: 13px; }
 .code-pick select { max-width: 100%; font-size: 13px; font-weight: 500; }
 .code-pick .num { flex: none; width: 80px; font-size: 13px; }
+.code-pick input:not(.num) { flex: none; width: 140px; font-size: 13px; }
+.code-problems { align-self: stretch; padding: 8px 10px; border: 1px solid var(--bad); border-radius: 6px; font-size: 12px; }
+.code-problems .err { color: var(--bad); }
+.code-problems ul { margin: 4px 0 0; padding-left: 18px; overflow-wrap: anywhere; }
 .code-pick .btn, .add-code { flex: none; width: 28px; height: 28px; padding: 0; }
 .add-code { border-style: dashed; }
 .add-skill { align-self: flex-start; border-style: dashed; }

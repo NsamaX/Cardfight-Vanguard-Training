@@ -125,6 +125,7 @@ export const ja: Dict = {
   "library.retry": "再試行",
   "library.offline": "サーバーに接続できません。接続を確認して再試行してください",
   "cardEd.save": "保存",
+  "cardEd.unknownCodes": "ゲームエンジンがまだ実行できないコード（ゲームでは飛ばされます）：",
   "log.setupTurn": "準備",
   "log.turnLabel": "TURN {n}",
   "modal.pickTitle": "{prompt}・{range}枚選択",
