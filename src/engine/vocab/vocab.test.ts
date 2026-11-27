@@ -7,6 +7,9 @@ import { checkTerm } from "./conditions";
 import { amount, range } from "./counters";
 import { cardMatches } from "./filters";
 import { validateCard } from "./index";
+import { vocabularyMarkdown, withGenerated } from "./doc";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // Card texts the engine doesn't run yet. A new entry here means a card needs a new code in the vocabulary.
 const KNOWN_GAPS = [
@@ -60,5 +63,13 @@ describe("vocabulary", () => {
     expect(cardMatches(angelica, "normal-unit & Genesis", env)).toBe(true);
     expect(cardMatches(angelica, "Granblue", env)).toBe(false);
     expect(cardMatches(angelica, "unknown-thing", env)).toBe(false);
+  });
+});
+
+describe("documents/vocabulary.md", () => {
+  it("its code reference matches the registry (run npm run vocab-doc after changing a code)", () => {
+    const file = join(process.cwd(), "documents/vocabulary.md");
+    const doc = readFileSync(file, "utf8");
+    expect(withGenerated(doc, vocabularyMarkdown(cards))).toBe(doc);
   });
 });

@@ -18,6 +18,8 @@
     "combos": "vite-node scripts/combos.ts --",
     "precheck-cards": "npm run content",
     "check-cards": "vite-node scripts/check-cards.ts",
+    "prevocab-doc": "npm run content",
+    "vocab-doc": "vite-node scripts/vocab-doc.ts",
     "sync-defaults": "node --env-file=.env scripts/sync-defaults.mjs"
   },
   "dependencies": {

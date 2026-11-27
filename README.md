@@ -41,16 +41,16 @@ To deploy on Vercel, set only the two `NEXT_PUBLIC_` variables there, and add th
 | Part | Status |
 |---|---|
 | Phases and battle (`engine/game.ts`) | Complete per [rules-g.md](documents/rules-g.md), except ultimate stride |
-| Card abilities (`engine/abilities.ts`) | AUTO and ACT run automatically from the ability code in card files |
+| Card abilities (`engine/abilities.ts`, `engine/vocab/`) | AUTO, ACT, and CONT run from the ability code in card files; `npm run check-cards` lists codes the engine doesn't run yet |
 | Bot (`bot/`) | Beta (default, same as Nightmare; the only selectable level for now), plus Normal, Hard, Nightmare (locked) |
 | Decks and sleeves | Guests view and use the defaults; signed-in players edit their own |
-| Card editor | Signed-in players create/edit cards, including the image; card text is edited as plain text, ability codes are picked step by step |
+| Card editor | Signed-in players create/edit cards, including the image; card text is edited as plain text, ability codes are picked step by step from the engine's whole vocabulary, and codes it can't run are flagged |
 | Replays (`replay/`) | Save, step through, change speed, download/open files, continue from any step |
 | Languages (`i18n/`) | English (default), Japanese |
 | Combo tutorial | Combo files and loader exist (`data/combos.ts`), no screen yet |
 | Online play (`lib/online.ts`, `hooks/useMatch.ts`) | Signed-in players: create a room and share its 6-digit code, or join by code; play again in the same room (Ready, then Start on both sides); resume after a reload; no undo, replays, or deck editing during a match |
 
-Not supported yet: CONT abilities (except Tommy's +2 grade for the stride cost), Sebreeze's ACT, Megiddo's ultimate stride, and "up to 3" mills (always mills 3).
+Not supported yet: Honoly's CONT (attack tax), Sebreeze's ACT, Megiddo's ultimate stride, and "up to 3" mills (always mills 3).
 
 ## How to play
 
@@ -88,7 +88,7 @@ Bottom-right buttons:
 | `src/components/` | React UI, data and callbacks via props (`board/` the board, `deck/` the deck and card screens) |
 | `src/hooks/` | Screen state: `useBoard` (clicks → engine actions), `useLibrary` (load/save cards, decks, sleeves), `useAuth`, `useCardFlight` (card animations) |
 | `src/lib/` | Non-React helpers: board rules (`board.ts`), deck editing, ability drafts and the step-by-step code picker for the card editor, card text ↔ plain text (`cardText.ts`), game settings, Supabase access (`library.ts`, `supabase.ts`), image resizing, number formatting |
-| `src/engine/` | Game state, rules, phases, the check timing queue, and ability codes (`types.ts` holds the shared types) |
+| `src/engine/` | Game state, rules, phases (`game.ts`), the ability resolver (`abilities.ts`), CONT and card-driven rules (`cont.ts`), and the ability code vocabulary (`vocab/`); `types.ts` holds the shared types |
 | `src/bot/` | The bot (see below) |
 | `src/data/` | In-memory card registry (bundled set, replaced by the Supabase library at runtime), default decks, combos, default sleeves, deck validation |
 | `src/replay/` | Replay format, playback, and guest storage |
@@ -101,6 +101,20 @@ Bottom-right buttons:
 ### Design
 
 The engine is pure: `apply(db, state, player, action)` returns a new state plus events and randomizes only from the seed. That gives undo/redo (keep old states), replays (seed + decks + actions), the bot (answers the same `Decision`s through `Bot.decide()`), and online play (see below).
+
+### Ability engine
+
+Card abilities are data: each card file lists its abilities as codes (see [vocabulary.md](documents/vocabulary.md)), and the engine runs them. The parts, each with one job:
+
+| File | Job |
+|---|---|
+| `engine/code.ts` | Parses a code string into a name, positional and named arguments |
+| `engine/vocab/` | The vocabulary: every code declared once with its forms and meaning. `filters.ts` (which cards), `counters.ts` (numbers such as `souled` or `count-in-drop(…)`), `conditions.ts` (`cond` and `if=`), `selectors.ts` (which units), `timings.ts` (which events), `ops/` (what costs and effects do) |
+| `engine/abilities.ts` | The resolver: events → queued AUTO abilities → each ability's steps, asking the player midway; `at=` delays the rest of an ability |
+| `engine/cont.ts` | CONT effects (recomputed after every change) and rules a card can change: the stride cost and the G guardian discard |
+| `engine/game.ts` | Phases, battle, and the player's actions |
+
+To support a new card text: find the closest code in vocabulary.md. If none fits, add one to the registry in `engine/vocab/` (a filter, counter, condition, selector, timing, or op, with its `forms` and `text`), then run `npm run vocab-doc`. The card editor offers it right away, and `npm run check-cards` and the tests report any card code the engine doesn't know (an unknown condition never holds, an unknown code is skipped).
 
 ### Online play
 
@@ -155,4 +169,6 @@ The Python scripts need PyYAML; `clean_images.py` also needs numpy and Pillow.
 
 - **`python tools/clean_images.py`** builds card images (`.temp/` → `content/images/<clan>/`, listed in `SOURCES`) and sleeves (`.temp/sleeves/` → `content/sleeves/`, listed in `SLEEVES`): trims the background, resizes, and for cards evens out color and rounds corners. Source files are never modified.
 - **`npm run combos -- <deck>`** finds a deck's strongest turns by playing them with the real engine (`src/bot/lab/`). It builds test boards (each grade 3 vanguard with vanguard abilities, at GB1 and GB3 after striding, with a full hand, drop zone, and soul), then searches for the best lines per goal: `pressure` (Shield the opponent must spend, criticals, shots), `attacks` (attacks reaching 11,000 Power), `farm` (cards, CB, and soul at the end of the turn). The opponent never guards and can't be hit, so every attack is counted; checks reveal cards without trigger effects, so results don't depend on luck. Output goes to `.temp/combos-<deck id>/`: `index.md` names each combo by the cards that drove it, with what it gives and every step as a sentence (e.g. `Attack: Negrorook (RC1 + Negrobone RC3) 23,000 → Negrobone (CB1): calls Nightstorm from drop to RC1`), and each combo has a replay file to open with the Replays button. Options: `--replay <file> --turn <n>` also searches from the turn player's board in a saved replay, `--goal pressure,attacks`, `--beam <n>` (default 10; wider is slower and finds more), `--ms <n>` (time limit per board and goal), `--top <n>` (lines per goal, default 2). `<deck>` is a deck id or part of the name in `content/decks/`.
-- **`python tools/find_chains.py`** finds combo chains from card ability codes (which effect causes which event, and which card waits for it). Options: `--turn opp|own`, `--start <name>`, `--vc <name>`, `--gb <n>`, `--depth <n>`. Each line ends with running totals, e.g. `{CB 2, SB 1 | regains CC+1, SC+1}`. It doesn't check free RC space or what's actually in the drop zone.
+- **`npm run check-cards`** lists ability codes in `content/cards/` the engine doesn't run yet (unknown codes, conditions, filters, targets, amounts).
+- **`npm run vocab-doc`** rewrites the generated code reference in `documents/vocabulary.md` from the engine's vocabulary (a test fails when it's out of date).
+- **`python tools/find_chains.py`** finds combo chains from card ability codes (which effect causes which event, and which card waits for it). Options: `--turn opp|own`, `--start <name>`, `--vc <name>`, `--gb <n>`, `--depth <n>`. Each line ends with running totals, e.g. `{CB 2, SB 1 | regains CC+1, SC+1}`. It doesn't check free RC space or what's actually in the drop zone. It reads the codes on its own (not through `engine/vocab/`), so codes added to the engine may need adding there too.
