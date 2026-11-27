@@ -131,7 +131,7 @@ Codes that can be paid as a cost (the engine checks whether they can be paid bef
 | `critical(+#, self)`<br>`critical(+#, target, until=…)` | Change Critical | Urth, Nightrose |
 | `drive(+#, self)`<br>`drive(-#, stood, until=turn-end)` | Change drive (how many drive checks a vanguard makes) | Minerva |
 | `grade(+#, self)` | Change grade (CONT, e.g. while paying the stride cost; read by the rules, see cont.ts) | Flap Angel, Tommy the Ghostie Brothers |
-| `grant(AUTO-RC[timing → effect], called, until=turn-end)`<br>`grant(ACT-VC[cost → effect & effect], self, until=turn-end)`<br>`grant(AUTO-VC/RC[timing → effect], front-row ≤#, until=turn-end)` | Give units an ability until the end of the turn | Urth, Verthandi, Negrolazy, Mick the Ghostie and Family, Megiddo |
+| `grant(AUTO-RC[turn-end → draw(1)], target, until=turn-end)`<br>`grant(ACT-VC[CB(1) → power(+5000, self)], target, until=turn-end)` | Give units an ability until the end of the turn: AUTO-zone[timing → effect & …] or ACT-zone[cost & … → effect & …] | Urth, Verthandi, Negrolazy, Mick the Ghostie and Family, Megiddo |
 | `choose(CC(1), SC(1))` | The player chooses one of the effects | Eir, Negrolazy, Dewey the Ghostie |
 | `stride(self)` | STRIDE this card (the rules do it in the stride step) | Sebreeze, Inanna, Urth, Minerva, Obadiah, Nightrose, Immortal Galleon, Megiddo |
 | `keyword(Sentinel)`<br>`keyword(Revelation)` | A keyword (Sentinel: deck limit and guard rules; others are placeholders) | Inanna, Jotun, Gust Jinn, Waterspout Djinn |

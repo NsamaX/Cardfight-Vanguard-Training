@@ -156,6 +156,10 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .code-pick select { max-width: 100%; font-size: 13px; font-weight: 500; }
 .code-pick .num { flex: none; width: 80px; font-size: 13px; }
 .code-pick input:not(.num) { flex: none; width: 140px; font-size: 13px; }
+.nested-pick { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 2px 4px; border: 1px dashed var(--line); border-radius: 6px; }
+.nested-row { display: inline-flex; align-items: center; gap: 4px; }
+.nested-pick .code-pick { width: auto; }
+.grant-pick { display: flex; flex-direction: column; align-items: stretch; width: 100%; padding: 6px; }
 .code-problems { align-self: stretch; padding: 8px 10px; border: 1px solid var(--bad); border-radius: 6px; font-size: 12px; }
 .code-problems .err { color: var(--bad); }
 .code-problems ul { margin: 4px 0 0; padding-left: 18px; overflow-wrap: anywhere; }

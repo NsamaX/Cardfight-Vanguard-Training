@@ -1,7 +1,9 @@
 import { cards } from "../data/cards";
 import { isOptional } from "../engine/abilities";
 import { validateCard } from "../engine/vocab";
+import { splitTop } from "../engine/code";
 import { editorTemplates } from "../engine/vocab/editor";
+import { grantedAbility } from "../engine/vocab/ops/meta";
 import type { Ability, AbilityKind, Card } from "../engine/types";
 
 // Editable form of an ability for the card editor, and the code templates its dropdowns offer.
@@ -34,10 +36,55 @@ const runs = (field: ListField | "timing", tpl: string) => {
   const ab: Ability = field === "timing" ? { kind: "AUTO", timing: code, effect: [] } : { kind: "AUTO", effect: [], [field]: [code] };
   return validateCard({ ...emptyCard(), abilities: [ab] }).length === 0;
 };
+// A filter and a granted ability are edited with their own controls, so templates hold a slot for them (see splitParts)
 export const codeTemplates = (field: ListField | "timing") => {
   const used = cards.flatMap((c) => c.abilities.flatMap((a) => PICK[field](a) ?? [])).map(templateOf).filter((tpl) => runs(field, tpl));
-  return [...new Set([...editorTemplates(field), ...used])].sort();
+  return [...new Set([...editorTemplates(field), ...used].map((t) => splitParts(t).code))].sort();
 };
+
+// Templates for one filter term (filter=a & b & …)
+export const filterTemplates = () => editorTemplates("filter").map(templateOf);
+
+// ---------- Arguments with their own editor: filter=… and a granted ability ----------
+
+export const SLOT = { filter: "filter=…", ability: "ability…" } as const;
+export const DEFAULT_FILTER = "normal-unit";
+export const DEFAULT_ABILITY = "AUTO-RC[turn-end → draw(1)]";
+export interface Parts { filter?: string; ability?: string }
+
+const isAbilityArg = (a: string) => /^(AUTO|ACT)(-[\w/]+)?\[/.test(a);
+
+// Replace the filter and granted ability arguments with slots: the step picker works on the rest, the slots get their own editors
+export function splitParts(code: string): { code: string; parts: Parts } {
+  const path = codePath(code);
+  if (path.length < 2) return { code, parts: {} };
+  const parts: Parts = {};
+  const args = path.slice(1).map((a) => {
+    if (a.startsWith("filter=")) { parts.filter = a.slice("filter=".length); return SLOT.filter; }
+    if (isAbilityArg(a)) { parts.ability = a; return SLOT.ability; }
+    return a;
+  });
+  return { code: `${path[0]}(${args.join(", ")})`, parts };
+}
+
+export function joinParts(code: string, parts: Parts): string {
+  return code.replace(SLOT.filter, `filter=${parts.filter || DEFAULT_FILTER}`).replace(SLOT.ability, parts.ability || DEFAULT_ABILITY);
+}
+
+export const filterTerms = (flt: string) => splitTop(flt, "&");
+export const joinFilter = (terms: string[]) => terms.filter(Boolean).join(" & ");
+
+// A granted ability as editable parts, and back: AUTO-VC[timing → effect & effect] / ACT-RC[cost & cost → effect]
+export interface GrantDraft { kind: "AUTO" | "ACT"; zone?: string; timing: string; cost: string[]; effect: string[] }
+export function toGrantDraft(code: string): GrantDraft {
+  const ab = grantedAbility(code);
+  if (!ab) return { kind: "AUTO", timing: "", cost: [], effect: [""] };
+  return { kind: ab.kind === "ACT" ? "ACT" : "AUTO", zone: ab.zone, timing: ab.timing ?? "", cost: ab.cost ?? [], effect: ab.effect };
+}
+export function fromGrantDraft(g: GrantDraft): string {
+  const left = g.kind === "AUTO" ? g.timing : g.cost.filter(Boolean).join(" & ");
+  return `${g.kind}${g.zone ? `-${g.zone}` : ""}[${left} → ${g.effect.filter(Boolean).join(" & ")}]`;
+}
 
 export const toDraft = (a: Ability): Draft => ({
   kind: a.kind === "AUTO" && isOptional(a) ? "AUTO+" : a.kind,
@@ -79,8 +126,8 @@ export function codePath(template: string): string[] {
   for (let i = start; i < template.length - 1; i++) {
     const ch = template[i];
     if (ch === "\"") quoted = !quoted;
-    else if (!quoted && ch === "(") depth++;
-    else if (!quoted && ch === ")") depth--;
+    else if (!quoted && (ch === "(" || ch === "[")) depth++;
+    else if (!quoted && (ch === ")" || ch === "]")) depth--;
     else if (!quoted && depth === 0 && ch === ",") { args.push(template.slice(start, i).trim()); start = i + 1; }
   }
   args.push(template.slice(start, template.length - 1).trim());

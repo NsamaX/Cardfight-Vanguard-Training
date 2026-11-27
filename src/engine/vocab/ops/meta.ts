@@ -17,14 +17,14 @@ export function grantedAbility(code: string): Ability | undefined {
   const m = code.match(/^(AUTO|ACT)(?:-([\w/]+))?\[(.*) → (.*)\]$/);
   if (!m) return undefined;
   return m[1] === "AUTO"
-    ? { kind: "AUTO", zone: m[2], timing: m[3], effect: [m[4]] }
+    ? { kind: "AUTO", zone: m[2], timing: m[3], effect: splitTop(m[4], "&") }
     : { kind: "ACT", zone: m[2], cost: splitTop(m[3], "&"), effect: splitTop(m[4], "&") };
 }
 
 export const META_OPS: Record<string, OpSpec> = {
   grant: {
-    forms: ["grant(AUTO-RC[timing → effect], called, until=turn-end)", "grant(ACT-VC[cost → effect & effect], self, until=turn-end)", "grant(AUTO-VC/RC[timing → effect], front-row ≤#, until=turn-end)"],
-    text: "Give units an ability until the end of the turn",
+    forms: ["grant(AUTO-RC[turn-end → draw(1)], {target}, until=turn-end)", "grant(ACT-VC[CB(1) → power(+5000, self)], {target}, until=turn-end)"],
+    text: "Give units an ability until the end of the turn: AUTO-zone[timing → effect & …] or ACT-zone[cost & … → effect & …]",
     run: (ctx) => {
       const ab = grantedAbility(ctx.c.pos[0]);
       if (!ab) return true;

@@ -26,9 +26,10 @@ const usable = (f: string) => !/\[(timing|cost)|→ effect|…/.test(f);
 
 const COMPARE = ["≥#", "≤#", "=#"];
 
-export function editorTemplates(field: "timing" | "cond" | "cost" | "effect"): string[] {
+export function editorTemplates(field: "timing" | "cond" | "cost" | "effect" | "filter"): string[] {
   let forms: string[];
-  if (field === "timing") forms = Object.values(TIMINGS).flatMap((t) => t.forms);
+  if (field === "filter") forms = SLOTS["{filter}"]();
+  else if (field === "timing") forms = Object.values(TIMINGS).flatMap((t) => t.forms);
   else if (field === "cond") forms = [...Object.values(PREDICATES).flatMap((p) => p.forms), ...Object.values(COUNTERS).flatMap((c) => c.forms.flatMap((f) => COMPARE.map((op) => f + op)))];
   else if (field === "cost") forms = Object.values(OPS).filter((o) => o.canPay).flatMap((o) => o.forms);
   else forms = Object.entries(OPS).filter(([name, o]) => !o.passive && name !== "g-assist").flatMap(([, o]) => o.forms);

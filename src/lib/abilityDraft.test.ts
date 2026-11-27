@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cards } from "../data/cards";
 import { validateCard } from "../engine/vocab";
-import { codePath, codeTemplates, fill, nextSteps, templateFor, templateOf, valuesOf } from "./abilityDraft";
+import { SLOT, codePath, codeTemplates, fill, filterTemplates, filterTerms, fromGrantDraft, joinFilter, joinParts, nextSteps, splitParts, templateFor, templateOf, toGrantDraft, valuesOf } from "./abilityDraft";
 
 const T = ["enter(RC, self)", "enter(RC, self, from=drop)", "enter(GC, self)", "CC(#, if=name-in-drop(\"A, B\"))", "self-hollowed"];
 
@@ -37,7 +37,36 @@ describe("code templates", () => {
     expect(effects).toContain("opp-retires(opp-RC, n=#)");
     expect(effects).toContain("shield(+#, own-VC, until=battle-end)");
     expect(codeTemplates("cond")).toContain("hand≥#");
-    const card = { ...cards[0], abilities: effects.map((e) => ({ kind: "AUTO" as const, timing: "turn-end", effect: [fill(e, [])] })) };
+    const card = { ...cards[0], abilities: effects.map((e) => ({ kind: "AUTO" as const, timing: "turn-end", effect: [joinParts(fill(e, []), {})] })) };
     expect(validateCard(card)).toEqual([]);
+  });
+});
+
+describe("filter and granted ability parts", () => {
+  it("a filter and a granted ability become slots, and go back unchanged", () => {
+    const code = 'grant(AUTO-VC/RC[attack-hit(self, target=VC) → look(2, hand=1, soul=1)], front-row ≤3, until=turn-end)';
+    const { code: base, parts } = splitParts(code);
+    expect(base).toBe(`grant(${SLOT.ability}, front-row ≤3, until=turn-end)`);
+    expect(joinParts(base, parts)).toBe(code);
+    const f = splitParts('to-soul(drop, n≤2, filter=normal-unit & name("Regalia"))');
+    expect(f.code).toBe(`to-soul(drop, n≤2, ${SLOT.filter})`);
+    expect(filterTerms(f.parts.filter!)).toEqual(["normal-unit", 'name("Regalia")']);
+    expect(joinParts(f.code, { filter: joinFilter(["grade-3", 'name("X")']) })).toBe('to-soul(drop, n≤2, filter=grade-3 & name("X"))');
+  });
+
+  it("a granted ability round-trips through its draft, with several effects joined by &", () => {
+    const g = toGrantDraft("AUTO-RC[battle-end(self, did=attack) → swap(self, other-own-RC)]");
+    expect(g).toEqual({ kind: "AUTO", zone: "RC", timing: "battle-end(self, did=attack)", cost: [], effect: ["swap(self, other-own-RC)"] });
+    expect(fromGrantDraft({ ...g, effect: [...g.effect, "draw(1)"] })).toBe("AUTO-RC[battle-end(self, did=attack) → swap(self, other-own-RC) & draw(1)]");
+    expect(fromGrantDraft({ kind: "ACT", zone: "VC", timing: "", cost: ["SB(6)"], effect: ["power(+10000, self)", "critical(+1, self)"] }))
+      .toBe("ACT-VC[SB(6) → power(+10000, self) & critical(+1, self)]");
+  });
+
+  it("templates hold one slot per filter / granted ability instead of every combination", () => {
+    const effects = codeTemplates("effect");
+    expect(effects).toContain(`grant(${SLOT.ability}, called, until=turn-end)`);
+    expect(effects).toContain(`to-soul(drop, n≤#, ${SLOT.filter})`);
+    expect(effects.some((e) => e.includes("filter=name"))).toBe(false);
+    expect(filterTemplates()).toContain('name("$")');
   });
 });
