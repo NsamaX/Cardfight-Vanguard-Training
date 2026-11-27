@@ -1,11 +1,20 @@
 import { isSentinel } from "../engine/rules";
-import type { Deck } from "../engine/types";
+import type { Deck, PlayerId } from "../engine/types";
 import { msg, type Msg } from "../i18n/msg";
 import { cardByKey } from "./cards";
 import content from "./content.json";
 
 // Sample decks from content/decks/*.yaml (default set; the app loads players' decks from Supabase)
 export const presetDecks = content.decks as unknown as Deck[];
+
+// The bot's starting deck: the default set's file id, or the name a signed-in player's copy keeps (their copy gets a new id)
+export const BOT_DECK = { id: "regalia-minerva", name: "Genesis Regalia" };
+
+// Decks on the board when the library loads: the bot gets BOT_DECK, we get the first other deck (either falls back to the first deck)
+export function startingDecks(decks: Deck[]): Record<PlayerId, Deck> {
+  const bot = decks.find((d) => d.id === BOT_DECK.id || d.name === BOT_DECK.name) ?? decks[0];
+  return { me: decks.find((d) => d !== bot) ?? bot, bot };
+}
 
 export const countCards = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0);
 

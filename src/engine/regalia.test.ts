@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cardByKey as db } from "../data/cards";
-import { countCards, presetDecks, validateDeck } from "../data/decks";
+import { countCards, presetDecks, startingDecks, validateDeck } from "../data/decks";
 import { apply, createGame, refreshAwaiting } from "./game";
 import { driveOf, powerOf } from "./rules";
 import type { Action, CardInstance, GameState, PlayerId } from "./types";
@@ -37,6 +37,14 @@ describe("Regalia deck", () => {
     expect(validateDeck(regalia)).toEqual([]);
     expect(countCards(regalia.main)).toBe(50);
     expect(countCards(regalia.g_zone)).toBe(16);
+  });
+
+  it("is the bot's starting deck; we get the other deck, also from a signed-in copy matched by name, and both fall back to the first deck", () => {
+    const nightrose = presetDecks.find((d) => d.id === "nightrose-sample")!;
+    expect(startingDecks(presetDecks)).toEqual({ me: nightrose, bot: regalia });
+    const copy = { ...regalia, id: "uuid-1" };
+    expect(startingDecks([copy, nightrose])).toEqual({ me: nightrose, bot: copy });
+    expect(startingDecks([nightrose])).toEqual({ me: nightrose, bot: nightrose });
   });
 });
 

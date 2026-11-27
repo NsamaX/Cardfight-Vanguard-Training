@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { cardByKey as db, setCards } from "../data/cards";
+import { startingDecks } from "../data/decks";
 import { createGame } from "../engine/game";
 import type { Deck, GameState, PlayerId } from "../engine/types";
 import { useAuth } from "../hooks/useAuth";
@@ -31,7 +32,7 @@ const replaceDeck = (decks: Record<PlayerId, Deck>, d: Deck) =>
 const newGame = (settings: GameSettings, decks: Record<PlayerId, Deck>, n: number, fixed?: { seed: number; firstPlayer: PlayerId }): Running =>
   ({ state: createGame(db, { ...(fixed ?? resolveSettings(settings)), decks }), started: false, settings, decks, n });
 
-// Opens straight onto the board with the first library deck on both sides; press Start to begin.
+// Opens straight onto the board with the bot's deck (BOT_DECK) on its side and the first other deck on ours; press Start to begin.
 // Each library load (first visit, sign-in, sign-out) starts a fresh game with the new library.
 export function GameApp() {
   const auth = useAuth();
@@ -41,11 +42,10 @@ export function GameApp() {
   const [online, setOnline] = useState<OnlineStart | null>(null);
   const t = useT();
   const { library, failed, retry } = useLibrary(auth.ready, auth.user?.id, (lib) => {
-    const first = lib.decks[0];
     setViewing(null);
     setOnline(null);
     setDeckOpen(false);
-    setGame((g) => newGame(g?.settings ?? DEFAULT_SETTINGS, { me: first, bot: first }, (g?.n ?? 0) + 1));
+    setGame((g) => newGame(g?.settings ?? DEFAULT_SETTINGS, startingDecks(lib.decks), (g?.n ?? 0) + 1));
   });
 
   if (failed) return <LoadFailed onRetry={retry} />;

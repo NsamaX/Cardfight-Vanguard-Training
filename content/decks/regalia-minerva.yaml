@@ -6,6 +6,8 @@ name: Genesis Regalia
 format: G
 starter: G-BT14/071TH          # Regalia of Dawn, Daylight Angel (counted in main)
 cover: G-BT14/009TH            # Ultimate Regalia of Almighty, Minerva
+sleeve: echidna.jpg            # file in content/sleeves/
+g_sleeve: moon.jpg
 
 main:                           # 50 cards
   # Grade 0

@@ -1,7 +1,7 @@
 // Upload the default set from content/ to Supabase: cards -> default_cards, decks -> default_decks,
 // card images (content/images/<clan>/*.png) -> card-images bucket under defaults/, sleeves (content/sleeves/*) -> defaults/sleeves/ + default_sleeves
 // Needs SUPABASE_SECRET_KEY, so run it only on your machine: npm run sync-defaults
-// Players who already signed in keep their copy; only new players get the updated set (see claim_defaults).
+// Players who already signed in get only the defaults they haven't received yet, once each (see claim_defaults in 0006_new_defaults.sql).
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, globSync, readFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";

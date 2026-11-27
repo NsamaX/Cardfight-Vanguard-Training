@@ -32,7 +32,7 @@ Without Supabase settings the app still runs as an offline guest with the bundle
    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
    SUPABASE_SECRET_KEY=sb_secret_...        # only for sync-defaults, never in the browser
    ```
-4. Upload the default set: `npm run sync-defaults`. Run it again whenever `content/` changes. Guests and players signing in for the first time get the new set; players who already signed in keep their own copy.
+4. Upload the default set: `npm run sync-defaults`. Run it again whenever `content/` changes. Guests and players signing in for the first time get the whole set. Players who already signed in get the default cards and decks they haven't received yet, once each, on their next load; cards they edited and decks they deleted stay as they are.
 
 To deploy on Vercel, set only the two `NEXT_PUBLIC_` variables there, and add the Vercel domain to the Supabase redirect URLs.
 
@@ -54,7 +54,7 @@ Not supported yet: CONT abilities (except Tommy's +2 grade for the stride cost),
 
 ## How to play
 
-Both sides start with the first library deck and the bot plays the top side. Before **Start**, click either deck to see its whole list. **Start** puts the starting vanguards on VC and draws 5.
+The bot plays the top side and starts with the Genesis Regalia deck (`BOT_DECK` in `src/data/decks.ts`; if the library has no deck of that id or name, the first deck); your side starts with the first other deck. Before **Start**, click either deck to see its whole list. **Start** puts the starting vanguards on VC and draws 5.
 
 | To | Click |
 |---|---|

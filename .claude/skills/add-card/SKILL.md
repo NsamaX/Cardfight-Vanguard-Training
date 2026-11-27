@@ -174,7 +174,7 @@ Both regenerate `src/data/content.json` from `content/` first, so a malformed YA
 
 ## Publish to the app
 
-The app reads the default set from Supabase, not from `content/`. Tell the user to run `npm run sync-defaults` (it needs `SUPABASE_SECRET_KEY` in `.env`, so only on their machine). Guests and players who sign in for the first time afterwards get the new cards; players who already signed in keep their own copy.
+The app reads the default set from Supabase, not from `content/`. Tell the user to run `npm run sync-defaults` (it needs `SUPABASE_SECRET_KEY` in `.env`, so only on their machine). Guests and new players get the whole set; players who already signed in get the new cards on their next load (cards they edited are kept).
 
 ## Report to the user
 
