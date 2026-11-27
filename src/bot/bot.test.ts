@@ -292,6 +292,24 @@ describe("deck combos", () => {
     expect(affordable(cannon, { cb: 2, sb: 0, gb: 1, gFaceDown: 2, deck: 1 })).toBe(false);
   });
 
+  it("marks vanguard-only pieces as VC, tags phase, and lists how to get drop pieces there", () => {
+    const r = analyze(db, deck);
+    const nightFog = r.combos.find((c) => c.steps.some((s) => s.key === "G-CHB03/S11TH" && s.ability === 0))!;
+    expect(nightFog.steps.find((s) => s.key === "G-CHB03/S11TH")!.at).toBe("VC");
+    expect(r.combos.find((c) => c.steps[0].key === "PR/0686TH" && c.steps[1]?.key === "PR/0256TH")?.phase).toBe("late");
+    expect(r.combos.find((c) => c.steps.every((s) => s.key === "G-TD08/014TH") && c.profile.cc > 0)?.kind).toBe("farm");
+    const cannon = r.enablers.drop.get("G-BT06/087TH")!;
+    expect(cannon).toEqual(expect.arrayContaining([{ how: "search", key: "BT02/026TH", ability: 0 }, { how: "hollow" }, { how: "guard" }]));
+    expect(r.setupPiece.drop.get("G-BT06/087TH")).toBeGreaterThan(0);
+  });
+
+  it("chains a soul blast into abilities that work when sent from the soul to the drop", () => {
+    const r = analyze(db, presetDecks.find((d) => d.id === "regalia-minerva")!);
+    const norn = r.combos.find((c) => c.steps[0].key === "G-BT14/009TH" && c.steps[1]?.key === "EB12/012TH");
+    expect(norn?.steps[1].at).toBe("soul");
+    expect(r.enablers.soul.get("EB12/012TH")).toEqual(expect.arrayContaining([{ how: "to-soul", key: "EB12/006TH", ability: 0 }, { how: "ride" }]));
+  });
+
   it("an unchanged deck reuses the saved combos, an edited deck recomputes", () => {
     const a = deckCombos(db, deck);
     expect(deckCombos(db, { ...deck })).toBe(a);

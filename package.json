@@ -14,6 +14,8 @@
     "typecheck": "tsc --noEmit",
     "pretest": "npm run content",
     "test": "node scripts/test.mjs",
+    "precombos": "npm run content",
+    "combos": "vite-node scripts/combos.ts --",
     "sync-defaults": "node --env-file=.env scripts/sync-defaults.mjs"
   },
   "dependencies": {

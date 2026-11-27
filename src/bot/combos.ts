@@ -4,15 +4,21 @@ import { parseCode, quoted, splitTop } from "../engine/code";
 import { isG, printedShield, type CardDB } from "../engine/rules";
 import type { Ability, Card, Deck } from "../engine/types";
 
-export type ComboKind = "attack" | "defense" | "finisher";
-// Where a piece must be: hand = in hand (call/ride/discard), drop = in the drop zone, G = G zone, starter = the starting card
-export type PieceAt = "hand" | "drop" | "G" | "starter";
+export type ComboKind = "farm" | "attack" | "defense" | "finisher";
+// When in the game the combo becomes playable: early = no GB or stride needed, mid = GB1-2 or a stride, late = GB3+ or a finisher
+export type ComboPhase = "early" | "mid" | "late";
+// Where a piece must be: hand = in hand (call/discard), VC = ridden as the vanguard, drop/soul = already in that zone,
+// G = G zone, starter = the starting card
+export type PieceAt = "hand" | "VC" | "drop" | "soul" | "G" | "starter";
+// Zones a piece has to be put into before the combo (the bot plays to fill them)
+export type SetupZone = "drop" | "soul";
 
 export interface ComboStep { key: string; ability: number; at: PieceAt }
 export interface Combo {
   steps: ComboStep[];
   pieces: { key: string; at: PieceAt }[];
   kind: ComboKind;
+  phase: ComboPhase;
   difficulty: number;
   value: number;
   score: number;      // value / difficulty: easy and worthwhile = high
@@ -34,10 +40,16 @@ export interface ComboProfile {
   noHit: boolean;
   disrupt: { ownTurn: number; oppTurn: number };   // shooting/disrupting the opponent (retire etc.) on your turn / the opponent's turn
 }
+// A way to get a card into a setup zone: an ability of a deck card (key + ability), or the piece itself (hollow, guard, ride)
+export type EnablerHow = "search" | "discard" | "mill" | "soul-blast" | "hollow" | "guard" | "to-soul" | "soul-charge" | "ride" | "self";
+export interface Enabler { how: EnablerHow; key?: string; ability?: number }
+
 export interface DeckCombos {
   signature: string;
   combos: Combo[];
-  handPiece: Map<string, number>;   // card → best combo score this card is a hand piece of
+  handPiece: Map<string, number>;   // card → best combo score this card is a hand (or vanguard) piece of
+  setupPiece: Record<SetupZone, Map<string, number>>;   // card → best combo score this card is a drop/soul piece of
+  enablers: Record<SetupZone, Map<string, Enabler[]>>;  // card → ways to put it into that zone
 }
 
 // ---------- 1. Check cards in the deck and G zone ----------
@@ -55,7 +67,7 @@ function deckCards(db: CardDB, deck: Deck): Entry[] {
 // Events an ability's effect or cost causes
 type Ev =
   | { t: "enter"; zone: string; from?: string; who: "self" | "called"; filter: string }
-  | { t: "to-drop"; by: string; who: "self" | "called" | "own"; filter: string }
+  | { t: "to-drop"; by: string; from: "RC" | "soul"; who: "self" | "called" | "own" | "soul"; filter: string }
   | { t: "stride" }
   | { t: "discarded"; as: string; filter: string };
 
@@ -70,8 +82,9 @@ function produces(ab: Ability): Ev[] {
       else if (src === "G") out.push({ t: "enter", zone, who: "self", filter: "" });
       else for (const from of src.split("+")) out.push({ t: "enter", zone, from, who: "called", filter: c.named.filter ?? "" });
     }
-    if (c.name === "hollow") out.push({ t: "to-drop", by: "hollow", who: c.pos[0] === "called" ? "called" : "self", filter: callFilter });
-    if ((c.name === "retire" && c.pos[0] === "own") || c.name === "retire-own") out.push({ t: "to-drop", by: "retire", who: "own", filter: "" });
+    if (c.name === "hollow") out.push({ t: "to-drop", by: "hollow", from: "RC", who: c.pos[0] === "called" ? "called" : "self", filter: callFilter });
+    if ((c.name === "retire" && c.pos[0] === "own") || c.name === "retire-own") out.push({ t: "to-drop", by: "retire", from: "RC", who: "own", filter: "" });
+    if (c.name === "SB") out.push({ t: "to-drop", by: "SB", from: "soul", who: "soul", filter: c.named.filter ?? "" });
     if (c.name === "stride") out.push({ t: "stride" }, { t: "enter", zone: "VC", who: "self", filter: "" });
     if (c.name === "discard" && ab.kind === "G GUARDIAN") out.push({ t: "discarded", as: "g-guardian-cost", filter: c.named.filter ?? "" });
   }
@@ -106,7 +119,7 @@ function consumes(k: Card, b: Ability, e: Ev, p: Card, subject?: string): PieceA
   const c = parseCode(b.timing);
   const [a0, a1] = c.pos;
   const n = c.named;
-  const field: PieceAt = isG(k) ? "G" : "hand";
+  const field: PieceAt = isG(k) ? "G" : onlyVC(b) ? "VC" : "hand";
   switch (c.name) {
     case "enter": {
       if (e.t !== "enter" || e.zone !== a0 || (n.from && n.from !== e.from)) return undefined;
@@ -119,21 +132,25 @@ function consumes(k: Card, b: Ability, e: Ev, p: Card, subject?: string): PieceA
     }
     case "to-drop":
     case "retired": {
-      if (e.t !== "to-drop" || (n.by && n.by !== e.by)) return undefined;
+      if (e.t !== "to-drop" || (n.by && n.by !== e.by) || (n.from && n.from !== e.from)) return undefined;
+      if (e.who === "soul") return a0 === "self" && isUnit(k) && fits(k, e.filter, p) ? "soul" : undefined;
       if (a0 === "own") return field;
       if (e.who === "self") return k.key === p.key ? field : undefined;
       return e.who === "called" && fits(k, e.filter, p, subject) ? "drop" : undefined;
     }
-    case "stride": return e.t === "stride" ? field : undefined;
+    case "stride": return e.t === "stride" && (!n.filter || fits(p, n.filter, p)) ? field : undefined;
     case "discarded": return e.t === "discarded" && n.as === e.as && fits(k, e.filter, p) ? "hand" : undefined;
   }
   return undefined;
 }
 
+// The ability only works while the card is the vanguard
+const onlyVC = (ab: Ability) => { const z = (ab.zone ?? "").split("/"); return z.includes("VC") && !z.includes("RC"); };
+
 // Combo starting points: things the player can do directly (call, ride, stride, attack, guard, use ACT)
 function starterAt(e: Entry, ab: Ability, starter: string): PieceAt | undefined {
   if (isG(e.card)) return ["ACT", "STRIDE", "ULTIMATE STRIDE", "G GUARDIAN"].includes(ab.kind) ? "G" : undefined;
-  const own = e.key === starter ? "starter" : "hand";
+  const own = e.key === starter ? "starter" : onlyVC(ab) ? "VC" : "hand";
   if (ab.kind === "ACT") return own;
   if (ab.kind !== "AUTO" || !ab.timing) return undefined;
   const c = parseCode(ab.timing);
@@ -194,13 +211,24 @@ function totals(abs: Ability[]) {
 
 const DEFENSE_START = /^(step\(guard|enter\(GC|discarded\()/;
 
+// Effects that make the attack stronger (calling itself forward doesn't count); a combo without any only gains resources (cards, CB, soul)
+const OFFENSE = /^(call\((?!self)[^)]*→RC|power|critical|retire\(opp|opp-retires|stand|drive|grant)/;
+
 function kindOf(abs: Ability[]): ComboKind {
   const first = abs[0];
   if (first.kind === "G GUARDIAN" || DEFENSE_START.test(first.timing ?? "")) return "defense";
   if (abs.some((ab) => ab.effect.some((e) => /^(shield|no-hit)\(/.test(e)))) return "defense";
   const t = totals(abs);
   if (t.calls >= 3 || t.critical > 0 || t.ultimate || t.gb >= 8) return "finisher";
+  if (!abs.some((ab) => ab.effect.some((e) => OFFENSE.test(e)))) return "farm";
   return "attack";
+}
+
+function phaseOf(kind: ComboKind, abs: Ability[], pieces: { at: PieceAt }[], gb: number): ComboPhase {
+  if (kind === "finisher" || gb >= 3) return "late";
+  const stride = pieces.some((p) => p.at === "G") && abs.some((ab) => ab.kind !== "G GUARDIAN");
+  if (gb >= 1 || stride || pieces.some((p) => p.at === "VC")) return "mid";
+  return "early";
 }
 
 // ---------- 4. Condition difficulty score ----------
@@ -212,7 +240,7 @@ function difficultyOf(pieces: { key: string; at: PieceAt; copies: number }[], ab
   let d = 0;
   for (const p of pieces) {
     if (p.at === "starter" || p.at === "G") continue;
-    d += PIECE_BASE + 2 / Math.max(1, p.copies) + (p.at === "drop" ? 0.5 : 0);
+    d += PIECE_BASE + 2 / Math.max(1, p.copies) + (p.at === "drop" || p.at === "soul" ? 0.5 : 0);
   }
   let gb = 0, grade3 = false;
   for (const ab of abs) {
@@ -251,6 +279,7 @@ function effectValue(e: string): number {
     case "choose": return 0.4;
     case "draw": return num(c.pos[0]);
     case "search": return (c.pos[0] ?? "").endsWith("hand") ? 1 : 0.2 * num(c.pos[1]);
+    case "to-hand": return num(c.named.n ?? c.pos[1]);
     case "retire": return c.pos[0] === "opp-RC" ? 1 : 0;
     case "no-hit": return 2;
     case "damage-facedown": return -0.3;
@@ -299,20 +328,59 @@ export function analyze(db: CardDB, deck: Deck, signature = deckSignature(deck))
       const nm = quoted(x);
       if (pieces.some((p) => db[p.key].name.includes(nm) && !isG(db[p.key]))) continue;
       const vc = cards.filter((e) => !isG(e.card) && e.card.grade === 3 && e.card.name.includes(nm)).sort((a, b) => b.copies - a.copies)[0];
-      if (vc) pieces.push({ key: vc.key, at: "hand" });
+      if (vc) pieces.push({ key: vc.key, at: "VC" });
     }
     const difficulty = difficultyOf(pieces.map((p) => ({ ...p, copies: copies.get(p.key) ?? 1 })), abs) + 1;
     const value = valueOf(abs, steps.map((s) => db[s.key]));
     if (value <= 0) continue;
     const kind = kindOf(abs);
-    combos.push({ steps, pieces, kind, difficulty, value, score: value / difficulty, profile: profileOf(steps, cards, kind) });
+    const profile = profileOf(steps, cards, kind);
+    combos.push({ steps, pieces, kind, phase: phaseOf(kind, abs, pieces, profile.gb), difficulty, value, score: value / difficulty, profile });
   }
   combos.sort((a, b) => b.score - a.score);
   const handPiece = new Map<string, number>();
+  const setupPiece: DeckCombos["setupPiece"] = { drop: new Map(), soul: new Map() };
+  const best = (m: Map<string, number>, k: string, v: number) => m.set(k, Math.max(m.get(k) ?? 0, v));
   for (const c of combos) for (const p of c.pieces) {
-    if (p.at === "hand") handPiece.set(p.key, Math.max(handPiece.get(p.key) ?? 0, c.score));
+    if (p.at === "hand" || p.at === "VC") best(handPiece, p.key, c.score);
+    if (p.at === "drop" || p.at === "soul") best(setupPiece[p.at], p.key, c.score);
   }
-  return { signature, combos, handPiece };
+  const enablers: DeckCombos["enablers"] = { drop: new Map(), soul: new Map() };
+  for (const zone of ["drop", "soul"] as const) for (const k of setupPiece[zone].keys()) enablers[zone].set(k, enablersOf(cards, db[k], zone));
+  return { signature, combos, handPiece, setupPiece, enablers };
+}
+
+// ---------- 7. Setup: how a drop/soul piece gets into its zone ----------
+
+const isSelfHollow = (c: Card) => c.abilities.some((a) => a.effect.some((e) => e.startsWith("hollow(self")));
+
+function enablersOf(cards: Entry[], piece: Card, zone: SetupZone): Enabler[] {
+  const out: Enabler[] = [];
+  const add = (x: Enabler) => { if (!out.some((y) => y.how === x.how && y.key === x.key)) out.push(x); };
+  for (const e of cards) e.card.abilities.forEach((ab, i) => {
+    for (const code of [...(ab.cost ?? []), ...ab.effect]) {
+      const c = parseCode(code);
+      const flt = c.named.filter ?? "";
+      const src = c.pos[0] ?? "";
+      if (zone === "drop") {
+        if (c.name === "search" && src.endsWith("→drop") && fits(piece, flt, e.card)) add({ how: "search", key: e.key, ability: i });
+        else if (c.name === "mill" || (c.name === "look" && code.includes("rest=drop"))) add({ how: "mill", key: e.key, ability: i });
+        else if (c.name === "discard" && fits(piece, flt, e.card)) add({ how: "discard", key: e.key, ability: i });
+        else if (c.name === "SB" && fits(piece, flt, e.card)) add({ how: "soul-blast", key: e.key, ability: i });
+      } else {
+        if (c.name === "to-soul" && src !== "self" && fits(piece, flt, e.card)) add({ how: "to-soul", key: e.key, ability: i });
+        else if (c.name === "SC" || (c.name === "look" && code.includes("soul="))) add({ how: "soul-charge", key: e.key, ability: i });
+      }
+    }
+  });
+  if (zone === "drop") {
+    if (isSelfHollow(piece)) add({ how: "hollow" });
+    if (printedShield(piece) > 0 || piece.abilities.some((a) => a.effect.includes("keyword(Sentinel)"))) add({ how: "guard" });
+  } else {
+    if (piece.type !== "trigger" && piece.grade <= 3) add({ how: "ride" });
+    if (piece.abilities.some((a) => [...(a.cost ?? []), ...a.effect].some((x) => /^(soul-in|to-soul)\(self/.test(x)))) add({ how: "self" });
+  }
+  return out;
 }
 
 // ---------- Combo data: resources, attacks, defense, disruption ----------
