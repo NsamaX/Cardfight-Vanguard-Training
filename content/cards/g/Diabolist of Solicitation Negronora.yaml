@@ -13,6 +13,7 @@ abilities:
     cost: ["discard(1, filter=heal)"]
     effect: ["call(G→GC, self)"]
   - kind: "AUTO"
+    follows: true
     timing: "enter(GC, self)"
     cond: ["GB(1)"]
     cost: ["SB(1)", "flip-G-up(1, filter=G-GUARDIAN)"]

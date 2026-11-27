@@ -13,6 +13,7 @@ abilities:
     timing: "enter(RC, self)"
     effect: ["hollow(self)", "retire(self, at=turn-end, if=self-hollowed)"]
   - kind: "AUTO"
+    follows: true
     zone: "RC"
     timing: "battle-end(self, did=attack-VC)"
     cond: ["GB(1)", "self-hollowed"]

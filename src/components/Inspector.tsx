@@ -17,7 +17,7 @@ export function SkillBlocks({ text, abilities }: { text: string; abilities: Abil
     <div className={`abil ${coded ? "coded" : ""}`}>
       {coded && text.trim().split(/\r?\n/).filter((l) => l.trim()).map((l, i) => <p key={i}>{plain(l)}</p>)}
       {blocks.map((b, i) => (
-        <div key={i} className={`skill ${b.kind === "AUTO" && b.ability && !isOptional(b.ability) ? "forced" : ""}`}>
+        <div key={i} className={`skill ${b.kind === "AUTO" && b.ability && !isOptional(b.ability) ? "forced" : ""} ${i > 0 && b.ability?.follows ? "follows" : ""}`}>
           <div className="skill-head">
             <span className="kind">{b.kind}</span>
             {b.kind === "AUTO" && b.ability && <span className="sub">{t(isOptional(b.ability) ? "skill.optional" : "skill.forced")}</span>}

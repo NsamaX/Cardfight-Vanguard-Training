@@ -14,6 +14,7 @@ export interface Ability {
   cost?: string[];
   effect: string[];
   optional?: boolean;  // AUTO that can be declined even without a cost (cards created in the app)
+  follows?: boolean;   // builds on the ability before it (e.g. needs what that one did); display only: indented under it
 }
 
 export interface Card {
