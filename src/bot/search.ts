@@ -5,6 +5,7 @@ import { FRONT, type CardDB } from "../engine/rules";
 import type { Action, Circle, Deck, GameState, PlayerId } from "../engine/types";
 import { candidates, fallbacks, ownQueue, tryApply } from "./actions";
 import { evaluate } from "./eval";
+import { strideGradeNeeded } from "../engine/cont";
 import { attackOptions, fastMode, guardPlans, policy, rankedCalls, rideAction, strideDiscard, strideOptions } from "./policy";
 import { determinize } from "./view";
 
@@ -59,8 +60,10 @@ export function searchCandidates(db: CardDB, s: GameState, p: PlayerId): Action[
         return dedupe([pol, rideAction(db, s, p), ...candidates(db, s, p).filter((a) => a.type === "ride"), { type: "next-phase" }]);
       }
       if (s.phase === "ride" && s.step === "stride") {
-        const discardUids = strideDiscard(db, s, p);
-        const gs = discardUids ? strideOptions(db, s, p).map((g): Action => ({ type: "stride", gUid: g.uid, discardUids })) : [];
+        const gs = strideOptions(db, s, p).flatMap((g): Action[] => {
+          const discardUids = strideDiscard(db, s, p, strideGradeNeeded(db[g.key]));
+          return discardUids ? [{ type: "stride", gUid: g.uid, discardUids }] : [];
+        });
         return dedupe([pol, ...gs, { type: "next-phase" }]);
       }
       if (s.phase === "main") {

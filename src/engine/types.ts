@@ -64,7 +64,7 @@ export interface CardInstance {
   rested: boolean;
   faceUp: boolean;
   hollowed: boolean;
-  mods: { stat: "power" | "critical" | "shield" | "drive"; value: number; source: string; until: "battle-end" | "turn-end" }[];
+  mods: { stat: "power" | "critical" | "shield" | "drive"; value: number; source: string; until: "battle-end" | "turn-end" | "cont" }[];   // cont = from a CONT ability, computed again after every change
   usedThisTurn: string[];   // 1/Turn abilities already used (ability key)
   grants?: Ability[];       // abilities granted by other cards (end at end of turn or on zone change)
   leaving?: boolean;    // a delayed effect will remove it from the field at the end of the turn (e.g. retire the called units)

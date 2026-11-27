@@ -2,11 +2,13 @@
 // apply() takes state + an action and returns a new state + events; never modifies the old state, and randomizes only via the seed
 import { actAt, blocked, condOk, declineEntry, emit, releaseDelayed, settle, startResolving, type ResumeHandlers } from "./abilities";
 import { placeOnRC, retireUnit } from "./zones";
+import { guardianDiscardFilter, refreshContinuous, strideCostGrade, strideGradeNeeded } from "./cont";
+import { cardMatches } from "./vocab/filters";
 import { cloneState } from "./clone";
 import { shuffle } from "./rng";
 import { msg, type Msg } from "../i18n/msg";
 import {
-  BEHIND, FRONT, PLAYERS, RC, SAME_COLUMN, RuleError, bothVanguardsGrade3, canBoost, canIntercept, strideCostGrade, circleMsg, criticalOf, driveOf, isG, other, powerOf, shieldOf,
+  BEHIND, FRONT, PLAYERS, RC, SAME_COLUMN, RuleError, bothVanguardsGrade3, canBoost, canIntercept, circleMsg, criticalOf, driveOf, isG, other, powerOf, shieldOf,
   triggerPower,
   vcGrade,
   type CardDB,
@@ -69,8 +71,10 @@ export function apply(db: CardDB, state: GameState, player: PlayerId, action: Ac
   if (!busy && ANSWERS.includes(action.type)) throw new RuleError("err.noPendingAnswer");
   const s: GameState = cloneState(state);
   const out: Out = [];
+  refreshContinuous(db, s);
   HANDLERS[action.type](db, s, player, action as never, out);
   settle(db, s, out, RESUME);
+  refreshContinuous(db, s);
   refreshAwaiting(s);
   return { state: s, events: out };
 }
@@ -329,7 +333,7 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
     if (!c) throw new RuleError("err.discardFromHand");
     return c;
   });
-  if (discards.length === 0 || discards.reduce((n, c) => n + strideCostGrade(db[c.key]), 0) < 3) {
+  if (discards.length === 0 || discards.reduce((n, c) => n + strideCostGrade(db, s, p, c), 0) < strideGradeNeeded(db[g.key])) {
     throw new RuleError("err.strideCost");
   }
   for (const c of discards) ps.drop.push(reset(takeFrom(ps.hand, c.uid, "hand")));
@@ -428,7 +432,9 @@ export function gGuardianBlocked(db: CardDB, s: GameState, p: PlayerId): Msg | u
   const ps = s.players[p];
   if (!bothVanguardsGrade3(db, s)) return msg("err.gGuardGrade3");
   if (ps.gZone.filter((c) => c.faceUp && db[c.key].type === "g-guardian").length > 3) return msg("err.gGuardLimit");
-  if (!ps.hand.some((c) => db[c.key].trigger === "heal")) return msg("err.gGuardNeedHeal");
+  // Some face-down G guardian's cost (the card's G GUARDIAN ability, by default a Heal trigger) can be paid from hand
+  const payable = ps.gZone.some((g) => !g.faceUp && db[g.key].type === "g-guardian" && ps.hand.some((c) => cardMatches(db[c.key], guardianDiscardFilter(db[g.key]), { db })));
+  if (!payable) return msg("err.gGuardNeedHeal");
 }
 
 function callGGuardian(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: "call-g-guardian" }>, out: Out) {
@@ -439,7 +445,7 @@ function callGGuardian(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action,
   const g = ps.gZone.find((c) => c.uid === a.gUid);
   if (!g || g.faceUp || db[g.key].type !== "g-guardian") throw new RuleError("err.gGuardNeedG");
   const discard = ps.hand.find((c) => c.uid === a.discardUid);
-  if (!discard || db[discard.key].trigger !== "heal") throw new RuleError("err.gGuardDiscard");
+  if (!discard || !cardMatches(db[discard.key], guardianDiscardFilter(db[g.key]), { db })) throw new RuleError("err.gGuardDiscard");
   ps.drop.push(reset(takeFrom(ps.hand, discard.uid, "hand")));
   ps.guardian.push(reset(takeFrom(ps.gZone, g.uid, "G zone")));
   ev(out, "discard", p, msg("log.discard", { card: name(db, discard) }), discard.uid);
@@ -508,6 +514,7 @@ function continueBattle(db: CardDB, s: GameState, out: Out) {
   }
 
   if (s.step === "damage") {
+    refreshContinuous(db, s);
     const atk = s.players[atkSide], def = s.players[defSide];
     const target = def.circles[b.target];
     if (b.hit === undefined) {

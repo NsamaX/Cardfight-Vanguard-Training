@@ -36,6 +36,8 @@ export interface OpSpec extends Doc {
   run(ctx: Ctx): boolean;
   // Only for codes used as costs: whether the cost can be paid now
   canPay?(ctx: Ctx): boolean;
+  // For codes a CONT ability may use: apply the effect as a "cont" modifier (computed again after every change, see cont.ts)
+  cont?(ctx: Ctx): void;
   // Name of a code that has no in-game effect (a deck building keyword, etc.): the resolver skips it
   passive?: boolean;
 }

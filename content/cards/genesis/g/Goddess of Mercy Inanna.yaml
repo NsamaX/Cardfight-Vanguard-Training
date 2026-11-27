@@ -24,7 +24,7 @@ abilities:
   - kind: "CONT"
     zone: "VC"
     cond: ["GB(3)"]
-    effect: ["power(+2000, own-RC, n=count-in-soul(has-revelation))"]
+    effect: ["power(+2000 per count-in-soul(has-revelation), own-RC)"]
 text: |
   ### STRIDE
 
@@ -47,4 +47,4 @@ text: |
 notes: |
   The card names the Revelation keyword without its definition, so `keyword(Revelation)` is a placeholder that does nothing.
   The ACT counts soul charged cards with `keyword(Revelation)`; no main deck card in the friend's Regalia list has it, so in that deck the ACT retires nothing.
-  The CONT is not supported yet (CONT abilities aren't), and in that deck it would add nothing.
+  The CONT adds nothing in that deck either.

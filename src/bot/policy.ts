@@ -2,9 +2,10 @@
 // Every function returns an Action intended to be legal; if it isn't, the caller uses fallbacks() instead
 import { gGuardianBlocked, usableActs } from "../engine/game";
 import { actAt } from "../engine/abilities";
+import { strideCostGrade, strideGradeNeeded } from "../engine/cont";
 import { parseCode } from "../engine/code";
 import {
-  BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost, canIntercept, strideCostGrade, criticalOf, driveOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, shieldOf, triggerPower, vcGrade,
+  BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost, canIntercept, criticalOf, driveOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, shieldOf, triggerPower, vcGrade,
   type CardDB,
 } from "../engine/rules";
 import { circleOf, locate } from "../engine/state";
@@ -85,19 +86,19 @@ export function rideAction(db: CardDB, s: GameState, p: PlayerId): Action {
   return { type: "ride", uid: best.uid };
 }
 
-// Cards discarded for the stride cost: total grade 3 or more, losing the least value
-export function strideDiscard(db: CardDB, s: GameState, p: PlayerId): string[] | undefined {
+// Cards discarded for the stride cost: total grade `need` or more (the G unit's STRIDE cost), losing the least value
+export function strideDiscard(db: CardDB, s: GameState, p: PlayerId, need = 3): string[] | undefined {
   const hand = s.players[p].hand.filter((c) => !isG(db[c.key]));
   let best: { uids: string[]; cost: number } | undefined;
   const walk = (i: number, picked: CardInstance[], grade: number, cost: number) => {
-    if (grade >= 3) {
+    if (grade >= need) {
       if (!best || cost < best.cost) best = { uids: picked.map((c) => c.uid), cost };
       return;
     }
     if (picked.length >= 3 || i >= hand.length) return;
     for (let j = i; j < hand.length; j++) {
       const c = hand[j];
-      const g = strideCostGrade(db[c.key]);
+      const g = strideCostGrade(db, s, p, c);
       if (g === 0) continue;
       walk(j + 1, [...picked, c], grade + g, cost + keepValue(db, s, p, c) + 0.05);
     }
@@ -113,10 +114,9 @@ export function strideOptions(db: CardDB, s: GameState, p: PlayerId): CardInstan
 
 function strideAction(db: CardDB, s: GameState, p: PlayerId): Action {
   if (s.strodeThisTurn || !bothVanguardsGrade3(db, s)) return { type: "next-phase" };
-  const discardUids = strideDiscard(db, s, p);
-  const gs = strideOptions(db, s, p);
-  if (!discardUids || !gs.length) return { type: "next-phase" };
-  const best = gs.sort((a, b) => strideScore(db, s, p, b) - strideScore(db, s, p, a))[0];
+  const best = strideOptions(db, s, p).sort((a, b) => strideScore(db, s, p, b) - strideScore(db, s, p, a))[0];
+  const discardUids = best && strideDiscard(db, s, p, strideGradeNeeded(db[best.key]));
+  if (!discardUids) return { type: "next-phase" };
   return { type: "stride", gUid: best.uid, discardUids };
 }
 

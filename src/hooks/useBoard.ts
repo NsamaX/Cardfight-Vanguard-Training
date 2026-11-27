@@ -6,7 +6,8 @@ import { ANSWERS, apply, gGuardianBlocked, usableActs } from "../engine/game";
 import { abilityTag, locate, playerMsg } from "../engine/state";
 import { msg, type Msg } from "../i18n/msg";
 import { fmt } from "../lib/format";
-import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, other, powerOf, shieldOf, strideCostGrade } from "../engine/rules";
+import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, other, powerOf, shieldOf } from "../engine/rules";
+import { strideCostGrade, strideGradeNeeded } from "../engine/cont";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
@@ -405,11 +406,11 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     }
     // Stride step: stride = click the G zone, pick a G unit, then pick hand cards to discard (total grade 3+)
     if (striding && mode?.kind === "stride") {
-      const gs = mode.picks.reduce((n, u) => n + strideCostGrade(db[findCard(s, u)!.inst.key]), 0);
+      const gs = mode.picks.reduce((n, u) => n + strideCostGrade(db, s, actor!, findCard(s, u)!.inst), 0);
       const g = mode.gUid && db[findCard(s, mode.gUid)!.inst.key].name;
       const gUid = mode.gUid, discardUids = mode.picks;
       const buttons = [{ label: msg("btn.cancel"), onClick: () => setMode(null) }];
-      if (gUid && gs >= 3) buttons.unshift({ label: msg("btn.stride"), onClick: () => act({ type: "stride", gUid, discardUids }) });
+      if (gUid && gs >= strideGradeNeeded(db[findCard(s, gUid)!.inst.key])) buttons.unshift({ label: msg("btn.stride"), onClick: () => act({ type: "stride", gUid, discardUids }) });
       return { prompt: msg("q.stride", { g: g ?? msg("q.pickGUnit"), n: gs }), buttons };
     }
     // Guard: pick hand cards or a G guardian, then confirm

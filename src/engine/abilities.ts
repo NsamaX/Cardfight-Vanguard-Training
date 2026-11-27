@@ -28,7 +28,8 @@ function abilitiesOf(db: CardDB, inst: CardInstance, grants: Ability[]): [string
   ];
 }
 
-function zoneOk(zone: string | undefined, where: string): boolean {
+// Is a card at `where` (a circle, "guardian", "hand", ...) in a zone the ability works from ("VC", "RC", "VC/RC", "GC", "hand")?
+export function abilityZoneOk(zone: string | undefined, where: string): boolean {
   if (!zone) return true;
   return zone.split("/").some((z) =>
     z === "VC" ? where === "vc" : z === "RC" ? RC.includes(where as Circle) : z === "GC" ? where === "guardian" : z === "hand" ? where === "hand" : false);
@@ -71,7 +72,7 @@ function collectTriggers(db: CardDB, s: GameState) {
       for (const { inst, where, grants } of cands) {
         for (const [key, ab] of abilitiesOf(db, inst, grants)) {
           if (!triggers(db, ab, e, inst.uid, p)) continue;
-          if (inst.uid !== selfUid && !zoneOk(ab.zone, where)) continue;
+          if (inst.uid !== selfUid && !abilityZoneOk(ab.zone, where)) continue;
           if (!condOk(db, s, p, inst, key, ab, "trigger")) continue;
           // "When a card is put into the soul" triggers once per card put there
           for (let n = e.kind === "to-soul" ? e.n : 1; n > 0; n--) {
@@ -167,7 +168,7 @@ export function blocked(db: CardDB, s: GameState, entry: QueueEntry): Msg | unde
   const asHeart = at?.zone === "heart" && entry.event?.kind === "stride";
   const where = at?.zone === "circle" ? at.circle! : asHeart ? "vc" : at?.zone ?? "";
   const self = entry.event && "uid" in entry.event && entry.event.uid === entry.uid;
-  if (!at || (!self && !zoneOk(entry.ability.zone, where)) || !condOk(db, s, entry.owner, at.inst, entry.key, entry.ability, "resolve")) return msg("reason.condUnmet");
+  if (!at || (!self && !abilityZoneOk(entry.ability.zone, where)) || !condOk(db, s, entry.owner, at.inst, entry.key, entry.ability, "resolve")) return msg("reason.condUnmet");
   const ctx = stepCtx(db, s, toResolving(entry, false), []);
   if (!(entry.ability.cost ?? []).every((code) => canPayCode(ctx, code))) return msg("reason.cannotPay");
 }

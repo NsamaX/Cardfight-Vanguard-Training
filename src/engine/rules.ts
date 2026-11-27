@@ -55,19 +55,6 @@ export function driveOf(db: CardDB, inst: CardInstance): number {
   return Math.max(0, (skill === "triple-drive" ? 3 : skill === "twin-drive" ? 2 : 1) + modSum(inst, "drive"));
 }
 
-// Grade of a hand card when counted for the stride cost (CONT in hand, e.g. Tommy the Ghostie Brothers grade +2)
-export function strideCostGrade(card: Card): number {
-  let g = card.grade;
-  for (const ab of card.abilities) {
-    if (ab.kind !== "CONT" || ab.zone !== "hand" || !(ab.cond ?? []).includes("while(stride-cost)")) continue;
-    for (const e of ab.effect) {
-      const m = e.match(/^grade\(\+(\d+), self\)$/);
-      if (m) g += +m[1];
-    }
-  }
-  return g;
-}
-
 export const vcGrade =(db: CardDB, ps: PlayerState) => (ps.circles.vc ? db[ps.circles.vc.key].grade : 0);
 // Conditions for stride and G guardian
 export const bothVanguardsGrade3 = (db: CardDB, s: GameState) => PLAYERS.every((p) => vcGrade(db, s.players[p]) >= 3);

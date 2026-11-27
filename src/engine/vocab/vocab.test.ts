@@ -12,11 +12,8 @@ import { validateCard } from "./index";
 const KNOWN_GAPS = [
   "Air Element, Sebreeze #2 ACT: unknown condition opp-no-ride-last-turn",
   "Air Element, Sebreeze #2 ACT: unknown code stride-from-G in stride-from-G(self)",
-  "Light Elemental, Honoly #2 CONT: CONT attack-tax(CB(1), RC) is not supported",
   "Light Elemental, Honoly #2 CONT: unknown condition attack-count≥5",
   "Light Elemental, Honoly #2 CONT: unknown code attack-tax in attack-tax(CB(1), RC)",
-  "Goddess of Mercy, Inanna #4 CONT: CONT power(+2000, own-RC, n=count-in-soul(has-revelation)) is not supported",
-  "Zombie Whale of the Ocean Depths #3 CONT: CONT power(-3000, self) is not supported",
   "Zeroth Dragon of Distant Sea, Megiddo #1 ULTIMATE STRIDE: ULTIMATE STRIDE is not supported",
   "Zeroth Dragon of Distant Sea, Megiddo #1 ULTIMATE STRIDE: unknown filter same-name-as-VC in discard(1, filter=same-name-as-VC)",
   "Zeroth Dragon of Distant Sea, Megiddo #1 ULTIMATE STRIDE: unknown code remove-G-zone in remove-G-zone(own, at=return-to-G)",

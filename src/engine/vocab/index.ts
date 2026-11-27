@@ -78,12 +78,12 @@ function checkCode(code: string, where: string, out: string[]) {
   }
 }
 
-// Kinds the rules use as they are (the codes inside still have to be known)
-const SUPPORTED_CONT = /^(keyword\(|grade\(\+\d+, self\)$|all-clan\()/;
+// A CONT effect works when its op has a continuous form (cont) or no in-game effect
+const contOk = (code: string) => { const spec = OPS[parseCode(code).name]; return !spec || !!spec.cont || !!spec.passive; };
 
 function checkAbility(ab: Ability, where: string, out: string[]) {
   if (ab.kind === "ULTIMATE STRIDE") out.push(`${where}: ULTIMATE STRIDE is not supported`);
-  if (ab.kind === "CONT" && !ab.effect.every((e) => SUPPORTED_CONT.test(e))) out.push(`${where}: CONT ${ab.effect.join(", ")} is not supported`);
+  if (ab.kind === "CONT") for (const e of ab.effect.filter((x) => !contOk(x))) out.push(`${where}: ${parseCode(e).name} can't be used in a CONT ability`);
   if (ab.timing) {
     const t = parseCode(ab.timing);
     if (!TIMINGS[t.name]) out.push(`${where}: unknown timing ${ab.timing}`);
