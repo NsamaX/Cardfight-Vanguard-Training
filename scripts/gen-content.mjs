@@ -9,7 +9,7 @@ const load = (pattern) =>
   globSync(pattern, { cwd: root }).sort().map((p) => ({ path: p.replaceAll("\\", "/"), data: parse(readFileSync(join(root, p), "utf8")) }));
 
 const content = {
-  cards: load("content/cards/*/*.yaml").map(({ data }) => data),
+  cards: load("content/cards/*/*/*.yaml").map(({ data }) => data),
   decks: load("content/decks/*.yaml").map(({ path, data }) => ({ id: basename(path, ".yaml"), ...data })),
   combos: load("content/combos/*.yaml").map(({ data }) => data),
 };

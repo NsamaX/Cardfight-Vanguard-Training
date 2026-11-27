@@ -14,6 +14,12 @@ const num = (t?: string) => parseInt((t ?? "1").replace(/[^\d]/g, ""), 10) || 0;
 // Codes the engine handles itself or that have no in-game effect
 const SKIP_OPS = /^(keyword|all-clan)\(|^retire\(self, at=turn-end/;
 
+// An ACT by index: printed abilities first, then granted ones (key "g<n>", same as granted AUTO)
+export function actAt(db: CardDB, inst: CardInstance, index: number): { key: string; ab?: Ability } {
+  const printed = db[inst.key].abilities;
+  return index < printed.length ? { key: String(index), ab: printed[index] } : { key: "g" + (index - printed.length), ab: inst.grants?.[index - printed.length] };
+}
+
 function abilitiesOf(db: CardDB, inst: CardInstance, grants: Ability[]): [string, Ability][] {
   return [
     ...db[inst.key].abilities.map((a, i) => [String(i), a] as [string, Ability]),
@@ -27,7 +33,7 @@ function zoneOk(zone: string | undefined, where: string): boolean {
     z === "VC" ? where === "vc" : z === "RC" ? RC.includes(where as Circle) : z === "GC" ? where === "guardian" : z === "hand" ? where === "hand" : false);
 }
 
-function matches(timing: string, e: TriggerEvent, uid: string, owner: PlayerId): boolean {
+function matches(db: CardDB, timing: string, e: TriggerEvent, uid: string, owner: PlayerId): boolean {
   const c = parseCode(timing);
   const [a0, a1] = c.pos;
   const n = c.named;
@@ -35,7 +41,10 @@ function matches(timing: string, e: TriggerEvent, uid: string, owner: PlayerId):
     case "enter":
       return e.kind === "enter" && e.zone === a0 && (!n.from || n.from === e.from)
         && (a1 === "self" ? e.uid === uid : a1 === "other-own" ? e.player === owner && e.uid !== uid : false);
-    case "stride": return e.kind === "stride" && e.player === owner;
+    case "stride": return e.kind === "stride" && e.player === owner && (!n.filter || db[e.key].name.includes(quoted(n.filter)));
+    case "attack-hit": return e.kind === "attack-hit" && e.uid === uid && (!n.target || n.target === (e.target === "vc" ? "VC" : "RC"));
+    case "to-soul": return e.kind === "to-soul" && a0 === "own" && e.player === owner;
+    case "turn-end": return e.kind === "turn-end";
     case "ridden-upon": return e.kind === "ridden-upon" && e.uid === uid;
     case "attack":
       if (e.kind !== "attack") return false;
@@ -49,7 +58,7 @@ function matches(timing: string, e: TriggerEvent, uid: string, owner: PlayerId):
       return false;
     case "to-drop":
     case "retired":
-      return e.kind === c.name && (a0 === "own" ? e.player === owner : e.uid === uid) && (!n.by || n.by === e.by);
+      return e.kind === c.name && (a0 === "own" ? e.player === owner : e.uid === uid) && (!n.by || n.by === e.by) && (!n.from || n.from === e.from);
     case "discarded": return e.kind === "discarded" && e.uid === uid && (!n.as || n.as === e.as);
     case "phase-start": return e.kind === "phase-start" && e.player === owner && e.phase === a0;
     default: return false;
@@ -72,6 +81,7 @@ export function condOk(db: CardDB, s: GameState, owner: PlayerId, inst: CardInst
       else if (t === "own-turn") { if (s.turnPlayer !== owner) return false; }
       else if (t === "self-hollowed") { if (phase === "resolve" && !inst.hollowed) return false; }
       else if (t.startsWith("vc-name(")) { if (!vcInfo(db, s, owner).names.includes(quoted(t))) return false; }
+      else if (t.startsWith("heart-name(")) { const h = s.players[owner].heart; if (!h || !db[h.key].name.includes(quoted(t))) return false; }
       else if ((m = t.match(/^vc-grade≥(\d+)$/))) { if (vcInfo(db, s, owner).grade < +m[1]) return false; }
       else if ((m = t.match(/^vc-clan\((.+)\)$/))) { if (vcInfo(db, s, owner).clan !== m[1]) return false; }
     }
@@ -128,7 +138,7 @@ function collectTriggers(db: CardDB, s: GameState) {
           if (ab.kind !== "AUTO" || !ab.timing) continue;
           const self = inst.uid === selfUid;
           if (!self && !zoneOk(ab.zone, where)) continue;
-          if (!matches(ab.timing, e, inst.uid, p)) continue;
+          if (!matches(db, ab.timing, e, inst.uid, p)) continue;
           if (!condOk(db, s, p, inst, key, ab, "trigger")) continue;
           s.queue.push({ owner: p, uid: inst.uid, key, ability: ab, event: e, label: label(db, inst, ab), optional: isOptional(ab) });
         }
@@ -267,7 +277,7 @@ function matchFilter(db: CardDB, s: GameState, r: Resolving, inst: CardInstance,
     else if (t === "heal" || t === "heal-trigger") { if (card.trigger !== "heal") return false; }
     else if (t === "G-GUARDIAN") { if (card.type !== "g-guardian") return false; }
     else if (t === "that-card") { if (!thatCards(r).includes(inst.uid)) return false; }
-    else if (t === "different-grades" || t === "grade-sum≥3") { /* checked when choosing */ }
+    else if (t === "different-grades" || t === "same-grade" || t === "grade-sum≥3") { /* checked when choosing */ }
     else if (card.clan !== t) return false;          // clan name, e.g. Granblue
   }
   return true;
@@ -282,9 +292,17 @@ function evalIf(db: CardDB, s: GameState, r: Resolving, expr?: string): boolean 
   if ((m = expr.match(/^hollow-milled≥(\d+)$/))) return r.hollowMilled >= +m[1];
   if ((m = expr.match(/^called≥(\d+)$/))) return r.called.length >= +m[1];
   if (expr.startsWith("name-in-drop(")) return s.players[r.owner].drop.some((i) => db[i.key].name.includes(quoted(expr)));
-  return true;
+  if ((m = expr.match(/^souled≥(\d+)$/))) return (r.souled?.length ?? 0) >= +m[1];
+  if ((m = expr.match(/^returned≥(\d+)$/))) return (r.returned ?? 0) >= +m[1];
+  if ((m = expr.match(/^G-faceup(?:\((.+)\))?≥(\d+)$/))) {
+    const flt = m[1] ?? "";
+    return s.players[r.owner].gZone.filter((g) => g.faceUp && matchFilter(db, s, r, g, flt)).length >= +m[2];
+  }
+  if (expr.startsWith("souled-name(")) return (r.souled ?? []).some((n) => n.includes(quoted(expr)));
+  return false;   // a condition the engine can't check yet: skip the effect rather than give it for free
 }
 
+const frontRow = (ps: GameState["players"][PlayerId]) => (["vc", "front_left", "front_right"] as const).map((c) => ps.circles[c]).filter((i): i is CardInstance => !!i);
 const rcUnits = (s: GameState, p: PlayerId) => RC.map((c) => s.players[p].circles[c]).filter((i): i is CardInstance => !!i);
 
 function canPay(db: CardDB, s: GameState, r: Resolving): boolean {
@@ -295,12 +313,12 @@ function canPay(db: CardDB, s: GameState, r: Resolving): boolean {
     const n = num(c.pos[0]);
     switch (c.name) {
       case "CB": if (ps.damage.filter((d) => d.faceUp).length < n) return false; break;
-      case "SB": if (ps.soul.length < n) return false; break;
+      case "SB": if (ps.soul.filter((i) => matchFilter(db, s, r, i, c.named.filter ?? "")).length < n) return false; break;
       case "mill": if (ps.deck.length < n) return false; break;
       case "discard": case "reveal": if (!ps.hand.some((h) => matchFilter(db, s, r, h, c.named.filter ?? ""))) return false; break;
       case "retire-own": if (rcUnits(s, r.owner).filter((u) => u.uid !== r.uid).length < n) return false; break;
       case "soul-in": if (src?.zone !== "circle") return false; break;
-      case "bind": if (!ps.drop.some((d) => d.uid !== r.uid && db[d.key].trigger === "heal")) return false; break;
+      case "bind": if (c.pos[0] !== "self" && !ps.drop.some((d) => d.uid !== r.uid && db[d.key].trigger === "heal")) return false; break;
       case "flip-G-up": if (!ps.gZone.some((g) => !g.faceUp && matchFilter(db, s, r, g, c.named.filter ?? ""))) return false; break;
     }
   }
@@ -348,11 +366,21 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
     }
     case "damage-facedown": { flipDamage(s, p, num(c.pos[0]), false); say("log.damageFacedown"); return true; }
     case "SB": {
-      for (let i = 0; i < num(c.pos[0]) && ps.soul.length; i++) ps.drop.push(reset(ps.soul.pop()!));
-      say("log.sb", { n: num(c.pos[0]) }); return true;
+      const n = num(c.pos[0]);
+      const opts = ps.soul.filter((i) => matchFilter(db, s, r, i, c.named.filter ?? ""));
+      if (opts.length > n && !r.answer?.uids) return askCards(r, msg("choice.soulBlast", { n }), opts, n, n);
+      const picked = opts.length > n ? r.answer!.uids!.map((u) => ps.soul.find((i) => i.uid === u)!) : opts;
+      say("log.sb", { n: picked.length });
+      for (const inst of picked) {
+        pull(s, inst.uid);
+        ps.drop.push(reset(inst));
+        emit(db, s, { kind: "to-drop", player: p, uid: inst.uid, from: "soul", grants: [] });
+      }
+      return true;
     }
     case "SC": {
       for (let i = 0; i < num(c.pos[0]) && ps.deck.length; i++) ps.soul.push(reset(ps.deck.shift()!));
+      if (num(c.pos[0])) emit(db, s, { kind: "to-soul", player: p });
       say("log.sc", { n: num(c.pos[0]) }); return true;
     }
     case "mill": {
@@ -389,7 +417,7 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
     }
     case "soul-in": {
       const at = src();
-      if (at?.zone === "circle") { pull(s, r.uid); ps.soul.push(reset(at.inst)); say("log.soulIn", { card: name(db, at.inst) }, r.uid); }
+      if (at?.zone === "circle") { pull(s, r.uid); ps.soul.push(reset(at.inst)); say("log.soulIn", { card: name(db, at.inst) }, r.uid); emit(db, s, { kind: "to-soul", player: p }); }
       return true;
     }
     case "bind": {
@@ -398,6 +426,7 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
         if (at && at.zone !== "bind") { pull(s, r.uid); ps.bind.push(reset(at.inst)); say("log.bind", { card: name(db, at.inst) }, r.uid); }
         r.local.selfDone = 1;
       }
+      if (c.pos[0] === "self") return true;
       const opts = ps.drop.filter((d) => db[d.key].trigger === "heal");
       if (!opts.length) return true;
       if (!r.answer?.uids) return askCards(r, msg("choice.bindHeal"), opts, 1, 1);
@@ -497,14 +526,70 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
       return true;
     }
     case "grant": {
-      const m = c.pos[0].match(/^AUTO(?:-(\w+))?\[(.*) → (.*)\]$/);
+      if (!evalIf(db, s, r, c.named.if)) return true;
+      const m = c.pos[0].match(/^(AUTO|ACT)(?:-([\w/]+))?\[(.*) → (.*)\]$/);
       if (!m) return true;
-      const ab: Ability = { kind: "AUTO", zone: m[1], timing: m[2], effect: [m[3]] };
-      const targets = c.pos[1] === "called" ? r.called : [r.uid];
+      // AUTO[timing → effect] / ACT[cost & cost → effect & effect]
+      const ab: Ability = m[1] === "AUTO"
+        ? { kind: "AUTO", zone: m[2], timing: m[3], effect: [m[4]] }
+        : { kind: "ACT", zone: m[2], cost: splitTop(m[3], "&"), effect: splitTop(m[4], "&") };
+      const who = c.pos[1] ?? "self";
+      let targets = who === "called" ? r.called : who === "own-VC" ? [ps.circles.vc?.uid].filter((u): u is string => !!u) : [r.uid];
+      if (who.startsWith("front-row")) {
+        const opts = frontRow(ps).filter((u) => matchFilter(db, s, r, u, c.named.filter ?? ""));
+        if (!opts.length) return true;
+        if (!r.answer?.uids) return askCards(r, msg("choice.grant", { n: Math.min(num(who), opts.length) }), opts, 0, Math.min(num(who), opts.length));
+        targets = r.answer.uids;
+      }
       for (const u of targets) { const i = locate(s, u); if (i?.zone === "circle") (i.inst.grants ??= []).push(ab); }
       say("log.grant", { n: targets.length });
       return true;
     }
+    case "to-soul": return opToSoul(db, s, r, c, out);
+    case "to-deck": return opToDeck(db, s, r, c, out);
+    case "to-deck-top": {
+      const at = src();
+      if (at?.zone === "circle") { pull(s, r.uid); ps.deck.unshift(reset(at.inst, false)); say("log.toDeckTop", { card: name(db, at.inst) }, r.uid); }
+      return true;
+    }
+    case "shuffle": {
+      [ps.deck, s.rngState] = shuffle(ps.deck, s.rngState);
+      say("log.shuffle");
+      return true;
+    }
+    case "drive": {
+      // drive(+1, self) / drive(-3, stood): "stood" = the units a stand(…, at=battle-end) just before will stand
+      const value = parseInt(c.pos[0], 10);
+      if (c.pos[1] === "stood") {
+        const later = s.battle?.atEnd?.filter((e) => e.source === r.uid).at(-1);
+        if (later) later.drive = value;
+        return true;
+      }
+      const at = src();
+      if (at?.zone !== "circle") return true;
+      at.inst.mods.push({ stat: "drive", value, source: r.label, until: (c.named.until ?? "turn-end") as "battle-end" | "turn-end" });
+      say("log.stat", { card: name(db, at.inst), bonus: msg("stat.drive", { v: c.pos[0] }) }, r.uid);
+      return true;
+    }
+    case "stand": {
+      // stand(own, filter=…, at=battle-end): stand our matching units in the close step of this battle (see standAtBattleEnd)
+      if (c.named.at === "battle-end") {
+        if (s.battle) (s.battle.atEnd ??= []).push({ player: p, source: r.uid, filter: c.named.filter ?? "", drive: 0 });
+        return true;
+      }
+      for (const u of fieldUnits(ps)) if (u.rested && matchFilter(db, s, r, u, c.named.filter ?? "")) { u.rested = false; say("log.stand", { card: name(db, u) }, u.uid); }
+      return true;
+    }
+    case "to-hand": {
+      // to-hand(drop, n≤1, filter=…): return cards from the drop zone to hand
+      const max = num(c.pos[1] ?? "n≤1");
+      const opts = ps.drop.filter((i) => matchFilter(db, s, r, i, c.named.filter ?? ""));
+      if (!opts.length) return true;
+      if (!r.answer?.uids) return askCards(r, msg("choice.toHand", { n: max }), opts, (c.pos[1] ?? "").startsWith("n≤") ? 0 : Math.min(max, opts.length), Math.min(max, opts.length));
+      for (const u of r.answer.uids) { const { inst } = pull(s, u); ps.hand.push(reset(inst)); say("log.toHand", { card: name(db, inst) }, u); }
+      return true;
+    }
+    case "look": return opLook(db, s, r, c, out);
     case "return-to-deck": {
       const at = src();
       if (at) { pull(s, r.uid); ps.deck.push(reset(at.inst, false)); [ps.deck, s.rngState] = shuffle(ps.deck, s.rngState); say("log.returnToDeck", { card: name(db, at.inst) }, r.uid); }
@@ -524,6 +609,118 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
       say("log.unsupported", { name: c.name, op });
       return true;
   }
+}
+
+// to-deck(drop, all) / to-deck(drop+soul, n=2..3, filter=…): return cards to the deck (shuffle with a separate shuffle(deck));
+// filter same-grade = all chosen cards share one grade
+function opToDeck(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): boolean {
+  const p = r.owner, ps = s.players[p];
+  const from = c.pos[0].split("+");
+  const flt = c.named.filter ?? "";
+  const pool = [...(from.includes("drop") ? ps.drop : []), ...(from.includes("soul") ? ps.soul : [])].filter((i) => matchFilter(db, s, r, i, flt));
+  const amount = c.pos[1] ?? "all";
+  let uids: string[];
+  if (amount === "all") uids = pool.map((i) => i.uid);
+  else {
+    const range = amount.match(/^n=(\d+)\.\.(\d+)$/);
+    const min = range ? +range[1] : amount.startsWith("n≤") ? 0 : num(amount);
+    const max = range ? +range[2] : num(amount);
+    if (pool.length < Math.max(min, 1)) return true;
+    if (!r.answer?.uids) return askCards(r, msg("choice.toDeck", { n: max }), pool, min, Math.min(max, pool.length));
+    uids = r.answer.uids;
+    if (flt.includes("same-grade") && new Set(uids.map((u) => db[locate(s, u)!.inst.key].grade)).size > 1) throw new RuleError("err.sameGrade");
+  }
+  for (const u of uids) {
+    const { inst } = pull(s, u);
+    ps.deck.push(reset(inst, false));
+    ev(out, "to-deck", p, msg("log.returnToDeck", { card: name(db, inst) }), u);
+  }
+  r.returned = (r.returned ?? 0) + uids.length;
+  return true;
+}
+
+// Close step: the stands an ability set up for the end of this battle (e.g. Minerva), with their drive change
+export function standAtBattleEnd(db: CardDB, s: GameState, out: Out) {
+  for (const e of s.battle?.atEnd ?? []) {
+    const r = { uid: e.source, owner: e.player } as Resolving;
+    for (const u of fieldUnits(s.players[e.player])) {
+      if (!matchFilter(db, s, r, u, e.filter)) continue;
+      u.rested = false;
+      ev(out, "stand", e.player, msg("log.stand", { card: name(db, u) }), u.uid);
+      if (e.drive) u.mods.push({ stat: "drive", value: e.drive, source: "stand", until: "turn-end" });
+    }
+  }
+}
+
+// Remember what this ability put into the soul, for later codes of the same ability: "if you put ..." (souled≥n, souled-name) and "for each card put" (per souled)
+function noteSouled(db: CardDB, r: Resolving, insts: CardInstance[]) {
+  r.souled = [...(r.souled ?? []), ...insts.map((i) => db[i.key].name)];
+}
+
+// to-soul(drop, n≤3 | n=1 | all, filter=…): cards from the drop zone into the soul
+// to-soul(self, at=battle-end): this unit goes into the soul at the end of the battle
+function opToSoul(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): boolean {
+  const p = r.owner, ps = s.players[p];
+  const into = (inst: CardInstance) => { ps.soul.push(reset(inst)); ev(out, "to-soul", p, msg("log.soulIn", { card: name(db, inst) }), inst.uid); };
+  if (c.pos[0] === "self") {
+    const at = locate(s, r.uid);
+    if (at?.zone !== "circle") return true;
+    if (c.named.at === "battle-end") { at.inst.soulAtBattleEnd = true; return true; }
+    into(pull(s, r.uid).inst);
+    noteSouled(db, r, [at.inst]);
+    emit(db, s, { kind: "to-soul", player: p });
+    return true;
+  }
+  if (c.pos[0] !== "drop") { ev(out, "to-soul", p, msg("log.unsupported", { name: c.name, op: c.name })); return true; }
+  const flt = c.named.filter ?? "";
+  const pool = ps.drop.filter((i) => matchFilter(db, s, r, i, flt));
+  const amount = c.pos[1] ?? "all";
+  let uids: string[];
+  if (amount === "all") uids = pool.map((i) => i.uid);
+  else {
+    if (!pool.length) return true;
+    const max = Math.min(num(amount), pool.length);
+    if (!r.answer?.uids) return askCards(r, msg("choice.toSoul", { n: max }), pool, amount.startsWith("n≤") ? 0 : max, max);
+    uids = r.answer.uids;
+    if (flt.includes("different-grades") && new Set(uids.map((u) => db[locate(s, u)!.inst.key].grade)).size !== uids.length) {
+      throw new RuleError("err.differentGrades");
+    }
+  }
+  const moved = uids.map((u) => pull(s, u).inst);
+  moved.forEach(into);
+  noteSouled(db, r, moved);
+  if (moved.length) emit(db, s, { kind: "to-soul", player: p });
+  return true;
+}
+
+// look(n, hand=1, soul=1 | soul=n≤1, rest=drop): look at the top n cards, pick some for hand, then for soul; the rest go to the drop zone (unset = stay on top)
+function opLook(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): boolean {
+  const p = r.owner, ps = s.players[p];
+  if (r.local.looked === undefined) {
+    const top = ps.deck.slice(0, num(c.pos[0]));
+    if (!top.length) return true;
+    r.local.looked = top.map((i) => i.uid).join(",");
+    ev(out, "look", p, msg("log.lookTop", { n: top.length }));
+  }
+  const left = () => String(r.local.looked).split(",").filter((u) => ps.deck.some((d) => d.uid === u)).map((u) => ps.deck.find((d) => d.uid === u)!);
+  const steps = (["hand", "soul"] as const).filter((d) => c.named[d] !== undefined);
+  for (let i = Number(r.local.lookStep ?? 0); i < steps.length; i = Number(r.local.lookStep)) {
+    const dest = steps[i], want = c.named[dest], opts = left();
+    const max = Math.min(num(want), opts.length);
+    if (max && !r.answer?.uids) return askCards(r, msg(dest === "hand" ? "choice.lookHand" : "choice.lookSoul", { n: max }), opts, want.startsWith("n≤") ? 0 : max, max);
+    const picked = (r.answer?.uids ?? []).map((u) => pull(s, u).inst);
+    r.answer = undefined;
+    r.local.lookStep = i + 1;
+    for (const inst of picked) {
+      if (dest === "hand") { ps.hand.push(reset(inst)); ev(out, "look", p, msg("log.searchHand", { card: name(db, inst) }), inst.uid); }
+      else { ps.soul.push(reset(inst)); ev(out, "to-soul", p, msg("log.soulIn", { card: name(db, inst) }), inst.uid); }
+    }
+    if (dest === "soul") { noteSouled(db, r, picked); if (picked.length) emit(db, s, { kind: "to-soul", player: p }); }
+  }
+  if (c.named.rest === "drop") {
+    for (const inst of left()) { pull(s, inst.uid); ps.drop.push(reset(inst)); ev(out, "look", p, msg("log.searchDrop", { card: name(db, inst) }), inst.uid); }
+  }
+  return true;
 }
 
 function opCall(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): boolean {
@@ -607,19 +804,29 @@ function opStat(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): bool
   const p = r.owner, ps = s.players[p];
   const stat = c.name as "power" | "shield" | "critical";
   const until = (c.named.until ?? "turn-end") as "battle-end" | "turn-end";
-  const m = c.pos[0].match(/^([+-]\d+)(?: per (\d+) drop)?$/);
+  const m = c.pos[0].match(/^([+-]\d+)(?: per (\d+) drop| per (souled))?$/);
   if (!m) return true;
-  const value = m[2] ? Math.floor(ps.drop.length / +m[2]) * +m[1] : +m[1];
+  const per = c.named.per === "returned" ? (r.returned ?? 0) : 1;
+  const value = per * (m[3] ? (r.souled?.length ?? 0) * +m[1] : m[2] ? Math.floor(ps.drop.length / +m[2]) * +m[1] : +m[1]);
+  if (!value) return true;
   const target = c.pos[1];
   let uids: string[] = [];
   if (target === "self") uids = [r.uid];
+  else if (target === "own-VC & self") uids = [ps.circles.vc?.uid, r.uid].filter((u): u is string => !!u);
+  else if (target.startsWith("front-row")) {
+    const opts = frontRow(ps).filter((u) => matchFilter(db, s, r, u, c.named.filter ?? ""));
+    const limit = Math.min(num(target), opts.length);
+    if (!limit) return true;
+    if (!r.answer?.uids) return askCards(r, msg("choice.stat", { bonus: statMsg(stat, value), n: limit }), opts, 0, limit, { stat, value });
+    uids = r.answer.uids;
+  }
   else if (target === "own-VC") uids = ps.circles.vc ? [ps.circles.vc.uid] : [];
   else if (target === "called") uids = r.called;
   else if (target === "other-own" || target === "own-units") {
     const limit = target === "own-units"
       ? ps.drop.filter((i) => db[i.key].name.includes(quoted(c.named.n ?? ""))).length
       : num(c.pos[2] ?? "n≤1");
-    const opts = fieldUnits(ps).filter((u) => target === "own-units" || u.uid !== r.uid);
+    const opts = fieldUnits(ps).filter((u) => (target === "own-units" || u.uid !== r.uid) && matchFilter(db, s, r, u, c.named.filter ?? ""));
     if (!limit || !opts.length) return true;
     if (!r.answer?.uids) {
       return askCards(r, msg("choice.stat", { bonus: statMsg(stat, value), n: limit }), opts, 0, limit, { stat, value });

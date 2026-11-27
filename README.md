@@ -127,12 +127,14 @@ Add the key to `src/i18n/en.ts`, then the same key to `ja.ts` (`npm run typechec
 
 | Folder | Contents |
 |---|---|
-| `content/cards/g/` | G units and G guardians |
-| `content/cards/normal/` | Normal units, including non-trigger grade 0 |
-| `content/cards/trigger/` | Trigger units |
+| `content/cards/<clan>/g/` | G units and G guardians |
+| `content/cards/<clan>/normal/` | Normal units, including non-trigger grade 0 |
+| `content/cards/<clan>/trigger/` | Trigger units |
 | `content/decks/` | Default decks (the first by file name is the starting deck) |
 | `content/combos/` | Combo tutorials |
-| `content/images/` | Card images, 544×793 PNG, named by card code with `/` → `_` (e.g. `G-CHB03_S11TH.png`) |
+| `content/images/<clan>/` | Card images, 544×793 PNG, named by card code with `/` → `_` (e.g. `granblue/G-CHB03_S11TH.png`) |
+
+`<clan>` is the card's `clan` in lowercase with spaces → `-`, e.g. `granblue`, `cray-elemental`, `genesis`. Images go to the bucket flat under `defaults/`, so moving a card to another folder doesn't change its image URL.
 | `content/sleeves/` | Sleeve images, 440×640 |
 
 **Card code:** the first part of the first entry in `ids`, e.g. `"G-CHB03/S11TH SP"` → `G-CHB03/S11TH`. Decks, combos, and image names use it. One file per card; reprints with identical text share a file.
@@ -151,5 +153,5 @@ To add a card or sleeve from an image, use the `/add-card` Claude Code skill (`.
 
 Both scripts need PyYAML; `clean_images.py` also needs numpy and Pillow.
 
-- **`python tools/clean_images.py`** builds card images (`.temp/` → `content/images/`, listed in `SOURCES`) and sleeves (`.temp/sleeves/` → `content/sleeves/`, listed in `SLEEVES`): trims the background, resizes, and for cards evens out color and rounds corners. Source files are never modified.
+- **`python tools/clean_images.py`** builds card images (`.temp/` → `content/images/<clan>/`, listed in `SOURCES`) and sleeves (`.temp/sleeves/` → `content/sleeves/`, listed in `SLEEVES`): trims the background, resizes, and for cards evens out color and rounds corners. Source files are never modified.
 - **`python tools/find_chains.py`** finds combo chains from card ability codes (which effect causes which event, and which card waits for it). Options: `--turn opp|own`, `--start <name>`, `--vc <name>`, `--gb <n>`, `--depth <n>`. Each line ends with running totals, e.g. `{CB 2, SB 1 | regains CC+1, SC+1}`. It doesn't check free RC space or what's actually in the drop zone.

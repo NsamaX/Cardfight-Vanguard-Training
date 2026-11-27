@@ -1,0 +1,30 @@
+ids: ["G-BT08/005TH RRR"]
+name: "Prehistoric Regalia, Urth"
+format: [G]
+type: g-unit
+grade: 4
+power: "15000+"
+critical: 1
+skill: triple-drive
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "STRIDE"
+    timing: "step(stride, own)"
+    cost: ["discard(n, grade-sum≥3)"]
+    effect: ["stride(self)"]
+  - kind: "AUTO"
+    timing: "enter(VC, self)"
+    cond: ["heart-name(\"Regalia\")"]
+    cost: ["CB(1)", "flip-G-up(1, filter=same-name)"]
+    effect: ["to-soul(drop, all, filter=name(\"Regalia\"))", "grant(ACT-VC[SB(6) → power(+10000, self) & critical(+1, self)], self, until=turn-end, if=G-faceup(name(\"Regalia\"))≥2)"]
+text: |
+  ### STRIDE
+
+  - **Timing:** Stride Step | **Cost:** Choose one or more cards with the sum of their grades being 3 or greater from your hand, and discard them
+    - **Effect:** STRIDE this card on your (VC) from face down.
+
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (VC) | **Cost:** CB1 & choose a face down card named "Prehistoric Regalia, Urth" from your G zone, and turn it face up
+    - **Effect:** If you have a heart card with "Regalia" in its card name, you may pay the cost. If you do, put all of the cards with "Regalia" in its card name from your drop zone into your soul, and if the number of face up cards with "Regalia" in its card name in your G zone is two or more, until end of turn, this unit gets "ACT (VC): [SB6] This unit gets Power+10000/Critical+1 until end of turn.".

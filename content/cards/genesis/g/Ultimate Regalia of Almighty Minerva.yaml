@@ -1,0 +1,41 @@
+ids: ["G-BT14/009TH RRR"]
+name: "Ultimate Regalia of Almighty, Minerva"
+format: [G]
+type: g-unit
+grade: 4
+power: "15000+"
+critical: 1
+skill: triple-drive
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "STRIDE"
+    timing: "step(stride, own)"
+    cost: ["discard(n, grade-sum≥3)"]
+    effect: ["stride(self)"]
+  - kind: "ACT"
+    zone: "VC"
+    cond: ["1/turn"]
+    cost: ["SB(3, filter=name(\"Regalia\"))", "flip-G-up(1, filter=same-name)"]
+    effect: ["power(+10000, self)", "drive(+1, self)"]
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "attack(self)"
+    cond: ["1/turn", "GB(3)"]
+    cost: ["SB(6, filter=name(\"Regalia\"))", "discard(1)"]
+    effect: ["stand(own, filter=name(\"Regalia\"), at=battle-end)", "drive(-3, stood, until=turn-end)"]
+text: |
+  ### STRIDE
+
+  - **Timing:** Stride Step | **Cost:** Choose one or more cards with the sum of their grades being 3 or greater from your hand, and discard them
+    - **Effect:** STRIDE this card on your (VC) from face down.
+
+  ### AUTO
+
+  - **Zone:** VC | **Condition:** 1/Turn, GB3 | **Timing:** When this unit attacks | **Cost:** SB6 (cards with "Regalia" in their card names) & choose a card from your hand, and discard it
+    - **Effect:** You may pay the cost. If you do, at the end of that battle, [Stand] all of your units with "Regalia" in their card names, and they get drive -3 until end of turn.
+
+  ### ACT
+
+  - **Zone:** VC | **Condition:** 1/Turn | **Cost:** SB3 (cards with "Regalia" in their card name) & choose a face down card with the same card name as this unit from your G zone, and turn it face up
+    - **Effect:** This unit gets Power+10000/drive +1.

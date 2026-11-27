@@ -13,7 +13,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def load_cards():
     cards = []
-    for f in sorted(glob.glob(os.path.join(ROOT, "content", "cards", "*", "*.yaml"))):
+    for f in sorted(glob.glob(os.path.join(ROOT, "content", "cards", "*", "*", "*.yaml"))):
         fm = yaml.safe_load(open(f, encoding="utf-8"))
         fm["abilities"] = [dict(a, card=fm["name"], idx=i + 1) for i, a in enumerate(fm["abilities"])]
         fm["has_hollow"] = any("hollow(self)" in a.get("effect", []) for a in fm["abilities"])

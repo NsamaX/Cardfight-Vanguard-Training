@@ -1,0 +1,30 @@
+ids: ["G-BT14/039TH R"]
+name: "Regalia of Benevolent Wind, Flap Angel"
+format: [G]
+type: normal
+grade: 1
+power: 7000
+shield: 5000
+critical: 1
+skill: boost
+race: "Angel"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self, from=hand)"
+    cost: ["reveal(1, filter=grade-3 & name(\"Regalia\"))"]
+    effect: ["search(deck→hand, n≤1, filter=grade-3 & name(\"Regalia\"))", "discard(1)"]
+  - kind: "CONT"
+    zone: "hand"
+    cond: ["while(stride-cost)"]
+    effect: ["grade(+2, self)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (RC) from hand | **Cost:** Choose a grade 3 card with "Regalia" in its card name from your hand, and reveal it
+    - **Effect:** You may pay the cost. If you do, search your deck for up to one grade 3 card with "Regalia" in its card name, reveal it, put it into your hand, choose a card from your hand, discard it, and shuffle your deck.
+
+  ### CONT
+
+  - **Zone:** hand
+    - **Effect:** While you are paying the cost for STRIDE, this card gets grade +2.

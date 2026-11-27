@@ -1,0 +1,27 @@
+ids: ["G-BT14/020TH RR"]
+name: "Regalia of Wisdom, Angelica"
+format: [G]
+type: normal
+grade: 3
+power: 11000
+critical: 1
+skill: twin-drive
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(VC, self)"
+    optional: true
+    effect: ["to-soul(drop, n=1, filter=normal-unit & name(\"Regalia\"))", "draw(1, if=souled≥1)"]
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "stride(own, filter=name(\"Regalia\"))"
+    cost: ["CB(1)"]
+    effect: ["look(4, hand=1, soul=1, rest=drop)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (VC)
+    - **Effect:** Choose a normal unit with "Regalia" in its card name from your drop zone, and you may put it into your soul. If you do, draw a card.
+  - **Zone:** VC | **Timing:** When your G unit with "Regalia" in its original card name strides | **Cost:** CB1
+    - **Effect:** You may pay the cost. If you do, look at four cards from the top of your deck, put one card from among them into your hand, put one card from among them into your soul, and put the rest into your drop zone.

@@ -1,0 +1,38 @@
+# Genesis Regalia (Minerva), from a friend's list
+# Main deck: counted from the friend's deck overview (KK Card Fight export, MAIN [50])
+# G zone: not in the overview; chosen by us (Minerva as the main G unit), see the comments
+
+name: Genesis Regalia
+format: G
+starter: G-BT14/071TH          # Regalia of Dawn, Daylight Angel (counted in main)
+cover: G-BT14/009TH            # Ultimate Regalia of Almighty, Minerva
+
+main:                           # 50 cards
+  # Grade 0
+  G-BT14/071TH: 1               # Daylight Angel (Forerunner)
+  # 16 triggers
+  EB12/029TH: 3                 # Clear Angel (Critical)
+  G-BT14/040TH: 4               # Kukurihime (Critical)
+  G-BT04/082TH: 1               # Dreaming Dragon (Stand)
+  EB12/035TH: 4                 # Achlis (Stand)
+  G-BT14/022TH: 4               # Eir (Heal)
+  # Grade 1
+  G-BT14/039TH: 4               # Flap Angel
+  G-BT14/021TH: 4               # Jotun (Sentinel)
+  # Grade 2
+  EB12/006TH: 4                 # Hemera
+  G-BT14/067TH: 4               # Genil
+  G-BT14/038TH: 3               # Freyja
+  G-BT14/066TH: 4               # Bragi
+  EB12/012TH: 4                 # Norn
+  # Grade 3
+  G-BT14/020TH: 4               # Angelica
+  G-BT08/014TH: 2               # Verthandi
+
+g_zone:                         # 16 cards
+  G-BT14/009TH: 4               # Minerva: the main stride; its ACT flips another Minerva, so every copy is a stride or a cost
+  G-BT08/005TH: 2               # Urth: soul refill turn; its cost flips the second Urth
+  G-BT14/019TH: 2               # Inanna: SC3 and +GB through its ACT (flips the second Inanna); no Revelation cards in this main deck
+  G-BT14/036TH: 4               # Eir (G guardian): Shield +15000 with four grades in the drop zone
+  G-FC03/030TH: 2               # Iris
+  G-FC04/030TH: 2               # Laurier

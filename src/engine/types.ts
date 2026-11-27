@@ -1,7 +1,7 @@
 // The game's core data structures; every part (UI, bot, tutorial, replay) talks through these types
 import type { Msg } from "../i18n/msg";
 
-// ---------- Cards (read from content/cards/*/*.yaml) ----------
+// ---------- Cards (read from content/cards/*/*/*.yaml) ----------
 
 export type AbilityKind = "AUTO" | "ACT" | "CONT" | "STRIDE" | "ULTIMATE STRIDE" | "G GUARDIAN";
 export type CardType = "normal" | "trigger" | "g-unit" | "g-guardian";
@@ -64,10 +64,11 @@ export interface CardInstance {
   rested: boolean;
   faceUp: boolean;
   hollowed: boolean;
-  mods: { stat: "power" | "critical" | "shield"; value: number; source: string; until: "battle-end" | "turn-end" }[];
+  mods: { stat: "power" | "critical" | "shield" | "drive"; value: number; source: string; until: "battle-end" | "turn-end" }[];
   usedThisTurn: string[];   // 1/Turn abilities already used (ability key)
   grants?: Ability[];       // abilities granted by other cards (end at end of turn or on zone change)
   retireAtTurnEnd?: boolean;
+  soulAtBattleEnd?: boolean;   // put into the soul at the end of this battle (e.g. Genil after attacking)
 }
 
 export interface PlayerState {
@@ -87,11 +88,14 @@ export interface PlayerState {
 // Game events AUTO abilities listen for (matching the timing codes in vocabulary.md)
 export type TriggerEvent =
   | { kind: "enter"; player: PlayerId; uid: string; zone: "VC" | "RC" | "GC"; from: string }
-  | { kind: "stride"; player: PlayerId; uid: string }
+  | { kind: "stride"; player: PlayerId; uid: string; key: string }
   | { kind: "ridden-upon"; player: PlayerId; uid: string }
   | { kind: "attack"; player: PlayerId; uid: string; circle: Circle; target: Circle }
+  | { kind: "attack-hit"; player: PlayerId; uid: string; target: Circle }
+  | { kind: "to-soul"; player: PlayerId }
+  | { kind: "turn-end"; player: PlayerId }   // the end phase, after the G unit returns (player = the turn player)   // one or more cards were put into this player's soul (one event per effect)
   | { kind: "battle-end"; player: PlayerId; attackerUid: string; attackerCircle: Circle; boosterUid?: string; target: Circle }
-  | { kind: "to-drop" | "retired"; player: PlayerId; uid: string; from: "RC"; by?: "hollow"; grants: Ability[] }
+  | { kind: "to-drop" | "retired"; player: PlayerId; uid: string; from: "RC" | "soul"; by?: "hollow"; grants: Ability[] }
   | { kind: "discarded"; player: PlayerId; uid: string; as: "g-guardian-cost" }
   | { kind: "phase-start"; player: PlayerId; phase: "battle" };
 
@@ -122,6 +126,8 @@ export interface Resolving extends QueueEntry {
   called: string[];
   usedCircles: Circle[];
   hollowMilled: number;
+  souled?: string[];
+  returned?: number;    // cards this ability returned to the deck (per=returned, returned≥n)    // names of the cards this ability put into the soul (souled≥n, souled-name, per souled)
   confirmed?: boolean;  // the player already chose to use it (don't ask again)
   thatCards?: string[]; // a 1/turn ability triggered by several cards at once: any of them can be "that card", since only one trigger can resolve this turn
 }
@@ -151,6 +157,7 @@ export interface GameState {
 }
 
 export interface Battle {
+  atEnd?: { player: PlayerId; source: string; filter: string; drive: number }[];   // "at the end of that battle, stand your units ..." (and their drive change), done in the close step
   attacker: Circle;
   booster?: Circle;
   target: Circle;

@@ -30,7 +30,7 @@ export const canBoost = (c: Card) => c.skill === "boost";
 export const canIntercept = (c: Card) => c.skill === "intercept";
 export const triggerPower = (c: Card) => c.triggerPower ?? 0;
 
-const modSum = (inst: CardInstance, stat: "power" | "critical" | "shield") =>
+const modSum = (inst: CardInstance, stat: "power" | "critical" | "shield" | "drive") =>
   inst.mods.filter((m) => m.stat === stat).reduce((n, m) => n + m.value, 0);
 
 // Power of a unit on the board: a G unit on VC also gets the heart's Power
@@ -52,7 +52,7 @@ export const shieldOf = (db: CardDB, inst: CardInstance) => printedShield(db[ins
 
 export function driveOf(db: CardDB, inst: CardInstance): number {
   const skill = db[inst.key].skill;
-  return skill === "triple-drive" ? 3 : skill === "twin-drive" ? 2 : 1;
+  return Math.max(0, (skill === "triple-drive" ? 3 : skill === "twin-drive" ? 2 : 1) + modSum(inst, "drive"));
 }
 
 // Grade of a hand card when counted for the stride cost (CONT in hand, e.g. Tommy the Ghostie Brothers grade +2)

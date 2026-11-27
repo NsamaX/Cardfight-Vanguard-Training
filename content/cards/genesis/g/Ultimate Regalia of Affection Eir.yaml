@@ -1,0 +1,27 @@
+ids: ["G-BT14/036TH R"]
+name: "Ultimate Regalia of Affection, Eir"
+format: [G]
+type: g-guardian
+grade: 4
+shield: 15000
+critical: 1
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "G GUARDIAN"
+    timing: "step(guard, opp)"
+    cost: ["discard(1, filter=heal)"]
+    effect: ["call(G→GC, self)"]
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    effect: ["to-soul(drop, n≤4, filter=different-grades)", "shield(+5000, self, until=battle-end, if=souled≥2)", "shield(+10000, self, until=battle-end, if=souled≥4)"]
+text: |
+  ### G GUARDIAN
+
+  - **Timing:** Opponent Turn's Guard Step | **Cost:** Choose a card with [Heal] from your hand, and discard it
+    - **Effect:** Call this card to your (GC) from face down.
+
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC)
+    - **Effect:** Choose up to four cards from your drop zone with different grades, and put them into your soul. If you put two or more cards, until end of that battle, this unit gets Shield+5000, then, if you put four cards, it gets Shield+10000.

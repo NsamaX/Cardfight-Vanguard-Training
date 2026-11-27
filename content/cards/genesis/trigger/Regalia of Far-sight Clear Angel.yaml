@@ -1,0 +1,14 @@
+ids: ["EB12/029TH C"]
+name: "Regalia of Far-sight, Clear Angel"
+format: [G]
+type: trigger
+trigger: critical
+grade: 0
+power: 5000
+shield: 10000
+critical: 1
+skill: boost
+trigger_power: 5000
+race: "Angel"
+clan: "Genesis"
+abilities: []

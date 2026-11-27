@@ -1,0 +1,31 @@
+ids: ["G-BT08/014TH RR"]
+name: "Regalia of the Present Age, Verthandi"
+format: [G]
+type: normal
+grade: 3
+power: 11000
+critical: 1
+skill: twin-drive
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "ACT"
+    zone: "VC"
+    cond: ["1/turn"]
+    cost: ["SB(3, filter=name(\"Regalia\"))"]
+    effect: ["grant(AUTO-VC/RC[attack-hit(self, target=VC) → look(2, hand=1, soul=1)], front-row ≤3, until=turn-end)"]
+  - kind: "AUTO"
+    zone: "VC"
+    timing: "stride(own, filter=name(\"Regalia\"))"
+    cond: ["own-turn"]
+    effect: ["grant(AUTO-VC[to-soul(own) → power(+1000, front-row ≤3, filter=name(\"Regalia\"))], own-VC, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - **Zone:** VC | **Timing:** During your turn, when your unit with "Regalia" in its original card name STRIDES
+    - **Effect:** Choose one of your vanguards, and until end of turn, it gets "AUTO (VC): When your card is put into your soul, choose up to three units with "Regalia" in its card name in your front row, and they get Power+1000 until end of turn.".
+
+  ### ACT
+
+  - **Zone:** VC | **Condition:** 1/Turn | **Cost:** SB3 (cards with "Regalia" in its card name)
+    - **Effect:** Choose up to three units in your front row, and until end of turn, they get "AUTO (VC/RC): When this unit's attack hits a vanguard, look at two cards from the top of your deck, put one card into your hand, and put the remaining one card into your soul.".

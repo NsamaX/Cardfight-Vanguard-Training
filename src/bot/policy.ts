@@ -1,6 +1,7 @@
 // Heuristic decision rules for every point where the engine waits: the Normal bot, and the rollout policy for simulation at higher levels
 // Every function returns an Action intended to be legal; if it isn't, the caller uses fallbacks() instead
 import { gGuardianBlocked, usableActs } from "../engine/game";
+import { actAt } from "../engine/abilities";
 import { parseCode } from "../engine/code";
 import {
   BEHIND, FRONT, RC, SAME_COLUMN, bothVanguardsGrade3, canBoost, canIntercept, strideCostGrade, criticalOf, driveOf, generationBreak, isG, isSentinel, other, powerOf, printedShield, shieldOf, triggerPower, vcGrade,
@@ -198,7 +199,8 @@ function wantAct(db: CardDB, s: GameState, p: PlayerId, uid: string, index: numb
   const ps = s.players[p];
   const at = locate(s, uid);
   if (!at || at.zone !== "circle") return false;
-  const ab = db[at.inst.key].abilities[index];
+  const { ab } = actAt(db, at.inst, index);
+  if (!ab) return false;
   const cost = ab.cost ?? [];
   if (cost.includes("soul-in(self)")) {
     // Units that don't help attack (front row, or back row with nobody to boost) go to the soul in exchange for a draw

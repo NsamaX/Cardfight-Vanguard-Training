@@ -1,0 +1,28 @@
+ids: ["G-BT14/067TH C"]
+name: "Regalia of Ideas, Genil"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "attack(self, target=VC)"
+    optional: true
+    effect: ["power(+2000, self, until=battle-end)", "to-soul(self, at=battle-end)"]
+  - kind: "AUTO"
+    timing: "to-drop(self, from=soul)"
+    cond: ["GB(1)", "own-turn"]
+    effect: ["power(+3000, other-own, n≤1, filter=name(\"Regalia\"), until=turn-end)"]
+text: |
+  ### AUTO
+
+  - **Zone:** RC | **Timing:** When this unit attacks a vanguard
+    - **Effect:** You may have this unit get Power+2000 until end of that battle. If you do, at the end of that battle, put this unit into your soul.
+  - **Condition:** GB1 | **Timing:** When this card is put into the drop zone from your soul during your turn
+    - **Effect:** Choose one of your units with "Regalia" in its card name, and it gets Power+3000 until end of turn.

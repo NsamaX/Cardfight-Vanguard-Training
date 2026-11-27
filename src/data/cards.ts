@@ -4,7 +4,7 @@ import content from "./content.json";
 
 export { cardKey } from "./cardFile";
 
-// Starts with the bundled content/cards/*/*.yaml set (used by tests and when Supabase is not configured).
+// Starts with the bundled content/cards/*/*/*.yaml set (used by tests and when Supabase is not configured).
 // The app replaces it with the library loaded from Supabase (src/lib/library.ts) via setCards.
 export const cards: Card[] = (content.cards as unknown as CardFile[]).map(toCard);
 

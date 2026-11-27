@@ -1,0 +1,29 @@
+ids: ["G-BT14/038TH R"]
+name: "Regalia of Abundance, Freyja"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    cond: ["vc-grade≥3", "vc-name(\"Regalia\")"]
+    cost: ["CB(1)"]
+    effect: ["draw(1)", "to-soul(drop, n≤2, filter=name(\"Regalia\"))"]
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "attack(own-VC, filter=name(\"Regalia\"))"
+    cond: ["GB(2)"]
+    effect: ["power(+3000, self, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (RC) | **Cost:** CB1
+    - **Effect:** If you have a grade 3 or greater vanguard with "Regalia" in its card name, you may pay the cost. If you do, draw a card, choose up to two cards with "Regalia" in their card names from your drop zone, and put them into your soul.
+  - **Zone:** RC | **Condition:** GB2 | **Timing:** When your vanguard with "Regalia" in its card name attacks
+    - **Effect:** This unit gets Power+3000 until end of turn.

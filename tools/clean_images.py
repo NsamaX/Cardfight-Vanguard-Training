@@ -1,7 +1,7 @@
 """Clean up card images: crop to the card, equal size, similar brightness/color, transparent rounded corners, named after the card code in the library
 and sleeve images: crop to the sleeve, equal size (no color adjustment, no rounded corners)
 
-python tools/clean_images.py                # cards: .temp/ → content/images/  sleeves: .temp/sleeves/ → content/sleeves/
+python tools/clean_images.py                # cards: .temp/ → content/images/<clan>/  sleeves: .temp/sleeves/ → content/sleeves/
 Source files are never modified; add new images by adding a line to SOURCES or SLEEVES
 """
 import glob, os, re, sys
@@ -58,11 +58,17 @@ SOURCES = {
 
 
 def card_ids():
+    """Card name -> (first id, clan folder); card files sit in content/cards/<clan>/<type>/"""
     ids = {}
-    for f in glob.glob(os.path.join(ROOT, "content", "cards", "*", "*.yaml")):
+    for f in glob.glob(os.path.join(ROOT, "content", "cards", "*", "*", "*.yaml")):
         fm = yaml.safe_load(open(f, encoding="utf-8"))
-        ids[fm["name"]] = fm["ids"][0]
+        ids[fm["name"]] = (fm["ids"][0], clan_dir(fm["clan"]))
     return ids
+
+
+def clan_dir(clan):
+    """'Cray Elemental' -> 'cray-elemental'"""
+    return clan.lower().replace(" ", "-")
 
 
 def file_code(card_id):
@@ -115,7 +121,6 @@ def round_corners(im):
 
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
     ids = card_ids()
     missing = [n for n in SOURCES.values() if n not in ids]
     if missing:
@@ -128,9 +133,11 @@ def main():
         im = crop_to_card(Image.open(path))
         im = flatten(im).resize(SIZE, Image.LANCZOS)
         im = round_corners(normalize(im))
-        dst = file_code(ids[name]) + ".png"
+        card_id, clan = ids[name]
+        dst = os.path.join(clan, file_code(card_id) + ".png")
+        os.makedirs(os.path.join(OUT, clan), exist_ok=True)
         im.save(os.path.join(OUT, dst), optimize=True)
-        print(f"{src:34} -> content/images/{dst}")
+        print(f"{src:34} -> content/images/{dst.replace(os.sep, '/')}")
 
     os.makedirs(SLEEVE_OUT, exist_ok=True)
     for src, name in SLEEVES.items():

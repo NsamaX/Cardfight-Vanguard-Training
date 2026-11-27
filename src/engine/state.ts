@@ -17,6 +17,7 @@ export function reset(inst: CardInstance, faceUp = true): CardInstance {
   inst.mods = [];
   inst.grants = [];
   inst.retireAtTurnEnd = false;
+  inst.soulAtBattleEnd = false;
   inst.faceUp = faceUp;
   return inst;
 }

@@ -1,0 +1,20 @@
+ids: ["EB12/006TH RR"]
+name: "Midday Regalia, Hemera"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    effect: ["to-soul(drop, n≤3, filter=name(\"Regalia\"))"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (RC)
+    - **Effect:** Choose up to three cards with "Regalia" in its card name from your drop zone, and put them into your soul.

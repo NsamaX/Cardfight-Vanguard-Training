@@ -1,0 +1,49 @@
+ids: ["G-BT14/019TH RR"]
+name: "Goddess of Mercy, Inanna"
+format: [G]
+type: g-unit
+grade: 4
+power: "15000+"
+critical: 1
+skill: triple-drive
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "STRIDE"
+    timing: "step(stride, own)"
+    cost: ["discard(n, grade-sum≥3)"]
+    effect: ["stride(self)"]
+  - kind: "AUTO"
+    zone: "VC"
+    effect: ["keyword(Revelation)"]
+  - kind: "ACT"
+    zone: "VC"
+    cond: ["1/turn"]
+    cost: ["CB(1)", "flip-G-up(1, filter=same-name)"]
+    effect: ["SC(3)", "opp-retires(opp-RC, n=soul-charged(has-revelation))"]
+  - kind: "CONT"
+    zone: "VC"
+    cond: ["GB(3)"]
+    effect: ["power(+2000, own-RC, n=count-in-soul(has-revelation))"]
+text: |
+  ### STRIDE
+
+  - **Timing:** Stride Step | **Cost:** Choose one or more cards with the sum of their grades being 3 or greater from your hand, and discard them
+    - **Effect:** STRIDE this card on your (VC) from face down.
+
+  ### AUTO
+
+  - Revelation (VC)
+
+  ### ACT
+
+  - **Zone:** VC | **Condition:** 1/Turn | **Cost:** CB1 & choose a face down card with the same card name as this unit from your G zone, and turn it face up
+    - **Effect:** SC3, your opponent chooses one of his or her rear-guards for each card with the revelation ability soul charged, and retires them.
+
+  ### CONT
+
+  - **Zone:** VC | **Condition:** GB3
+    - **Effect:** All of your rear-guards get Power+2000 for each card in your soul with the revelation ability.
+notes: |
+  The card names the Revelation keyword without its definition, so `keyword(Revelation)` is a placeholder that does nothing.
+  No main deck card in the friend's Regalia list has Revelation, so in that deck the ACT retires nothing and the CONT adds nothing.

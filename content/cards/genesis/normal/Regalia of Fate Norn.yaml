@@ -1,0 +1,21 @@
+ids: ["EB12/012TH R"]
+name: "Regalia of Fate, Norn"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "to-drop(self, from=soul)"
+    cond: ["vc-name(\"Regalia\")"]
+    effect: ["power(+5000, own-VC, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this card is put into the drop zone from your soul
+    - **Effect:** Choose one of your vanguards with "Regalia" in its card name, and that unit gets Power+5000 until end of turn.

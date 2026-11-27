@@ -1,5 +1,5 @@
 // Upload the default set from content/ to Supabase: cards -> default_cards, decks -> default_decks,
-// card images (content/images/*.png) -> card-images bucket under defaults/, sleeves (content/sleeves/*) -> defaults/sleeves/ + default_sleeves
+// card images (content/images/<clan>/*.png) -> card-images bucket under defaults/, sleeves (content/sleeves/*) -> defaults/sleeves/ + default_sleeves
 // Needs SUPABASE_SECRET_KEY, so run it only on your machine: npm run sync-defaults
 // Players who already signed in keep their copy; only new players get the updated set (see claim_defaults).
 import { createClient } from "@supabase/supabase-js";
@@ -18,9 +18,11 @@ const load = (pattern) => globSync(pattern, { cwd: root }).sort().map((p) => ({ 
 const check = ({ error }, what) => { if (error) throw new Error(`${what}: ${error.message}`); };
 
 const cards = [];
-for (const { data } of load("content/cards/*/*.yaml")) {
+// Card files and images sit in a folder per clan, e.g. content/images/granblue/; the bucket keeps them flat under defaults/
+const clanDir = (clan) => clan.toLowerCase().replaceAll(" ", "-");
+for (const { data } of load("content/cards/*/*/*.yaml")) {
   const card = toCard(data);
-  const file = join(root, "content/images", imageName(card.key));
+  const file = join(root, "content/images", clanDir(card.clan), imageName(card.key));
   let image_path = null;
   if (existsSync(file)) {
     image_path = `defaults/${imageName(card.key)}`;

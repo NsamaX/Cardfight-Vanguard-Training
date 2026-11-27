@@ -1,0 +1,34 @@
+ids: ["G-BT14/021TH RR"]
+name: "Regalia of Frost, Jotun"
+format: [G]
+type: normal
+grade: 1
+power: 6000
+shield: 0
+critical: 1
+skill: boost
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(GC, self, from=hand)"
+    cost: ["discard(1)"]
+    effect: ["no-hit(own-attacked, filter=name(\"Regalia\"), until=battle-end)"]
+  - kind: "AUTO"
+    timing: "to-drop(self, from=soul)"
+    cond: ["GB(1)", "own-turn", "vc-name(\"Regalia\")"]
+    cost: ["bind(self)"]
+    effect: ["to-hand(drop, n≤1, filter=same-name)"]
+  - kind: "CONT"
+    effect: ["keyword(Sentinel)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC) from hand | **Cost:** Choose a card from your hand, and discard it
+    - **Effect:** You may pay the cost. If you do, choose one of your units with "Regalia" in its card name, and it cannot be hit until end of that battle.
+  - **Condition:** GB1 | **Timing:** When this card is put into the drop zone from your soul during your turn | **Cost:** Bind this card face up
+    - **Effect:** If you have a vanguard with "Regalia" in its card name, you may pay the cost. If you do, choose a "Regalia of Frost, Jotun" from your drop zone, and you may return it to your hand.
+
+  ### CONT
+
+  - Sentinel

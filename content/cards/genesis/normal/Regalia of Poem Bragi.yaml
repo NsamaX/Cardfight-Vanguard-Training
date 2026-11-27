@@ -1,0 +1,21 @@
+ids: ["G-BT14/066TH C"]
+name: "Regalia of Poem, Bragi"
+format: [G]
+type: normal
+grade: 2
+power: 9000
+shield: 5000
+critical: 1
+skill: intercept
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "enter(RC, self)"
+    cond: ["GB(1)", "vc-name(\"Regalia\")"]
+    effect: ["to-soul(drop, n≤2, filter=name(\"Regalia\"))", "power(+3000 per souled, own-VC & self, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - **Condition:** GB1 | **Timing:** When this unit is placed on (RC)
+    - **Effect:** If you have a vanguard with "Regalia" in its card name, choose up to two cards with "Regalia" in their card names from your drop zone, put them into your soul, choose one of your vanguards, and that unit and this unit get Power+3000 until end of turn for each card put with this effect.

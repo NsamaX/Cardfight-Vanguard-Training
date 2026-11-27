@@ -2,7 +2,7 @@
 
 Shared codes for writing card abilities the same way no matter how the card's translation words them. The card's real text stays in the card file's `text` field; the codes here are what the engine runs and what combo search matches on.
 
-This list was built from the 28 card files currently in the library (G era). If a new card has an event or effect with no code yet, add the code here before using it.
+This list was built from the 49 card files currently in the library (G era). If a new card has an event or effect with no code yet, add the code here before using it.
 
 ## Format
 
@@ -47,6 +47,11 @@ code(main value, parameter=value)
 | `phase-start(battle, own)` | Start of our battle phase | "At the beginning of your battle phase" | Nightrose (G unit) |
 | `turn-end` | End of the turn | "At the end of the turn" | The Hollow keyword, Immortal Galleon |
 | `ridden-upon(self)` | A card rides on this card | (in the Forerunner keyword) | The Forerunner keyword |
+| `to-drop(self, from=soul)` | This card goes from the soul to the drop zone (e.g. paid as Soul Blast) | "When this card is put into the drop zone from your soul" | Norn, Achlis, Genil, Jotun |
+| `to-soul(own)` | Cards are put into our soul (once per effect, however many cards; also riding) | "When your card is put into your soul" | The ability Verthandi grants |
+| `attack-hit(self, target=VC)` | This unit's attack hits a vanguard | "When this unit's attack hits a vanguard" | The ability Verthandi grants |
+| `stride(own, filter=…)` | We stride a G unit matching the filter (in its original card name) | "When your G unit with \"Regalia\" in its original card name strides" | Angelica, Verthandi |
+| `attack(own-VC, filter=…)` | Our vanguard matching the filter attacks | "When your vanguard with \"Regalia\" in its card name attacks" | Freyja |
 | `step(stride, own)` | Our stride step (timing of STRIDE and ULTIMATE STRIDE) | "-Stride Step-" | Every G unit |
 | `step(guard, opp)` | The guard step of the opponent's turn (timing of G GUARDIAN) | "-During the guard step of your opponent's turn-" | Every G guardian |
 
@@ -64,7 +69,11 @@ code(main value, parameter=value)
 | `drop-count≤5` | Our drop zone has 5 or fewer cards | Zombie Whale (CONT Power reduction) |
 | `name-in-drop("Waterspout Djinn")` | A card with this name is in the drop zone | Waterspout Djinn |
 | `attack-count≥5` | The 5th or later attack of the turn | Honoly |
-| `while(stride-cost)` | While paying the stride cost | Tommy |
+| `while(stride-cost)` | While paying the stride cost | Tommy, Flap Angel |
+| `heart-name("Regalia")` | Our heart card has this word in its name | Urth |
+| `G-faceup≥n`, `G-faceup(filter)≥n` | n or more face-up cards (matching the filter) in our G zone | Kukurihime, Urth |
+| `souled≥n`, `souled-name("Regalia")` | This effect put n or more cards / a card with this word into the soul | Eir (G guardian), Iris, Angelica, Daylight Angel |
+| `returned≥n` | This effect returned n or more cards to the deck | Dreaming Dragon |
 | `called≥3` | This effect called 3 or more cards | Nightrose (G unit) |
 | `hollow-milled≥2` | This effect put 2 or more cards with Hollow into the drop zone | Obadiah |
 | `called-has-hollow` | The called card has the Hollow ability | Nightrose (Starlight) |
@@ -76,12 +85,14 @@ code(main value, parameter=value)
 |---|---|---|
 | `CB(n)` | Counter Blast n | Many |
 | `SB(n)` | Soul Blast n | Nightrose (Starlight), Nightstorm, Negrolazy, Negronora |
+| `SB(n, filter)` | Soul Blast only cards matching the filter | Minerva, Verthandi |
+| `to-deck-top(self)` | Put this unit on the top of the deck | Dreaming Dragon |
 | `discard(n, filter)` | Discard cards from hand matching the card's condition | Gust Jinn, Waterspout Djinn, Sebreeze, Agleam, STRIDE, G GUARDIAN |
 | `mill(n)` | Put the top cards of the deck into the drop zone | Nightrose (Night Fog) (3), Deep Corpse Dragon (2) |
 | `reveal(filter)` | Reveal a card from hand | Tommy (grade 3) |
 | `retire-own(n)` | Retire our rear-guards | Negrolily |
 | `soul-in(self)` | Put this card into the soul | Rough Seas Banshee, Rampage Shade |
-| `bind(filter)` | Bind cards face up | Dewey the Ghostie (this card + another Heal trigger from the drop zone) |
+| `bind(filter)` | Bind cards face up | Dewey the Ghostie, Eir (Heal) (this card + another Heal trigger from the drop zone), Jotun (`bind(self)`) |
 | `flip-G-up(filter)` | Flip a face-down card in the G zone face up | Negronora (G GUARDIAN), the Nightrose G unit (same name as this card) |
 
 ## 4. Effects
@@ -119,7 +130,16 @@ code(main value, parameter=value)
 | `call(self→RC)` | Call this card to RC (the Forerunner effect) | Grenache |
 | `discard(n)` | Discard cards from hand (as an effect, not a cost) | Tommy |
 | `choose(A, B)` | Choose one of the effects | Dewey (CC1 or SC1), the ability Negrolazy grants (CC1 / SC1) |
-| `keyword(name)` | A keyword with no in-game effect, only a deck building rule | `keyword(Sentinel)` (Gust Jinn, Waterspout Djinn) |
+| `keyword(name)` | A keyword with no in-game effect, only a deck building rule | `keyword(Sentinel)` (Gust Jinn, Waterspout Djinn, Jotun); `keyword(Revelation)` (Inanna, placeholder: the card doesn't define it) |
+| `to-soul(from, n, filter)` | Put cards from a zone into our soul (`all` = every matching card) | Hemera, Freyja, Bragi, Angelica, Urth, Eir (G guardian), Iris; `to-soul(self, at=battle-end)` Genil |
+| `look(n, hand=k, soul=k, rest=drop)`, `soul=n≤k` = up to k | Look at / reveal the top n cards, pick some for hand, then for soul; `rest=drop` puts the others into the drop zone | Angelica, Daylight Angel, the ability Verthandi grants |
+| `to-hand(from, n, filter)` | Return cards from a zone to hand | Jotun |
+| `to-deck(from, n, filter)` | Return cards from a zone to the deck | Laurier, Dreaming Dragon |
+| `shuffle(deck)` | Shuffle the deck | Laurier, Dreaming Dragon |
+| `stand(own, filter)` | Stand our units | Minerva |
+| `drive(±n, target)` | Change drive | Minerva |
+| `opp-retires(opp-RC, n)` | The opponent chooses and retires their own rear-guards | Inanna |
+| `power(+X per souled, target)` | Power for each card this effect put into the soul | Bragi |
 
 ### Helpers in filter and n
 

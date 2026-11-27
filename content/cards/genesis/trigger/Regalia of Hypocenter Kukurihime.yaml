@@ -1,0 +1,24 @@
+ids: ["G-BT14/040TH R"]
+name: "Regalia of Hypocenter, Kukurihime"
+format: [G]
+type: trigger
+trigger: critical
+grade: 0
+power: 4000
+shield: 10000
+critical: 1
+skill: boost
+trigger_power: 5000
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "ACT"
+    zone: "RC"
+    cond: ["vc-grade≥3"]
+    cost: ["soul-in(self)"]
+    effect: ["power(+3000, other-own, n≤1, until=turn-end)", "draw(1, if=G-faceup≥1)"]
+text: |
+  ### ACT
+
+  - **Zone:** RC | **Cost:** Put this unit into your soul
+    - **Effect:** If you have a grade 3 or greater vanguard, choose one of your units, and it gets Power+3000 until end of turn. If you have a face up card in your G zone, draw a card.

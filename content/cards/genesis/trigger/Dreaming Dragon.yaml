@@ -1,0 +1,27 @@
+ids: ["G-BT04/082TH C"]
+name: "Dreaming Dragon"
+format: [G]
+type: trigger
+trigger: stand
+grade: 0
+power: 4000
+shield: 10000
+critical: 1
+skill: boost
+trigger_power: 5000
+race: "Cosmo Dragon"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    zone: "RC"
+    timing: "turn-end"
+    cond: ["GB(1)", "own-turn"]
+    cost: ["to-deck-top(self)"]
+    effect: ["to-deck(drop, all)", "shuffle(deck)", "draw(1, if=returned≥10)"]
+text: |
+  ### AUTO
+
+  - **Zone:** RC | **Condition:** GB1 | **Timing:** At the end of your turn | **Cost:** Put this unit on the top of your deck
+    - **Effect:** You may pay the cost. If you do, return all the cards in your drop zone to your deck, and shuffle your deck. Then, if ten or more cards were returned, draw a card.
+notes: |
+  The English image is small and blurry; the text was read from it and checked against the Thai print (G-BT04/082TH).

@@ -1,0 +1,27 @@
+ids: ["G-FC03/030TH RR"]
+name: "Goddess of Seven Colors, Iris"
+format: [G]
+type: g-guardian
+grade: 4
+shield: 15000
+critical: 1
+race: "Noble"
+clan: "Genesis"
+abilities:
+  - kind: "G GUARDIAN"
+    timing: "step(guard, opp)"
+    cost: ["discard(1, filter=heal)"]
+    effect: ["call(G→GC, self)"]
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    effect: ["to-soul(drop, n≤3)", "shield(+5000, self, until=battle-end, if=souled≥3)"]
+text: |
+  ### G GUARDIAN
+
+  - **Timing:** Opponent Turn's Guard Step | **Cost:** Choose a card with [Heal] from your hand, and discard it
+    - **Effect:** Call this card to your (GC) from face down.
+
+  ### AUTO
+
+  - **Timing:** When this unit is placed on (GC)
+    - **Effect:** Choose up to three cards from your drop zone, and put them into your soul. If three cards were put, this unit gets Shield+5000 until end of that battle.

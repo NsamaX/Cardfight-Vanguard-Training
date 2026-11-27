@@ -24,29 +24,31 @@ No library card acts in these phases. After the draw, the program asks whether t
 
 | Step | What happens | Timing code | Cards that act |
 |---|---|---|---|
-| Ride step | Ride onto the vanguard | `ridden-upon(self)`, `enter(VC, self)` | Grenache (Forerunner), Nightstorm |
-| Stride step | Discard cards as the cost, then put a G unit on the vanguard | `step(stride, own)` | Every G unit, Tommy (+2 grade when paying the cost) |
-| | After striding | `stride(own)` | Nightrose (Night Fog), Nightrose (Starlight) |
-| | The G unit is placed on VC | `enter(VC, self)` | Obadiah, Immortal Galleon, Megiddo |
+| Ride step | Ride onto the vanguard | `ridden-upon(self)`, `enter(VC, self)` | Grenache, Daylight Angel (Forerunner), Nightstorm, Angelica |
+| Stride step | Discard cards as the cost, then put a G unit on the vanguard | `step(stride, own)` | Every G unit, Tommy, Flap Angel (+2 grade when paying the cost) |
+| | After striding | `stride(own)` | Nightrose (Night Fog), Nightrose (Starlight), Angelica, Verthandi |
+| | The G unit is placed on VC | `enter(VC, self)` | Obadiah, Immortal Galleon, Megiddo, Urth |
 
 ### 4. Main phase
 
 | What happens | Timing code | Cards that act |
 |---|---|---|
-| Call a unit from hand to RC | `enter(RC, self)`, `enter(RC, self, from=hand)` | Tommy, Negrolazy, Honoly, every Hollow card |
+| Call a unit from hand to RC | `enter(RC, self)`, `enter(RC, self, from=hand)` | Tommy, Negrolazy, Honoly, every Hollow card, Hemera, Freyja, Bragi, Flap Angel |
 | Call from the drop zone by a card effect | `enter(RC, self, from=drop)`, `enter(RC, other-own, from=drop)` | Skeleton Cannoneer, King Serpent, Mick, Nightrose (Starlight) |
-| Use an ACT | (no timing, used by choice) | Nightrose (G unit) |
+| Use an ACT | (no timing, used by choice) | Nightrose (G unit), Minerva, Inanna, Verthandi, Daylight Angel, Kukurihime |
+| A card goes from the soul to the drop zone (Soul Blast, during either turn) | `to-drop(self, from=soul)` | Norn, Achlis, Genil and Jotun (during your turn) |
 
 ### 5. Battle phase
 
 | Step | What happens | Timing code | Cards that act |
 |---|---|---|---|
 | Start of battle phase | | `phase-start(battle, own)` | Nightrose (G unit) counts "Nightrose" in the drop zone |
-| Attack step | Declare the attack and boost | `attack(self)`, `attack(self, target=VC)`, `attack(own-VC)` | Negrorook, Zombie Whale, Rampage Shade |
-| Guard step | The defender calls guards to GC, intercepts, calls G guardians | `step(guard, opp)`, `enter(GC, self)`, `discarded(self, as=g-guardian-cost)` | Every G guardian, Gust Jinn, Waterspout Djinn, Chappie, Dewey |
+| Attack step | Declare the attack and boost | `attack(self)`, `attack(self, target=VC)`, `attack(own-VC)` | Negrorook, Zombie Whale, Rampage Shade, Minerva, Genil, Freyja |
+| Guard step | The defender calls guards to GC, intercepts, calls G guardians | `step(guard, opp)`, `enter(GC, self)`, `discarded(self, as=g-guardian-cost)` | Every G guardian, Gust Jinn, Waterspout Djinn, Jotun, Chappie, Dewey, Eir (Heal) |
 | Drive step | Drive checks (attacking vanguard only) | (trigger effects) | — |
 | Damage step | Resolve the hit, damage checks, retire a hit rear-guard | `retired(…, from=RC)`, `to-drop(own, from=RC)` (attacked side) | Nightrose (Night Fog) on the opponent's turn |
-| Close step | End of battle, G guardians return to the G zone, "until end of battle" effects expire | `battle-end(…)` | Nightstorm, Negrobone, the ability Megiddo grants |
+| Damage step | A hit on the vanguard | `attack-hit(self, target=VC)` | The ability Verthandi grants |
+| Close step | End of battle, G guardians return to the G zone, "until end of battle" effects expire | `battle-end(…)` | Nightstorm, Negrobone, the ability Megiddo grants, Minerva (stand), Genil (into soul) |
 
 When a rear-guard attacks, after the defender's guard step the game skips the drive step and goes straight to the damage step.
 
@@ -55,7 +57,7 @@ When a rear-guard attacks, after the defender's guard step the game skips the dr
 | What happens | Timing code | Cards that act |
 |---|---|---|
 | 1. The G unit returns to the G zone face up, the heart becomes the vanguard again | — | Raises the GB count, and the grade 3 vanguard's (VC) abilities work again |
-| 2. "At the end of the turn" AUTO abilities go into standby, then resolve at check timing (turn player first) | `turn-end` | Every Hollow card, units called by Immortal Galleon |
+| 2. "At the end of the turn" AUTO abilities go into standby, then resolve at check timing (turn player first) | `turn-end` | Every Hollow card, units called by Immortal Galleon, Dreaming Dragon |
 | 3. The retires from step 2 cause further events | `retired(self, from=RC)`, `to-drop(self, from=RC, by=hollow)`, `to-drop(own, from=RC)` | Mick (granted ability), Grenache, Negrolazy (granted ability), Nightrose (Night Fog) |
 | After every check timing process ends, "until end of turn" effects expire | — | — |
 | When nothing is left to do, the turn changes | — | — |

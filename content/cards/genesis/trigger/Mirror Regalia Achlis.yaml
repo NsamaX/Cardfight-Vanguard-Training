@@ -1,0 +1,23 @@
+ids: ["EB12/035TH C"]
+name: "Mirror Regalia, Achlis"
+format: [G]
+type: trigger
+trigger: stand
+grade: 0
+power: 4000
+shield: 10000
+critical: 1
+skill: boost
+trigger_power: 5000
+race: "High Beast"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "to-drop(self, from=soul)"
+    cond: ["vc-name(\"Regalia\")"]
+    effect: ["power(+5000, own-VC, until=turn-end)"]
+text: |
+  ### AUTO
+
+  - **Timing:** When this card is put into the drop zone from your soul
+    - **Effect:** Choose one of your vanguards with "Regalia" in its card name, and that unit gets Power+5000 until end of turn.

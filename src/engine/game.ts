@@ -1,6 +1,6 @@
 // G-era phase and battle mechanics + the hook into the ability system (abilities.ts)
 // apply() takes state + an action and returns a new state + events; never modifies the old state, and randomizes only via the seed
-import { blocked, condOk, declineEntry, emit, placeOnRC, retireUnit, settle, startResolving, type ResumeHandlers } from "./abilities";
+import { actAt, blocked, condOk, declineEntry, emit, placeOnRC, retireUnit, settle, standAtBattleEnd, startResolving, type ResumeHandlers } from "./abilities";
 import { cloneState } from "./clone";
 import { shuffle } from "./rng";
 import { msg, type Msg } from "../i18n/msg";
@@ -145,8 +145,7 @@ function activate(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { ty
   requirePhase(s, p, "main");
   const at = locate(s, a.cardUid);
   if (!at || at.player !== p || at.zone !== "circle") throw new RuleError("err.actOwnField");
-  const key = String(a.abilityIndex);
-  const ab = db[at.inst.key].abilities[a.abilityIndex];
+  const { key, ab } = actAt(db, at.inst, a.abilityIndex);
   if (ab?.kind !== "ACT") throw new RuleError("err.notAct");
   const zone = ab.zone ?? "";
   if (zone && !zone.split("/").some((z) => (z === "VC" ? at.circle === "vc" : z === "RC" ? at.circle !== "vc" : false))) {
@@ -163,10 +162,10 @@ function activate(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { ty
 export function usableActs(db: CardDB, s: GameState): { uid: string; index: number; label: string; cost: string[] }[] {
   const p = s.turnPlayer;
   if (s.phase !== "main" || s.awaiting?.kind !== "next-phase") return [];
-  return Object.values(s.players[p].circles).flatMap((inst) => !inst ? [] : db[inst.key].abilities.flatMap((ab, index) => {
+  return Object.values(s.players[p].circles).flatMap((inst) => !inst ? [] : [...db[inst.key].abilities, ...(inst.grants ?? [])].flatMap((ab, index) => {
     if (ab.kind !== "ACT") return [];
     const label = `${name(db, inst)} [ACT]`;
-    if (blocked(db, s, { owner: p, uid: inst.uid, key: String(index), ability: ab, label, optional: true })) return [];
+    if (blocked(db, s, { owner: p, uid: inst.uid, key: actAt(db, inst, index).key, ability: ab, label, optional: true })) return [];
     return [{ uid: inst.uid, index, label, cost: ab.cost ?? [] }];
   }));
 }
@@ -259,6 +258,7 @@ function endTurn(db: CardDB, s: GameState, out: Out) {
     ps.gZone.push(reset(vc, true));
     ev(out, "g-return", p, msg("log.gReturn", { card: name(db, vc) }), vc.uid);
   }
+  emit(db, s, { kind: "turn-end", player: p });
   retireEndOfTurn(db, s, out);
   s.resume = "end-finish";
 }
@@ -304,6 +304,7 @@ function ride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: 
   const old = ps.circles.vc!;
   inst.rested = old.rested;
   ps.soul.push(reset(old));
+  emit(db, s, { kind: "to-soul", player: p });
   ps.circles.vc = inst;
   s.rodeThisTurn = true;
   ev(out, "ride", p, msg("log.ride", { player: playerMsg(p), card: name(db, inst) }), inst.uid);
@@ -332,7 +333,7 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   takeFrom(ps.gZone, g.uid, "G zone");
   const heart = ps.circles.vc!;
   // The old vanguard's (about to become the heart) AUTO (VC) "when your G unit strides" must be checked while it's still on VC
-  emit(db, s, { kind: "stride", player: p, uid: g.uid });
+  emit(db, s, { kind: "stride", player: p, uid: g.uid, key: g.key });
   g.faceUp = true;
   g.rested = heart.rested;
   ps.heart = heart;
@@ -510,6 +511,8 @@ function continueBattle(db: CardDB, s: GameState, out: Out) {
       const dp = powerOf(db, def, b.target) + def.guardian.reduce((n, g) => n + shieldOf(db, g), 0);
       b.hit = !!target && !b.noHit && ap >= dp;
       ev(out, b.hit ? "hit" : "no-hit", atkSide, msg(b.hit ? "log.hit" : "log.noHit", { atk: ap, def: dp }), target?.uid);
+      const attacker = atk.circles[b.attacker];
+      if (b.hit && attacker) emit(db, s, { kind: "attack-hit", player: atkSide, uid: attacker.uid, target: b.target });
       if (b.hit && b.target === "vc") b.damageLeft = criticalOf(db, atk.circles[b.attacker] ?? target!);
       else if (b.hit) retireUnit(db, s, defSide, b.target, out, msg("reason.attacked"));
     }
@@ -536,6 +539,15 @@ function closeBattle(db: CardDB, s: GameState, _out: Out) {
     }
   }
   const tp = s.players[s.turnPlayer];
+  for (const c of RC) {
+    const u = tp.circles[c];
+    if (!u?.soulAtBattleEnd) continue;
+    delete tp.circles[c];
+    tp.soul.push(reset(u));
+    ev(_out, "to-soul", s.turnPlayer, msg("log.soulIn", { card: name(db, u) }), u.uid);
+    emit(db, s, { kind: "to-soul", player: s.turnPlayer });
+  }
+  standAtBattleEnd(db, s, _out);
   const atk = tp.circles[b.attacker];
   if (atk) {
     emit(db, s, {

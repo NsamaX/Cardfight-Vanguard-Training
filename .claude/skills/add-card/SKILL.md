@@ -51,13 +51,13 @@ Search `content/cards/` for the name. If a card with the same name and word-for-
 
 ### Step 3: Create the card file
 
-**Folder:**
+**Folder:** `content/cards/<clan>/<type>/`, where `<clan>` is the `clan` field in lowercase with spaces → `-` (e.g. `granblue`, `cray-elemental`, `genesis`)
 
 | Type | Folder |
 |---|---|
-| G unit, G guardian | `content/cards/g/` |
-| Normal unit (including non-trigger grade 0) | `content/cards/normal/` |
-| Trigger unit | `content/cards/trigger/` |
+| G unit, G guardian | `content/cards/<clan>/g/` |
+| Normal unit (including non-trigger grade 0) | `content/cards/<clan>/normal/` |
+| Trigger unit | `content/cards/<clan>/trigger/` |
 
 **File name:** the card name without `,` plus `.yaml`, e.g. `Undying Departed, Grenache` → `Undying Departed Grenache.yaml`
 
@@ -111,9 +111,10 @@ abilities:
 | Part | Supported |
 |---|---|
 | kind | AUTO, ACT (CONT doesn't run at all, except for the Sentinel deck building check) |
-| timing | `enter`, `stride`, `ridden-upon`, `attack`, `battle-end`, `to-drop`, `retired`, `discarded`, `phase-start` |
-| cond | `GB(n)`, `1/turn`, `own-turn`, `self-hollowed`, `vc-name(...)`, `vc-grade≥n`, `vc-clan(...)` |
-| cost / effect | `CB`, `CC`, `SB`, `SC`, `mill`, `draw`, `reveal`, `discard`, `retire-own`, `retire`, `soul-in`, `bind`, `flip-G-up`, `call`, `search`, `power`, `shield`, `critical`, `no-hit`, `choose`, `hollow`, `grant`, `return-to-deck`, `swap`, `damage-facedown` |
+| timing | `enter`, `stride`, `ridden-upon`, `attack`, `battle-end`, `to-drop` (`from=RC` or `from=soul`, the latter sent by Soul Blast), `retired`, `discarded`, `phase-start`, `attack-hit`, `to-soul(own)`, `turn-end`; `stride(own, filter=…)` checks the G unit's name |
+| cond | `GB(n)`, `1/turn`, `own-turn`, `self-hollowed`, `vc-name(...)`, `heart-name(...)`, `vc-grade≥n`, `vc-clan(...)` |
+| `if=` | `self-hollowed`, `called-has-hollow`, `called≥n`, `hollow-milled≥n`, `name-in-drop(...)`, `souled≥n`, `souled-name(...)`, `G-faceup≥n`, `G-faceup(filter)≥n`, `returned≥n`; any other condition skips the effect |
+| cost / effect | `CB`, `CC`, `SB` (with `filter=`; the player picks when there's a choice), `SC`, `mill`, `draw`, `reveal`, `discard`, `retire-own`, `retire`, `soul-in`, `bind`, `flip-G-up`, `call`, `search`, `power`, `shield`, `critical`, `no-hit`, `choose`, `hollow`, `grant`, `return-to-deck`, `swap`, `damage-facedown`, `to-soul`, `look`, `to-hand`, `drive`, `stand` (also `at=battle-end`), `to-deck`, `to-deck-top`, `shuffle`; `grant` gives AUTO or ACT |
 
 Codes outside this table can still be written (`tools/find_chains.py` uses them for combo search), but during play the effect is skipped with "Effect … isn't automated yet" in the history.
 
@@ -142,9 +143,9 @@ Copy the English text from the card verbatim. Group by kind in this order: ULTIM
 ### Step 6: Make the card image
 
 1. Add a line to `SOURCES` in `tools/clean_images.py`, alphabetically: `"file in .temp": "name in the card file"` (must match `name` exactly, or the script stops).
-2. Run `python tools/clean_images.py`. It trims the background, resizes to 544×793, evens out brightness and saturation with the other cards, rounds the corners, and saves `content/images/<card code with / replaced by _>.png`.
-3. The script rebuilds every image in `SOURCES` each run. Entries with no raw file in `.temp/` print "Skipped", which is normal; images already in `content/images/` are kept.
-4. **Always look at the result** next to other cards in `content/images/`: trimmed tight to the card, no white or black edge left, not tilted, colors not washed out or oversaturated. If something is off, tell the user the likely cause (e.g. the raw image has a non-white background or was shot at an angle). Don't change script values that apply to every card.
+2. Run `python tools/clean_images.py`. It trims the background, resizes to 544×793, evens out brightness and saturation with the other cards, rounds the corners, and saves `content/images/<clan>/<card code with / replaced by _>.png`.
+3. The script rebuilds every image in `SOURCES` each run. Entries with no raw file in `.temp/` print "Skipped", which is normal; images already in `content/images/<clan>/` are kept.
+4. **Always look at the result** next to other cards in `content/images/<clan>/`: trimmed tight to the card, no white or black edge left, not tilted, colors not washed out or oversaturated. If something is off, tell the user the likely cause (e.g. the raw image has a non-white background or was shot at an angle). Don't change script values that apply to every card.
 
 ### Step 7: Update the docs
 

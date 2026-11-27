@@ -1,0 +1,28 @@
+ids: ["G-BT14/071TH C"]
+name: "Regalia of Dawn, Daylight Angel"
+format: [G]
+type: normal
+grade: 0
+power: 5000
+shield: 10000
+critical: 1
+skill: boost
+race: "Angel"
+clan: "Genesis"
+abilities:
+  - kind: "AUTO"
+    timing: "ridden-upon(self)"
+    effect: ["call(self→RC)"]
+  - kind: "ACT"
+    zone: "RC"
+    cost: ["CB(1)", "soul-in(self)"]
+    effect: ["look(3, soul=n≤1, rest=drop)", "draw(1, if=souled-name(\"Regalia\"))"]
+text: |
+  ### AUTO
+
+  - Forerunner
+
+  ### ACT
+
+  - **Zone:** RC | **Cost:** CB1 & put this unit into your soul
+    - **Effect:** Reveal three cards from the top of your deck, put up to one card from among them into your soul, put the rest into your drop zone, and if you put a card with "Regalia" in its card name into your soul, draw a card.

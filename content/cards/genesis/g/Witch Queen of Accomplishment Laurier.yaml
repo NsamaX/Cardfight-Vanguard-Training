@@ -1,0 +1,29 @@
+ids: ["G-FC04/030TH RRR"]
+name: "Witch Queen of Accomplishment, Laurier"
+format: [G]
+type: g-guardian
+grade: 4
+shield: 15000
+critical: 1
+race: "Human"
+clan: "Genesis"
+abilities:
+  - kind: "G GUARDIAN"
+    timing: "step(guard, opp)"
+    cost: ["discard(1, filter=heal)"]
+    effect: ["call(G→GC, self)"]
+  - kind: "AUTO"
+    timing: "enter(GC, self)"
+    cond: ["GB(1)"]
+    cost: ["flip-G-up(1, filter=G-GUARDIAN)"]
+    effect: ["to-deck(drop+soul, n=2..3, filter=normal-unit & same-grade)", "shield(+5000, self, per=returned, until=battle-end)", "shuffle(deck)"]
+text: |
+  ### G GUARDIAN
+
+  - **Timing:** Opponent Turn's Guard Step | **Cost:** Choose a card with [Heal] from your hand, and discard it
+    - **Effect:** Call this card to your (GC) from face down.
+
+  ### AUTO
+
+  - **Condition:** GB1 | **Timing:** When this unit is placed on (GC) | **Cost:** Choose a face down G GUARDIAN from your G zone, and turn it face up
+    - **Effect:** You may pay the cost. If you do, choose two or more, up to a total of three, normal units with the same grade from your drop zone or soul, return them to your deck, and this unit gets Shield+5000 until end of that battle for each card returned. Shuffle your deck.

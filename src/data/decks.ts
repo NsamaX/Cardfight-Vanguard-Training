@@ -5,7 +5,7 @@ import { cardByKey } from "./cards";
 import content from "./content.json";
 
 // Sample decks from content/decks/*.yaml (default set; the app loads players' decks from Supabase)
-export const presetDecks = content.decks as Deck[];
+export const presetDecks = content.decks as unknown as Deck[];
 
 export const countCards = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0);
 
