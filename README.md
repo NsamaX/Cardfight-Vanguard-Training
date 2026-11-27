@@ -3,7 +3,7 @@
 A web app for practicing Cardfight!! Vanguard (G era) against a bot, with card and deck building. Built with Next.js, React, and Supabase.
 
 - **Guests** play the default cards and decks against the bot.
-- **Signed-in players** (Google) get their own copy of the default set, can create and edit cards, decks, and sleeves, and keep replays in the cloud. Online play between players is planned.
+- **Signed-in players** (Google) get their own copy of the default set, can create and edit cards, decks, and sleeves, and keep replays in the cloud, and play online against friends by sharing a 6-digit room code.
 
 Game rules and ability codes used by the engine live in [documents/](documents/):
 [rules-g.md](documents/rules-g.md) (rules), [timing-g.md](documents/timing-g.md) (when abilities resolve), [vocabulary.md](documents/vocabulary.md) (ability codes).
@@ -48,7 +48,7 @@ To deploy on Vercel, set only the two `NEXT_PUBLIC_` variables there, and add th
 | Replays (`replay/`) | Save, step through, change speed, download/open files, continue from any step |
 | Languages (`i18n/`) | English (default), Japanese |
 | Combo tutorial | Combo files and loader exist (`data/combos.ts`), no screen yet |
-| Online play | Database schema ready (`matches`, `match_actions`), no client yet |
+| Online play (`lib/online.ts`, `hooks/useMatch.ts`) | Signed-in players: create a room and share its 6-digit code, or join by code; play again in the same room (Ready, then Start on both sides); resume after a reload; no undo, replays, or deck editing during a match |
 
 Not supported yet: CONT abilities (except Tommy's +2 grade for the stride cost), Sebreeze's ACT, Megiddo's ultimate stride, and "up to 3" mills (always mills 3).
 
@@ -58,7 +58,7 @@ Both sides start with the first library deck and the bot plays the top side. Bef
 
 | To | Click |
 |---|---|
-| Mulligan | Hand cards to return → **Change** (none = **Ready**) |
+| Mulligan | Hand cards to return → **Change** (none = **Confirm**) |
 | Ride | Hand card → VC |
 | Stride | In the stride step: G zone → a G unit → hand cards to discard (total grade 3+) → **Stride** |
 | Call / move | Hand card → RC (main phase) / rear-guard → the other circle in its column |
@@ -77,6 +77,7 @@ Bottom-right buttons:
   - Adding stops at the caps: 4 copies per name, 16 triggers, 4 Heals, 4 Sentinels. Triggers are a cap, not a requirement (the real rules ask for exactly 16).
   - **Delete** (next to Done) asks you to type the deck's name.
 - **Replays**.
+- **Online**: sign in and pick your deck. With the code box empty the button is **Create room** (gives a 6-digit code for your friend); typing a code turns it into **Join room**. Your side is always at the bottom and the other hand is face down. After a game both players press **Ready** (right of the middle bar) for the next one; before it starts each player may pick another deck (**Decks**, next to **Leave**), and it starts once both press **Start**. A game still running shows **Resume** here after a reload. **Leave** closes the room for both players.
 - **Settings**: account, language, bot level, first player, seed. Opens on the first visit. **Apply** is enabled only after a change; the bot level takes effect at once, first player and seed from the next game (at once if the game hasn't started).
 
 ## Project structure
@@ -99,7 +100,11 @@ Bottom-right buttons:
 
 ### Design
 
-The engine is pure: `apply(db, state, player, action)` returns a new state plus events and randomizes only from the seed. That gives undo/redo (keep old states), replays (seed + decks + actions), and the bot (answers the same `Decision`s through `Bot.decide()`). The engine emits text as `Msg` keys, translated when displayed, so switching language also re-translates the history.
+The engine is pure: `apply(db, state, player, action)` returns a new state plus events and randomizes only from the seed. That gives undo/redo (keep old states), replays (seed + decks + actions), the bot (answers the same `Decision`s through `Bot.decide()`), and online play (see below).
+
+### Online play
+
+`join_match` rolls the seed and first player on the database and stores both decks with their card data in the `matches` row. Each client builds the game from that row (a guest card whose key the host also uses with different data is renamed `<key>~2`, so each side plays its own version) and runs the engine locally. Each game in a room is its own `matches` row: when both players press Ready, `ready_rematch` creates the next row in `setup`, where `set_match_deck` swaps a player's deck and `start_match` rolls the seed once both have pressed Start. Every action goes into `match_actions` with its place in the match as `seq`; the other client receives it through Realtime (with a poll every 4 s as a fallback) and plays it on its own board. The host plays the engine's `me` side and the guest the `bot` side; the board shows the local side at the bottom. Clients on different builds can't pair, since `join_match` compares the commit hash (`NEXT_PUBLIC_BUILD_ID`, set in `next.config.ts`). Both clients hold the whole game state, so this is meant for friendly games, not as protection against cheating. The engine emits text as `Msg` keys, translated when displayed, so switching language also re-translates the history.
 
 ### Bot
 

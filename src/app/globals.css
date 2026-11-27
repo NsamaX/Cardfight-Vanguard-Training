@@ -436,3 +436,8 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .replay-bar .speed { min-width: 32px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-variant-numeric: tabular-nums; }
 .replay-bar { display: flex; gap: 4px; }
 .replay-bar .btn { flex: 1; min-width: 0; padding: 0; }
+
+/* Online lobby */
+.dialog .bad { color: var(--bad); font-size: 13px; }
+.room-code { align-self: center; font: 600 34px/1 "IBM Plex Mono", monospace; letter-spacing: .25em; user-select: all; }
+.dialog-form { display: flex; flex-direction: column; gap: 14px; }

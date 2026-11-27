@@ -1,12 +1,12 @@
 // Board screen state and click handling; turns clicks into engine Actions
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Bot } from "../bot/types";
 import { cardByKey as db } from "../data/cards";
 import { ANSWERS, apply, gGuardianBlocked, usableActs } from "../engine/game";
 import { abilityTag, locate, playerMsg } from "../engine/state";
 import { msg, type Msg } from "../i18n/msg";
 import { fmt } from "../lib/format";
-import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, powerOf, shieldOf, strideCostGrade } from "../engine/rules";
+import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, other, powerOf, shieldOf, strideCostGrade } from "../engine/rules";
 import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
@@ -18,9 +18,14 @@ const REVEAL_MS = 800;      // how long revealed cards stay on show before going
 // The board at one step, with the history and all actions up to that step (used for undo and saving replays)
 interface Snapshot { s: GameState; log: LogEntry[]; actions: RecordedAction[] }
 
+// An online match as seen by this client: seat = our side; actions = every action of the match so far in order (initial already includes
+// the ones present when the board was created); send = hand our own new actions to the match
+export interface OnlineSeat { seat: PlayerId; actions: RecordedAction[]; send: (done: RecordedAction[]) => void }
+
 // bot: the bot playing the "bot" side (none = control both sides yourself)
 // view: replay viewer (shows the board with the given history; clicks don't affect the game)
-export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[] }) {
+// online: the other side is a player on another client; there is no undo, since actions already sent can't be taken back
+export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[] }, online?: OnlineSeat) {
   const readOnly = !!view;
   const [s, setS] = useState(initial);
   const [log, setLog] = useState<LogEntry[]>(view?.log ?? []);
@@ -41,8 +46,12 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [reveal, setReveal] = useState<{ player: PlayerId; cards: CardInstance[]; drive: CardInstance[] }>();   // cards shown in the middle of the board / drive check cards on the battle bar
   const [choiceMin, setChoiceMin] = useState(false);    // card choice dialog minimized to look at the board
 
+  const [desync, setDesync] = useState(false);
+  const applied = useRef(online?.actions.length ?? 0);   // online: how many of the match's actions this board has played
+
   const actor = s.awaiting?.player;
-  const botTurn = !!bot && actor === "bot" && !s.winner;
+  const remote: PlayerId | undefined = bot ? "bot" : online && other(online.seat);   // the side someone else plays
+  const botTurn = !!remote && actor === remote && !s.winner;
   const choice = s.awaiting?.choice;
   const ordering = s.awaiting?.kind === "order-queue";
   const trig = choice || ordering ? undefined : s.battle?.pendingTrigger;
@@ -84,7 +93,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     const f = findCard(s, uid);
     if (f) setInspectUids((i) => ({ ...i, [f.player]: uid }));
     const i = queued.findIndex((e) => e.uid === uid);
-    if (i >= 0 && !botTurn && !readOnly) { act({ type: "order-queue", index: i, ask: true }); setOpened(true); return; }
+    if (i >= 0 && !botTurn && !readOnly) { act({ type: "order-queue", index: i, ask: true }); setOpened(!online); return; }
     setFocus(acts.some((e) => e.uid === uid) ? uid : undefined);
   }
 
@@ -116,7 +125,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       const entries = events.map((e) => ({ ...e, turn: st.turn }));
       done.push({ player: actor, action });
       const follow = then?.(st);
-      if (follow && st.awaiting) {
+      if (follow && st.awaiting && (!online || st.awaiting.player === online.seat)) {
         try {
           const p2 = st.awaiting.player;
           const r2 = apply(db, st, p2, follow);
@@ -125,32 +134,62 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
           done.push({ player: p2, action: follow });
         } catch (e) { if (!(e instanceof RuleError)) throw e; }
       }
-      const shown = revealedBy(entries, st);
-      bot?.observe?.(entries);
-      setPast((h) => h.concat({ s, log, actions }));
-      setFuture([]);
-      setLog(log.concat(entries));
-      setActions(actions.concat(done));
-      if (action.type === "mulligan" && action.returnUids.length) {
-        setS(returningToDeck(s, actor, action.returnUids));
-        setStaged(true);
-        setTimeout(() => { setS(st); setStaged(false); }, MOVE_MS + (action.returnUids.length - 1) * DEAL_GAP_MS);   // redraw once the last card reaches the deck
-      } else if (shown) {
-        const steps = revealSteps(s, shown);
-        setStaged(true);
-        const play = (i: number) => {
-          if (i === steps.length) { setS(st); setReveal(undefined); setStaged(false); return; }
-          setS(steps[i].s);
-          setReveal({ player: shown.player, cards: steps[i].cards, drive: steps[i].drive });
-          setTimeout(() => play(i + 1), MOVE_MS + REVEAL_MS);
-        };
-        play(0);
-      } else setS(st);
-      clearUi();
+      if (online) { online.send(done); applied.current += done.length; }
+      commit(st, entries, done);
     } catch (e) {
       if (e instanceof RuleError) setError(e.msg); else throw e;
     }
   }
+
+  // Show the new board after actions were played: the mulligan's cards go back to the deck first, revealed cards stay on show for a moment
+  function commit(st: GameState, entries: LogEntry[], done: RecordedAction[]) {
+    const shown = revealedBy(entries, st);
+    bot?.observe?.(entries);
+    setPast((h) => h.concat({ s, log, actions }));
+    setFuture([]);
+    setLog(log.concat(entries));
+    setActions(actions.concat(done));
+    const mull = done.find((r) => r.action.type === "mulligan" && r.action.returnUids.length);
+    if (mull?.action.type === "mulligan") {
+      const n = mull.action.returnUids.length;
+      setS(returningToDeck(s, mull.player, mull.action.returnUids));
+      setStaged(true);
+      setTimeout(() => { setS(st); setStaged(false); }, MOVE_MS + (n - 1) * DEAL_GAP_MS);   // redraw once the last card reaches the deck
+    } else if (shown) {
+      const steps = revealSteps(s, shown);
+      setStaged(true);
+      const play = (i: number) => {
+        if (i === steps.length) { setS(st); setReveal(undefined); setStaged(false); return; }
+        setS(steps[i].s);
+        setReveal({ player: shown.player, cards: steps[i].cards, drive: steps[i].drive });
+        setTimeout(() => play(i + 1), MOVE_MS + REVEAL_MS);
+      };
+      play(0);
+    } else setS(st);
+    clearUi();
+  }
+
+  // Online: play the opponent's new actions (after any cards on show have finished, so each step starts from the settled board)
+  useEffect(() => {
+    if (!online || staged || desync || !s.awaiting) return;   // no awaiting = not dealt yet (or the game is over)
+    const fresh = online.actions.slice(applied.current);
+    if (!fresh.length) return;
+    applied.current += fresh.length;
+    let st = s;
+    const entries: LogEntry[] = [];
+    try {
+      for (const r of fresh) {
+        const res = apply(db, st, r.player, r.action);
+        st = res.state;
+        entries.push(...res.events.map((e) => ({ ...e, turn: st.turn })));
+      }
+    } catch (e) {
+      if (!(e instanceof RuleError)) throw e;
+      setDesync(true);
+      return;
+    }
+    commit(st, entries, fresh);
+  }, [online?.actions, staged, desync]);
 
   // The bot's turn: let the bot think and send an action (cancelled if the state changes before it finishes, e.g. undo)
   useEffect(() => {
@@ -197,7 +236,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   function clickHand(p: PlayerId, inst: CardInstance) {
-    if (bot && p === "bot") return;   // the bot's hand is face down, can't be viewed
+    if (p === remote) return;   // the opponent's hand is face down, can't be viewed
     setInspect(inst.uid);
     if (botTurn) return;
     if (actor && p !== actor) { setError(msg("err.turnOf", { player: playerMsg(actor) })); return; }
@@ -298,7 +337,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   // Clicking your own card on GC while waiting to guard: return that card to where it came from (hand, or the RC it intercepted from)
   // Done by going back to before that card was placed, then replaying the following actions without it (abilities caused by that card disappear too)
   function unguard(uid: string): boolean {
-    if (readOnly || botTurn || s.awaiting?.kind !== "guard" || !actor) return false;
+    if (online || readOnly || botTurn || s.awaiting?.kind !== "guard" || !actor) return false;
     if (!s.players[actor].guardian.some((g) => g.uid === uid)) return false;
     let i = past.length - 1;
     while (i >= 0 && past[i].s.players[actor].guardian.some((g) => g.uid === uid)) i--;
@@ -461,11 +500,11 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     mulligan: !botTurn && !readOnly && s.awaiting?.kind === "mulligan" && mode?.kind === "mulligan"
       ? { picks: mode.picks.length, confirm: () => act({ type: "mulligan", returnUids: mode.picks }) }
       : undefined,
-    undo: past.length && !readOnly && !staged ? () => travel(true) : undefined,
-    redo: future.length && !readOnly && !staged ? () => travel(false) : undefined,
+    undo: past.length && !readOnly && !staged && !online ? () => travel(true) : undefined,
+    redo: future.length && !readOnly && !staged && !online ? () => travel(false) : undefined,
     act, unguard, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
     canNext: !botTurn && !readOnly && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
-    botTurn, hideBotHand: !!bot, reveal,
+    botTurn, hiddenHand: remote, reveal, desync,
     actions, readOnly,
     setInspect, setPile,
     setState: setS,   // replace the whole board, used when dealing after Start

@@ -2,20 +2,23 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { VanguardBot } from "../../bot";
 import { cardByKey as db } from "../../data/cards";
 import { DEFAULT_SLEEVES } from "../../data/sleeves";
-import { generationBreak } from "../../engine/rules";
+import { generationBreak, other } from "../../engine/rules";
 import type { Deck, GameState, PlayerId } from "../../engine/types";
-import { useBoard } from "../../hooks/useBoard";
+import { useBoard, type OnlineSeat } from "../../hooks/useBoard";
 import { MOVE_MS, useCardFlight } from "../../hooks/useCardFlight";
 import { offlineLibrary, type LibraryHandle } from "../../hooks/useLibrary";
+import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
 import { nextLabel, stepText, undealt, type LogEntry, type Zone } from "../../lib/board";
 import { moveG } from "../../lib/deckEdit";
 import { publicUrl } from "../../lib/library";
+import type { OnlineStart } from "../../lib/online";
 import { DEFAULT_BOT, type GameSettings } from "../../lib/settings";
 import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { DeckPanel } from "../deck/DeckPanel";
 import { CardHover, CardView } from "../CardView";
 import { Inspector } from "../Inspector";
+import { OnlineDialog } from "../OnlineDialog";
 import { BattleNum, BattleSide } from "./BattleBar";
 import { CursorTip } from "./CursorTip";
 import { ChoiceModal, PileModal } from "./CardModals";
@@ -38,7 +41,19 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, onDeckUpdated, base, view, onOpenReplay, library = offlineLibrary, openSettings }: {
+// An online game on this board. ready: who pressed Start (before the game) or Ready (after it, for the next game);
+// abandoned: a player left the room; problem: a connection problem to show
+export interface OnlineBoard extends OnlineSeat {
+  opponent: string;
+  ready: Record<PlayerId, boolean>;
+  abandoned: boolean;
+  problem?: MsgKey;
+  onReady: () => void;
+  onLeave: () => void;
+  onFinished: () => void;
+}
+
+export function Board({ initial, started, onStart, settings, decks, deckOpen, onDeckOpen, onNewGame, onApplySettings, onSwapDecks, onPickDeck, onDeckChanged, onDeckUpdated, base, view, onOpenReplay, library = offlineLibrary, openSettings, online, onOnline }: {
   initial: GameState;          // board after dealing
   started: boolean;            // false = waiting for Start (shows the board before dealing)
   onStart: () => void;
@@ -57,12 +72,22 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   onOpenReplay?: (src: ReplaySource) => void;
   library?: LibraryHandle;
   openSettings?: boolean;   // start with the settings dialog open (first board after entering the site)
+  online?: OnlineBoard;     // playing an online match (no bot, replays, settings or undo; only our own deck can be picked, before Start)
+  onOnline?: (o: OnlineStart) => void;   // an online match was created/joined from the Online dialog
 }) {
   // The bot starts thinking after Start (the board is recreated every game, so the bot's memory resets every game)
-  const bot = useMemo(() => (started && !view ? new VanguardBot(db, settings.bot ?? DEFAULT_BOT, decks) : undefined), [started, view, settings.bot]);   // a G zone reorder doesn't need a new bot (a real deck change restarts the board anyway)
-  const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log });
+  const bot = useMemo(() => (started && !view && !online ? new VanguardBot(db, settings.bot ?? DEFAULT_BOT, decks) : undefined), [started, view, settings.bot]);   // a G zone reorder doesn't need a new bot (a real deck change restarts the board anyway)
+  const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log }, online && { seat: online.seat, actions: online.actions, send: online.send });
   const t = useT();
   const [showSettings, setShowSettings] = useState(!!openSettings);
+  const [showOnline, setShowOnline] = useState(false);
+  // Our side is always at the bottom: the CSS classes "me"/"bot" name the bottom/top position, so online the guest's sides swap places
+  const bottom: PlayerId = online?.seat ?? "me";
+  const pos = (p: PlayerId): PlayerId => (p === bottom ? "me" : "bot");
+  const winner = board.s.winner;
+  useEffect(() => { if (online && winner) online.onFinished(); }, [winner]);
+  // Online before Start: the opponent may switch decks, so show the new decks undealt
+  useEffect(() => { if (online && !started) board.setState(undealt(initial, false)); }, [initial]);
   const [showReplays, setShowReplays] = useState(false);
   const [deckCard, setDeckCard] = useState<string>();   // Decks open: the library/deck card under the mouse, shown in the whole right panel
   // The decks as the game was dealt: reordering the G zone mid-game edits the deck, but the replay must rebuild the same starting board (same card uids)
@@ -104,15 +129,15 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   }, [started]);
   const next = nextLabel(s);
   const question = board.question();
-  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view;
+  const showNext = started && !deckOpen && !board.mulligan && !question && !board.botTurn && !view && !(online && s.winner);
   const step = showNext ? stepText(s) : undefined;
   const sleeveVars = Object.fromEntries((["me", "bot"] as const).flatMap((p) => [
-    [`--sleeve-${p}`, publicUrl(decks[p].sleeve ?? DEFAULT_SLEEVES[p].sleeve)], [`--g-sleeve-${p}`, publicUrl(decks[p].g_sleeve ?? DEFAULT_SLEEVES[p].g_sleeve)],
+    [`--sleeve-${pos(p)}`, publicUrl(decks[p].sleeve ?? DEFAULT_SLEEVES[pos(p)].sleeve)], [`--g-sleeve-${pos(p)}`, publicUrl(decks[p].g_sleeve ?? DEFAULT_SLEEVES[pos(p)].g_sleeve)],
   ]).filter(([, u]) => u).map(([k, u]) => [k, `url(${u})`])) as CSSProperties;
 
   const side = (p: PlayerId) => (
     <FieldSide
-      p={p} ps={s.players[p]} selUid={selUid}
+      p={pos(p)} ps={s.players[p]} selUid={selUid}
       pickedCircle={mode?.kind === "trigger" && p === actor ? mode.powerTo : undefined}
       lightOf={board.lightOf} soulLight={board.pileLight(p, "soul")}
       atkCircles={board.attackPick?.player === p ? board.attackPick.circles : board.battleMarks?.[p].atk ?? []}
@@ -125,19 +150,19 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     />
   );
   const hand = (p: PlayerId) => (
-    <Hand p={p} hidden={p === "bot" && board.hideBotHand} cards={s.players[p].hand} seen={seen} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
+    <Hand p={pos(p)} hidden={p === board.hiddenHand} cards={s.players[p].hand} seen={seen} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
   );
   // Board sides: on our side the G zone + damage are on the left, deck + drop + bind on the right; the bot side is upside down
   const open = (p: PlayerId, zone: Zone) => () => board.setPile({ player: p, zone });
   const tray = (p: PlayerId) => (
-    <div className={`tray ${p}`}>
+    <div className={`tray ${pos(p)}`}>
       <span className="badge">GB {generationBreak(db, s.players[p])}</span>
-      <GZoneRow ps={s.players[p]} light={board.pileLight(p, "gZone")} toward={p === "me" ? "right" : "left"} onOpen={open(p, "gZone")} onInspect={board.setInspect} />
-      <DamageZone p={p} ps={s.players[p]} light={board.pileLight(p, "damage")} onOpen={open(p, "damage")} />
+      <GZoneRow ps={s.players[p]} light={board.pileLight(p, "gZone")} toward={pos(p) === "me" ? "right" : "left"} onOpen={open(p, "gZone")} onInspect={board.setInspect} />
+      <DamageZone p={pos(p)} ps={s.players[p]} light={board.pileLight(p, "damage")} onOpen={open(p, "damage")} />
     </div>
   );
   const stack = (p: PlayerId) => (
-    <div className={`stack ${p}`}>
+    <div className={`stack ${pos(p)}`}>
       <PileSlot ps={s.players[p]} zone="deck" light={board.pileLight(p, "deck")} onOpen={open(p, "deck")} />
       <PileSlot ps={s.players[p]} zone="drop" light={board.pileLight(p, "drop")} onOpen={open(p, "drop")} />
       <PileSlot ps={s.players[p]} zone="bind" light={board.pileLight(p, "bind")} onOpen={open(p, "bind")} />
@@ -149,18 +174,19 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     <div className="app">
       <LogPanel log={board.log} onInspect={board.setInspect}><PhaseTrack s={s} /></LogPanel>
       <CardHover.Provider value={board.setHover}>
-      <main ref={mainRef} style={sleeveVars} className={started ? `turn-${s.turnPlayer}` : undefined}>
-        {hand("bot")}
-        {side("bot")}
-        {tray("bot")}
-        {stack("bot")}
-        {started && !deckOpen && board.botTurn && <span className="thinking">{t("ui.botThinking")}</span>}
+      <main ref={mainRef} style={sleeveVars} className={started ? `turn-${pos(s.turnPlayer)}` : undefined}>
+        {hand(other(bottom))}
+        {side(other(bottom))}
+        {tray(other(bottom))}
+        {stack(other(bottom))}
+        {started && !deckOpen && board.botTurn && !online && <span className="thinking">{t("ui.botThinking")}</span>}
+        {online && !deckOpen && <OnlineStatus online={online} desync={board.desync} waiting={board.botTurn} between={!started || !!winner} />}
         {!!board.reveal?.cards.length && (
-          <div className={`reveal ${board.reveal.player}`}>
+          <div className={`reveal ${pos(board.reveal.player)}`}>
             {board.reveal.cards.map((c) => <CardView key={c.uid} inst={c} plain noRotate />)}
           </div>
         )}
-        {deckOpen && <CardHover.Provider value={setDeckCard}>{(["bot", "me"] as const).map((p) => <DeckPanel key={p} p={p} current={decks[p]} decks={library.decks} editable={signedIn} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
+        {deckOpen && <CardHover.Provider value={setDeckCard}>{(online ? [bottom] : (["bot", "me"] as const)).map((p) => <DeckPanel key={p} p={pos(p)} current={decks[p]} decks={library.decks} editable={signedIn && !online} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
           otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}</CardHover.Provider>}
         <div className="mid">
           {/* Far left: undo/redo | middle: attacker (power + drive check) | question or step text, plus Start/mulligan/swap | defender (power + guard cards) | far right: answer and phase buttons */}
@@ -177,10 +203,10 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
               {started && !deckOpen && !board.mulligan && question?.prompt && <PromptText text={t(question.prompt)} />}
               {step && <PromptText text={t(step)} />}
               <div className="steps">
-                {deckOpen && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
-                {!started && !deckOpen && <button className="btn primary" onClick={onStart}>{t("btn.start")}</button>}
+                {deckOpen && !online && <button className="btn" onClick={onSwapDecks}>{t("btn.swap")}</button>}
+                {!started && !deckOpen && <button className="btn primary" disabled={online?.ready[online.seat]} onClick={onStart}>{t("btn.start")}</button>}
                 {started && !deckOpen && board.mulligan && (
-                  <button className="btn primary" onClick={board.mulligan.confirm}>{t(board.mulligan.picks ? "btn.change" : "btn.ready")}</button>
+                  <button className="btn primary" onClick={board.mulligan.confirm}>{t(board.mulligan.picks ? "btn.change" : "btn.confirm")}</button>
                 )}
               </div>
               {!deckOpen && <BattleNum p={defender} s={s} preview={board.guardPreview} />}
@@ -189,6 +215,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
           </div>
           <div className="mid-actions">
             {view?.action}
+            {online && winner && !online.abandoned && <button className="btn primary" disabled={online.ready[online.seat]} onClick={online.onReady}>{t("btn.ready")}</button>}
             {started && !deckOpen && !board.mulligan && question && question.buttons.map((q) => {
               const label = typeof q.label === "string" ? q.label : t(q.label);
               return <button key={label} className="btn primary" onClick={q.onClick} title={label}>{label}</button>;
@@ -198,35 +225,55 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             )}
           </div>
         </div>
-        {side("me")}
-        {tray("me")}
-        {stack("me")}
-        {hand("me")}
-        <PileModal board={board} started={started} decks={decks} onMoveG={onDeckUpdated && reorderG} />
+        {side(bottom)}
+        {tray(bottom)}
+        {stack(bottom)}
+        {hand(bottom)}
+        <PileModal board={board} started={started} decks={decks} onMoveG={online ? undefined : onDeckUpdated && reorderG} />
         <ChoiceModal board={board} />
         {showReplays && <ReplayModal signedIn={signedIn} current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
+        {showOnline && onOnline && <OnlineDialog library={library} deck={decks.me} onReady={(m) => { setShowOnline(false); onOnline(m); }} onClose={() => setShowOnline(false)} />}
         {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={(next) => { setShowSettings(false); onApplySettings(next); }} onClose={() => setShowSettings(false)} />}
         {board.error && <div className="toast">{t(board.error)}</div>}
         {(board.trigTip ?? board.choiceTip) && <CursorTip text={t((board.trigTip ?? board.choiceTip)!.text)} kind={(board.trigTip ?? board.choiceTip)!.kind} />}
       </main>
       </CardHover.Provider>
       <aside className="right">
-        {deckOpen ? <Inspector p="me" cardKey={deckCard} onClose={() => setDeckCard(undefined)} /> : (["bot", "me"] as const).map((p) => {
+        {deckOpen ? <Inspector p="me" cardKey={deckCard} onClose={() => setDeckCard(undefined)} /> : [other(bottom), bottom].map((p) => {
           const c = board.inspectedOf(p);
-          return <Inspector key={p} p={p} cardKey={c?.inst.key} power={c?.power} onClose={() => board.closeInspect(p)} />;
+          return <Inspector key={p} p={pos(p)} cardKey={c?.inst.key} power={c?.power} onClose={() => board.closeInspect(p)} />;
         })}
         {view && <div className="panel-foot replay-foot">{view.foot}</div>}
-        {!view && (
+        {online && (
+          <div className="panel-foot">
+            {!started && <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>}
+            <button className="btn" onClick={() => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); }}>{t("btn.leave")}</button>
+          </div>
+        )}
+        {!view && !online && (
           <div className="panel-foot">
             <button className="btn" onClick={onNewGame}>{t("btn.reset")}</button>
             <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>
             <button className="btn" onClick={() => setShowReplays(true)}>{t("btn.replays")}</button>
+            {onOnline && <button className="btn" onClick={() => setShowOnline(true)}>{t("btn.online")}</button>}
             <button className="btn" onClick={() => setShowSettings(true)}>{t("btn.settings")}</button>
           </div>
         )}
       </aside>
     </div>
   );
+}
+
+// Online: whose move it is, or why the match can't go on
+// between: before Start or after the game, when both players have to press Start/Ready
+function OnlineStatus({ online, desync, waiting, between }: { online: OnlineBoard; desync: boolean; waiting: boolean; between: boolean }) {
+  const t = useT();
+  const name = online.opponent;
+  const mine = online.ready[online.seat], theirs = online.ready[other(online.seat)];
+  const text = online.problem ? t(online.problem) : desync ? t("online.desync") : online.abandoned ? t("online.left", { name })
+    : between ? (mine && !theirs ? t("online.waitingFor", { name }) : theirs && !mine ? t("online.isReady", { name }) : undefined)
+    : waiting ? t("online.waiting", { name }) : undefined;
+  return text ? <span className="thinking">{text}</span> : null;
 }
 
 // Question text in the middle of the bar: wraps into two balanced centered lines when it doesn't fit (CSS)

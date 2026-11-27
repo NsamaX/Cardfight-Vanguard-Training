@@ -11,10 +11,12 @@ export const DEFAULT_LOCALE: Locale = "en";
 
 const DICTS: Record<Locale, Dict> = { en, ja };
 
-export function translate(locale: Locale, m: Msg | MsgKey, params?: Params): string {
+// fixed: text that replaces a key wherever it appears, nested Msgs included (online play shows the player names from each side's view)
+export function translate(locale: Locale, m: Msg | MsgKey, params?: Params, fixed?: Partial<Record<MsgKey, string>>): string {
   const { key, params: p = {} } = typeof m === "string" ? { key: m, params } : m;
+  if (fixed?.[key] !== undefined) return fixed[key];
   const vals: Record<string, string> = {};
-  for (const [k, v] of Object.entries(p)) vals[k] = typeof v === "number" ? fmt(v) : typeof v === "string" ? v : translate(locale, v);
+  for (const [k, v] of Object.entries(p)) vals[k] = typeof v === "number" ? fmt(v) : typeof v === "string" ? v : translate(locale, v, undefined, fixed);
   const tpl = DICTS[locale][key];
   return typeof tpl === "function" ? tpl(vals) : tpl.replace(/\{(\w+)\}/g, (all, k: string) => vals[k] ?? all);
 }

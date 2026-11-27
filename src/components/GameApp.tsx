@@ -1,15 +1,19 @@
 "use client";
 import { useState } from "react";
-import { cardByKey as db } from "../data/cards";
+import { cardByKey as db, setCards } from "../data/cards";
 import { createGame } from "../engine/game";
 import type { Deck, GameState, PlayerId } from "../engine/types";
 import { useAuth } from "../hooks/useAuth";
 import { useLibrary } from "../hooks/useLibrary";
-import { useT } from "../i18n/react";
+import { installMatchCards } from "../hooks/useMatch";
+import type { MsgKey } from "../i18n/msg";
+import { FixedText, useT } from "../i18n/react";
+import { leaveMatch, rebuild, type OnlineStart } from "../lib/online";
 import { DEFAULT_SETTINGS, resolveSettings, type GameSettings } from "../lib/settings";
 import { timelineOf, type Timeline } from "../replay/play";
 import type { RecordedAction, ReplaySource } from "../replay/types";
 import { Board } from "./board/Board";
+import { OnlineRoom } from "./OnlineRoom";
 import { ReplayViewer } from "./ReplayViewer";
 
 interface Running {
@@ -34,9 +38,12 @@ export function GameApp() {
   const [game, setGame] = useState<Running | null>(null);
   const [deckOpen, setDeckOpen] = useState(false);
   const [viewing, setViewing] = useState<{ src: ReplaySource; tl: Timeline } | null>(null);
+  const [online, setOnline] = useState<OnlineStart | null>(null);
+  const t = useT();
   const { library, failed, retry } = useLibrary(auth.ready, auth.user?.id, (lib) => {
     const first = lib.decks[0];
     setViewing(null);
+    setOnline(null);
     setDeckOpen(false);
     setGame((g) => newGame(g?.settings ?? DEFAULT_SETTINGS, { me: first, bot: first }, (g?.n ?? 0) + 1));
   });
@@ -59,6 +66,36 @@ export function GameApp() {
     setGame({ ...game, state, started: true, decks: src.decks, n: game.n + 1, base });
   }
 
+  // The match's card snapshot goes into the card registry until we leave
+  function enterOnline(o: OnlineStart) {
+    installMatchCards(library!.cards, o.match);
+    try {
+      if (o.match.seed !== undefined) rebuild(o.match, o.actions);
+    } catch {
+      setCards(library!.cards);
+      leaveMatch(o.match.id).catch(() => {});
+      alert(t("online.desync"));
+      return;
+    }
+    setOnline(o);
+    setDeckOpen(false);
+  }
+
+  function leaveOnline() {
+    setCards(library!.cards);
+    setOnline(null);
+    start(settings, decks);
+  }
+
+  if (online) {
+    const you = t("player.me"), them = online.match.opponent;
+    const names: Partial<Record<MsgKey, string>> = online.match.seat === "me" ? { "player.bot": them } : { "player.me": them, "player.bot": you };
+    return (
+      <FixedText value={names}>
+        <OnlineRoom key={online.match.id} start={online} library={library} userId={library.userId!} onNext={(match) => setOnline({ match, actions: [] })} onLeave={leaveOnline} />
+      </FixedText>
+    );
+  }
   if (viewing) {
     return <ReplayViewer tl={viewing.tl} decks={viewing.src.decks} settings={settings} onContinue={continueFrom} onClose={() => setViewing(null)} />;
   }
@@ -82,6 +119,7 @@ export function GameApp() {
       onPickDeck={(p, d) => start(settings, { ...decks, [p]: d })}
       onDeckUpdated={(d) => { if (inUse(d)) setGame((g) => g && { ...g, decks: replaceDeck(g.decks, d) }); }}
       onDeckChanged={(d) => { if (inUse(d)) start(settings, replaceDeck(decks, d)); }}
+      onOnline={auth.available ? enterOnline : undefined}
     />
   );
 }

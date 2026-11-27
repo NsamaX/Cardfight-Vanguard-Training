@@ -7,6 +7,10 @@ import type { Msg, MsgKey, Params } from "./msg";
 const KEY = "vanguard.locale";
 
 const I18n = createContext<{ locale: Locale; setLocale: (l: Locale) => void }>({ locale: DEFAULT_LOCALE, setLocale: () => {} });
+const Fixed = createContext<Partial<Record<MsgKey, string>> | undefined>(undefined);
+
+// Screens inside show these keys as the given text (online play: "player.me"/"player.bot" become the names seen from this side)
+export const FixedText = Fixed.Provider;
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
@@ -35,7 +39,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
 export function useI18n() {
   const { locale, setLocale } = useContext(I18n);
-  const t = (m: Msg | MsgKey, params?: Params) => translate(locale, m, params);
+  const fixed = useContext(Fixed);
+  const t = (m: Msg | MsgKey, params?: Params) => translate(locale, m, params, fixed);
   return { locale, setLocale, t };
 }
 

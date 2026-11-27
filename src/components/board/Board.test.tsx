@@ -258,14 +258,14 @@ describe("board", () => {
     expect(host.querySelector(".insp-pane.me")!.textContent).toMatch(/STRIDE|G GUARDIAN/);
   });
 
-  it("press Ready, the bot mulligans by itself, then pick a grade 1 card and click VC to ride, entering the main phase automatically", async () => {
+  it("press Confirm, the bot mulligans by itself, then pick a grade 1 card and click VC to ride, entering the main phase automatically", async () => {
     vi.useFakeTimers();
     try {
       const s = createGame(db, { seed: 7, firstPlayer: "me", decks: { me: deck, bot: deck } });
       s.players.me.circles.vc = { ...inst(s, "PR/0740TH"), faceUp: false };   // a grade 0 vanguard with no ability when ridden upon
       s.players.me.hand.push(inst(s, BONE));
       render(s);
-      click(button("Ready"));
+      click(button("Confirm"));
       expect(host.querySelector(".ph.on")!.textContent).toBe("START");   // still waiting for the bot's mulligan
       await botPlays();
       expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
@@ -339,7 +339,7 @@ describe("board", () => {
       expect(host.querySelectorAll(".hand.me .card")).toHaveLength(0);
       await act(async () => { await vi.advanceTimersByTimeAsync(500); });
       expect(host.querySelectorAll(".hand.me .card")).toHaveLength(5);
-      expect(button("Ready")).toBeTruthy();
+      expect(button("Confirm")).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -354,11 +354,11 @@ describe("board", () => {
       const botHand = [...host.querySelectorAll(".hand.bot .card")];
       expect(botHand).toHaveLength(5);
       expect(botHand.every((c) => c.getAttribute("title") === "Face-down card")).toBe(true);
-      expect(button("Ready")).toBeUndefined();
+      expect(button("Confirm")).toBeUndefined();
       expect(host.textContent).toContain("Bot is thinking");
       await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
       expect(host.querySelector(".log")!.textContent).toContain("Bot redrew");
-      expect(button("Ready")).toBeTruthy();
+      expect(button("Confirm")).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -369,7 +369,7 @@ describe("board", () => {
     const s = createGame(db, { seed: 4, firstPlayer: "me", decks: { me: deck, bot: deck } });
     vi.useFakeTimers();
     render(s);
-    click(button("Ready"));
+    click(button("Confirm"));
     await botPlays();
     vi.useRealTimers();
     const [first, ...rest] = Object.entries(deck.g_zone);
@@ -386,7 +386,7 @@ describe("board", () => {
     const s = createGame(db, { seed: 4, firstPlayer: "me", decks: { me: deck, bot: deck } });
     vi.useFakeTimers();
     render(s);
-    click(button("Ready"));
+    click(button("Confirm"));
     await botPlays();
     vi.useRealTimers();
     expect(loadReplays()).toHaveLength(0);
@@ -406,7 +406,7 @@ describe("board", () => {
     expect(host.textContent).toContain("Step 2/2");
     expect(host.querySelector(".ph.on")!.textContent).toBe("RIDE");
     expect([...host.querySelectorAll(".hand.bot .card")].some((c) => c.getAttribute("title") !== "Face-down card")).toBe(true);
-    expect(button("Ready")).toBeUndefined();
+    expect(button("Confirm")).toBeUndefined();
     expect(host.querySelector(".mid-actions")!.textContent).toBe("Resume");   // the resume-from-this-step button is in the right slot of the middle bar
     expect(host.querySelector(".mid-history button")).toBeNull();
     rawClick(host.querySelector(".stack.bot .deck .zone-slot"));                       // the deck can be opened while watching a replay
