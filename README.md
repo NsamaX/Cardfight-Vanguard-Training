@@ -44,7 +44,7 @@ To deploy on Vercel, set only the two `NEXT_PUBLIC_` variables there, and add th
 | Card abilities (`engine/abilities.ts`) | AUTO and ACT run automatically from the ability code in card files |
 | Bot (`bot/`) | Beta (default, same as Nightmare; the only selectable level for now), plus Normal, Hard, Nightmare (locked) |
 | Decks and sleeves | Guests view and use the defaults; signed-in players edit their own |
-| Card editor | Signed-in players create/edit cards, including the image |
+| Card editor | Signed-in players create/edit cards, including the image; card text is edited as plain text, ability codes are picked step by step |
 | Replays (`replay/`) | Save, step through, change speed, download/open files, continue from any step |
 | Languages (`i18n/`) | English (default), Japanese |
 | Combo tutorial | Combo files and loader exist (`data/combos.ts`), no screen yet |
@@ -69,7 +69,15 @@ Both sides start with the first library deck and the bot plays the top side. Bef
 | Undo / redo | Arrows on the left of the middle bar |
 | Reorder the G zone | Open the G zone and drag cards onto each other |
 
-Bottom-right buttons: **Reset** (new game, same decks), **Decks** (pick, view, edit, swap decks; the Sleeves tab holds sleeves; drag a card or sleeve onto the Deck / Main / G slots), **Replays**, **Settings** (account, language, bot level, first player, seed).
+Bottom-right buttons:
+- **Reset**: new game, same decks.
+- **Decks**: pick, view, edit, swap, and delete decks. While Decks is open, the right panel shows the card under the mouse.
+  - In the editor, click a library card to add it and a deck row to remove it. The first grade 0 added becomes the starting vanguard (★ changes it) and the first card added becomes the deck cover; removing the last copy leaves the spot empty until the next card fills it. The Deck slot shows the starting vanguard.
+  - Sleeves: click the Main or G slot to empty it, then click a sleeve in the Sleeves tab to fill it. A slot left empty uses the side's default sleeve.
+  - Adding stops at the caps: 4 copies per name, 16 triggers, 4 Heals, 4 Sentinels. Triggers are a cap, not a requirement (the real rules ask for exactly 16).
+  - **Delete** (next to Done) asks you to type the deck's name.
+- **Replays**.
+- **Settings**: account, language, bot level, first player, seed. Opens on the first visit. **Apply** is enabled only after a change; the bot level takes effect at once, first player and seed from the next game (at once if the game hasn't started).
 
 ## Project structure
 
@@ -78,7 +86,7 @@ Bottom-right buttons: **Reset** (new game, same decks), **Decks** (pick, view, e
 | `src/app/` | Next.js App Router entry (layout and page) |
 | `src/components/` | React UI, data and callbacks via props (`board/` the board, `deck/` the deck and card screens) |
 | `src/hooks/` | Screen state: `useBoard` (clicks → engine actions), `useLibrary` (load/save cards, decks, sleeves), `useAuth`, `useCardFlight` (card animations) |
-| `src/lib/` | Non-React helpers: board rules (`board.ts`), deck editing, ability drafts for the card editor, game settings, Supabase access (`library.ts`, `supabase.ts`), image resizing, number formatting |
+| `src/lib/` | Non-React helpers: board rules (`board.ts`), deck editing, ability drafts and the step-by-step code picker for the card editor, card text ↔ plain text (`cardText.ts`), game settings, Supabase access (`library.ts`, `supabase.ts`), image resizing, number formatting |
 | `src/engine/` | Game state, rules, phases, the check timing queue, and ability codes (`types.ts` holds the shared types) |
 | `src/bot/` | The bot (see below) |
 | `src/data/` | In-memory card registry (bundled set, replaced by the Supabase library at runtime), default decks, combos, default sleeves, deck validation |
@@ -95,7 +103,7 @@ The engine is pure: `apply(db, state, player, action)` returns a new state plus 
 
 ### Bot
 
-The bot always plays the bot side. It knows both decklists but not the deck order, and (except Nightmare) not your hand.
+The bot always plays the bot side. It knows both decklists but not the deck order, and (except Beta and Nightmare) not your hand.
 
 | Level | How it thinks |
 |---|---|
@@ -125,10 +133,10 @@ Add the key to `src/i18n/en.ts`, then the same key to `ja.ts` (`npm run typechec
 **Card code:** the first part of the first entry in `ids`, e.g. `"G-CHB03/S11TH SP"` → `G-CHB03/S11TH`. Decks, combos, and image names use it. One file per card; reprints with identical text share a file.
 
 **Card fields:** `ids`, `name`, `format`, `type`, `trigger`, `grade`, `power`, `shield` (omit = 0), `critical`, `skill` (`boost` | `intercept` | `twin-drive` | `triple-drive`), `trigger_power`, `race`, `clan`, `abilities`, `text`, and optional `notes`. Names and text are English as on the EN card; `ids` use the Thai printing.
-- `abilities` is the code the engine runs: each entry has `kind`, `zone`, `timing`, `cond`, `cost`, `effect`, using codes from [vocabulary.md](documents/vocabulary.md).
-- `text` is the real card text in Markdown, grouped by kind (ULTIMATE STRIDE, STRIDE, G GUARDIAN, AUTO, ACT, CONT), with **Zone** / **Condition** / **Timing** / **Cost** on one line and **Effect** below.
+- `abilities` is the code the engine runs: each entry has `kind`, `zone`, `timing`, `cond`, `cost`, `effect`, using codes from [vocabulary.md](documents/vocabulary.md). Optional `follows: true` marks an ability that builds on the one above it (e.g. Nightstorm's hollowed ability); it only indents it in the editor and inspector.
+- `text` is the real card text in Markdown, grouped by kind (ULTIMATE STRIDE, STRIDE, G GUARDIAN, AUTO, ACT, CONT), with **Zone** / **Condition** / **Timing** / **Cost** on one line and **Effect** below. The inspector splits it into ability boxes. The card editor shows it as plain text (a kind line, then `Label: value` lines, a blank line between abilities) and saves it back in this layout.
 
-**Deck fields:** `name`, `format` (`G`), `starter` (grade 0 card code, counted in `main`), `main` (code → count, 50 total), `g_zone` (code → count, max 16), optional `sleeve` / `g_sleeve` (file in `content/sleeves/`; unset = the side's default sleeve), optional `cover` (card code). The file name is the deck id.
+**Deck fields:** `name`, `format` (`G`), `starter` (grade 0 card code, counted in `main`), `main` (code → count, 50 total), `g_zone` (code → count, max 16), optional `sleeve` / `g_sleeve` (file in `content/sleeves/`; unset = the side's default sleeve), optional `cover` (card code; unset = the first G unit, otherwise the highest grade). The file name is the deck id.
 
 **Combo fields:** `id`, `name`, `difficulty` (1–5), `summary`, `tags`, `setup` (starting board), `steps` (actions with `hint`), `result`. See `content/combos/off-turn-shot.yaml`.
 
