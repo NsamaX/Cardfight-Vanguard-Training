@@ -40,7 +40,7 @@ To deploy on Vercel, set only the two `NEXT_PUBLIC_` variables there, and add th
 
 | Part | Status |
 |---|---|
-| Phases and battle (`engine/game.ts`) | Complete per [rules-g.md](documents/rules-g.md), including ultimate stride (the Zeroth Dragon's nation isn't checked) |
+| Phases and battle (`engine/game.ts`) | Complete per [rules-g.md](documents/rules-g.md), including ultimate stride (nations come from `content/nations.yaml`) |
 | Card abilities (`engine/abilities.ts`, `engine/vocab/`) | AUTO, ACT, and CONT run from the ability code in card files; `npm run check-cards` lists codes the engine doesn't run yet |
 | Bot (`bot/`) | Beta (default, same as Nightmare; the only selectable level for now), plus Normal, Hard, Nightmare (locked) |
 | Decks and sleeves | Guests view and use the defaults; signed-in players edit their own |
@@ -50,7 +50,7 @@ To deploy on Vercel, set only the two `NEXT_PUBLIC_` variables there, and add th
 | Combo tutorial | Combo files and loader exist (`data/combos.ts`), no screen yet |
 | Online play (`lib/online.ts`, `hooks/useMatch.ts`) | Signed-in players: create a room and share its 6-digit code, or join by code; play again in the same room (Ready, then Start on both sides); resume after a reload; no undo, replays, or deck editing during a match |
 
-Every card in `content/cards/` runs as written (`npm run check-cards`). Draws and drive/damage checks don't send move events yet, so no timing can wait for them; the bot doesn't ultimate stride or use G zone ACTs.
+Every card in `content/cards/` runs as written (`npm run check-cards`). The bot doesn't ultimate stride or use G zone ACTs yet.
 
 ## How to play
 
@@ -146,6 +146,7 @@ Add the key to `src/i18n/en.ts`, then the same key to `ja.ts` (`npm run typechec
 | `content/cards/<clan>/trigger/` | Trigger units |
 | `content/decks/` | Default decks (the first by file name is the starting deck) |
 | `content/combos/` | Combo tutorials |
+| `content/nations.yaml` | Clans of each nation (ultimate stride needs the G unit's nation to match the vanguard's) |
 | `content/images/<clan>/` | Card images, 544×793 PNG, named by card code with `/` → `_` (e.g. `granblue/G-CHB03_S11TH.png`) |
 
 `<clan>` is the card's `clan` in lowercase with spaces → `-`, e.g. `granblue`, `cray-elemental`, `genesis`. Images go to the bucket flat under `defaults/`, so moving a card to another folder doesn't change its image URL.

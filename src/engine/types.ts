@@ -33,6 +33,7 @@ export interface Card {
   triggerPower?: number;   // Power on the trigger icon (the trigger_power field in the card file)
   race: string;
   clan: string;
+  nation?: string;     // derived when the card is loaded (content/nations.yaml); "all" = Cray Elemental; unset = unknown
   abilities: Ability[];
   image?: string;      // image URL (Supabase Storage), if any
   text: string;        // ability text (the text field of the card file)
@@ -97,7 +98,7 @@ export interface MoveEvent {
   key: string;
   from: Zone;
   to: Zone;
-  by?: "retire" | "hollow";        // left a rear-guard circle by being retired (hollow = by the Hollow keyword)
+  by?: "retire" | "hollow" | "draw" | "drive-check" | "damage-check" | "heal";   // how: retired (hollow = by the Hollow keyword), drawn, a check, healed
   as?: "g-guardian-cost";          // discarded to pay this cost
   grants: Ability[];               // abilities the card had been granted on the board (it may still trigger them as it leaves)
 }

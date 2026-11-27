@@ -57,12 +57,20 @@ const costOf = (card: Card, kind: Ability["kind"]) => card.abilities.find((a) =>
 export function strideCostOk(db: CardDB, s: GameState, p: PlayerId, g: Card, discards: CardInstance[]): boolean {
   const ultimate = g.abilities.find((a) => a.kind === "ULTIMATE STRIDE");
   if (!ultimate) return discards.length > 0 && discards.reduce((n, c) => n + strideCostGrade(db, s, p, c), 0) >= strideGradeNeeded(g);
-  if (!condsHold({ db, s, owner: p }, ultimate.cond, "resolve")) return false;
+  if (!condsHold({ db, s, owner: p }, ultimate.cond, "resolve") || !nationOk(g, s.players[p].circles.vc && db[s.players[p].circles.vc.key])) return false;
   const discard = (ultimate.cost ?? []).map(parseCode).find((c) => c.name === "discard");
   const n = parseInt(discard?.pos[0] ?? "1", 10) || 1;
   const vc = s.players[p].circles.vc;
   const env = { db, vcName: vc && db[vc.key].name };
   return discards.length === n && discards.every((d) => cardMatches(db[d.key], discard?.named.filter ?? "", env));
+}
+
+// Rules 6.6.3: the G unit's nation must match the vanguard's; a vanguard with no nation takes only Cray Elemental G units.
+// "all" (Cray Elemental, from all clans and nations) matches any nation
+function nationOk(g: Card, vc?: Card): boolean {
+  if (g.nation === "all" || vc?.nation === "all") return true;
+  if (!vc?.nation) return g.clan === "Cray Elemental";
+  return g.nation === vc.nation;
 }
 
 export const isUltimate = (g: Card) => g.abilities.some((a) => a.kind === "ULTIMATE STRIDE");

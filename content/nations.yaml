@@ -1,0 +1,5 @@
+# Clans of each nation. Ultimate stride (rules 6.6.3) needs the G unit's nation to match the vanguard's nation.
+# A card whose clan field is a nation name (e.g. Megiddo: Magallanica) has that nation.
+# Cray Elemental cards are "from all clans and nations" (all-clan(self)) and match any nation.
+# Only clans the library uses are listed; add a clan here when a deck of it gets a Zeroth Dragon.
+Magallanica: [Granblue]

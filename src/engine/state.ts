@@ -39,17 +39,6 @@ export function win(s: GameState, p: PlayerId, out: Out, why: Msg) {
   ev(out, "win", p, msg("log.win", { why, winner: msg(`winner.${p}`) }));
 }
 
-export function drawCard(s: GameState, p: PlayerId, out: Out): boolean {
-  const top = s.players[p].deck.shift();
-  if (!top) {
-    win(s, other(p), out, msg("win.deckOutDraw", { player: playerMsg(p) }));
-    return false;
-  }
-  s.players[p].hand.push(reset(top));
-  ev(out, "draw", p, msg("log.draw", { player: playerMsg(p) }));
-  return true;
-}
-
 export const fieldUnits = (ps: PlayerState) => Object.values(ps.circles).filter((i): i is CardInstance => !!i);
 
 export const PILE_ZONES = ["hand", "guardian", "drop", "soul", "damage", "gZone", "bind", "removed", "deck"] as const;

@@ -3,7 +3,8 @@
 import { msg, type Msg } from "../i18n/msg";
 import { emit } from "./abilities";
 import { circleMsg, type CardDB } from "./rules";
-import { ev, locate, name, playerMsg, pull, reset, takeFrom, type Out } from "./state";
+import { ev, locate, name, playerMsg, pull, reset, takeFrom, win, type Out } from "./state";
+import { other } from "./rules";
 import type { Ability, CardInstance, Circle, GameState, MoveEvent, PlayerId, Zone } from "./types";
 
 // The zone a located card is in, as move events name it
@@ -35,6 +36,18 @@ export function moveCard(db: CardDB, s: GameState, uid: string, to: Pile, opts: 
   if (to === "deck" && opts.top) list.unshift(inst); else list.push(inst);
   moved(db, s, { player: at.player, uid, key: inst.key, from, to, by: opts.by, as: opts.as, grants });
   return inst;
+}
+
+// Draw the top card; false = the deck was empty (that player loses)
+export function drawCard(db: CardDB, s: GameState, p: PlayerId, out: Out): boolean {
+  const top = s.players[p].deck[0];
+  if (!top) {
+    win(s, other(p), out, msg("win.deckOutDraw", { player: playerMsg(p) }));
+    return false;
+  }
+  moveCard(db, s, top.uid, "hand", { by: "draw" });
+  ev(out, "draw", p, msg("log.draw", { player: playerMsg(p) }));
+  return true;
 }
 
 // A rear-guard leaves the board for the drop zone (retire)

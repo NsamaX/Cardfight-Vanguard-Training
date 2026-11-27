@@ -1,7 +1,7 @@
 // G-era phase and battle mechanics + the hook into the ability system (abilities.ts)
 // apply() takes state + an action and returns a new state + events; never modifies the old state, and randomizes only via the seed
 import { actAt, blocked, condOk, declineEntry, emit, releaseDelayed, settle, startResolving, type ResumeHandlers } from "./abilities";
-import { moveCard, moved, placeOnRC, retireUnit, strideOnto } from "./zones";
+import { drawCard, moveCard, moved, placeOnRC, retireUnit, strideOnto } from "./zones";
 import { attackTaxes, guardianDiscardFilter, isUltimate, payRuleCost, refreshContinuous, strideCostOk } from "./cont";
 import { cardMatches } from "./vocab/filters";
 import { cloneState } from "./clone";
@@ -13,7 +13,7 @@ import {
   vcGrade,
   type CardDB,
 } from "./rules";
-import { abilityTag, drawCard, ev, fieldUnits, locate, name, playerMsg, reset, takeFrom, win, type Out } from "./state";
+import { abilityTag, ev, fieldUnits, locate, name, playerMsg, reset, takeFrom, win, type Out } from "./state";
 import type { Action, CardInstance, Choice, GameEvent, GameState, PlayerId, PlayerState, Resolving } from "./types";
 
 export interface NewGame {
@@ -87,7 +87,7 @@ const HANDLERS: { [T in Action["type"]]: Handler<T> } = {
   activate, "order-queue": orderQueue, "decline-queue": declineQueue, "pass-queue": passQueue, "select-target": selectTarget, choose,
 };
 
-const RESUME: ResumeHandlers = { close: closeBattle, "close-finish": finishClose, "end-finish": finishEnd, "ride-finish": finishRide, "draw-finish": finishDraw };
+const RESUME: ResumeHandlers = { "battle-continue": continueBattle, close: closeBattle, "close-finish": finishClose, "end-finish": finishEnd, "ride-finish": finishRide, "draw-finish": finishDraw };
 
 function requirePhase(s: GameState, p: PlayerId, phase: GameState["phase"], step?: string) {
   if (s.turnPlayer !== p) throw new RuleError("err.notYourTurn");
@@ -210,7 +210,7 @@ function startTurn(db: CardDB, s: GameState, out: Out) {
   s.phase = "stand";
   for (const inst of fieldUnits(s.players[p])) inst.rested = false;
   s.phase = "draw";
-  if (!drawCard(s, p, out)) return;
+  if (!drawCard(db, s, p, out)) return;
   queueGAssist(db, s, p);
   s.resume = "draw-finish";
 }
@@ -485,7 +485,7 @@ function revealCheck(db: CardDB, s: GameState, p: PlayerId, during: "drive" | "d
   return true;
 }
 
-function finishCheck(s: GameState, p: PlayerId, during: "drive" | "damage", out: Out) {
+function finishCheck(db: CardDB, s: GameState, p: PlayerId, during: "drive" | "damage", out: Out) {
   const ps = s.players[p];
   const inst = s.battle!.checkCard!;
   s.battle!.checkCard = undefined;
@@ -493,9 +493,17 @@ function finishCheck(s: GameState, p: PlayerId, during: "drive" | "damage", out:
   else {
     ps.damage.push(inst);
     ev(out, "damage", p, msg("log.damage", { player: playerMsg(p), n: ps.damage.length }), inst.uid);
-    if (ps.damage.length >= 6) win(s, other(p), out, msg("win.damage6", { player: playerMsg(p) }));
+    if (ps.damage.length >= 6) { win(s, other(p), out, msg("win.damage6", { player: playerMsg(p) })); return; }
   }
+  moved(db, s, { player: p, uid: inst.uid, key: inst.key, from: "deck", to: during === "drive" ? "hand" : "damage", by: during === "drive" ? "drive-check" : "damage-check" });
 }
+
+// Abilities set off by a check resolve before the next check (the battle goes on from "battle-continue" once they're done)
+const waitForAbilities = (s: GameState) => {
+  if (!s.queue.length) return false;
+  s.resume = "battle-continue";
+  return true;
+};
 
 function continueBattle(db: CardDB, s: GameState, out: Out) {
   const b = s.battle!;
@@ -507,7 +515,8 @@ function continueBattle(db: CardDB, s: GameState, out: Out) {
       b.drivesLeft--;
       if (!revealCheck(db, s, atkSide, "drive", out)) return;
       if (b.pendingTrigger) return;
-      finishCheck(s, atkSide, "drive", out);
+      finishCheck(db, s, atkSide, "drive", out);
+      if (waitForAbilities(s)) return;
     }
     s.step = "damage";
   }
@@ -530,8 +539,8 @@ function continueBattle(db: CardDB, s: GameState, out: Out) {
       b.damageLeft--;
       if (!revealCheck(db, s, defSide, "damage", out)) return;
       if (b.pendingTrigger) return;
-      finishCheck(s, defSide, "damage", out);
-      if (s.winner) return;
+      finishCheck(db, s, defSide, "damage", out);
+      if (s.winner || waitForAbilities(s)) return;
     }
     s.resume = "close";
   }
@@ -587,16 +596,17 @@ function triggerTarget(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action,
     ev(out, "trigger", p, msg("log.triggerCritical", { card: name(db, u) }), u.uid);
   }
   if (t.kind === "heal" && ps.damage.length > 0 && ps.damage.length >= opp.damage.length) {
-    const healed = a.healUid ? takeFrom(ps.damage, a.healUid, "damage zone") : ps.damage.pop()!;
-    ps.drop.push(reset(healed));
+    const healUid = a.healUid ?? ps.damage.at(-1)!.uid;
+    if (!ps.damage.some((d) => d.uid === healUid)) throw new Error("card not found in damage zone");
+    const healed = moveCard(db, s, healUid, "drop", { by: "heal" });
     ev(out, "heal", p, msg("log.heal", { card: name(db, healed) }), healed.uid);
   }
-  if (t.kind === "draw") drawCard(s, p, out);
+  if (t.kind === "draw") drawCard(db, s, p, out);
   b.pendingTrigger = undefined;
   const t2 = b.triggers?.filter((x) => !x.done).at(-1);
   if (t2) t2.done = true;
-  finishCheck(s, p, t.during, out);
-  if (!s.winner) continueBattle(db, s, out);
+  finishCheck(db, s, p, t.during, out);
+  if (!s.winner && !waitForAbilities(s)) continueBattle(db, s, out);
 }
 
 // ---------- Who must decide ----------

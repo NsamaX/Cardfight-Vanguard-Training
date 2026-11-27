@@ -1,8 +1,8 @@
 // Moving cards between hand, deck, drop zone, and soul
 import { msg } from "../../../i18n/msg";
 import { shuffle as shuffleCards } from "../../rng";
-import { drawCard, ev } from "../../state";
-import { moveCard } from "../../zones";
+import { ev } from "../../state";
+import { drawCard, moveCard } from "../../zones";
 import type { CardInstance, PlayerState } from "../../types";
 import { range } from "../counters";
 import { ask, askCards, checkChosen, matching, record, say, sourceAt } from "../ctx";
@@ -33,7 +33,7 @@ const zonesOf = (ctx: Ctx, spec: string) => spec.split("+").flatMap((z) => (z ==
 export const CARD_OPS: Record<string, OpSpec> = {
   draw: {
     forms: ["draw(#)"], text: "Draw cards",
-    run: (ctx) => { for (let i = 0; i < num(ctx.c.pos[0]); i++) if (!drawCard(ctx.s, ctx.owner, ctx.out)) return true; return true; },
+    run: (ctx) => { for (let i = 0; i < num(ctx.c.pos[0]); i++) if (!drawCard(ctx.db, ctx.s, ctx.owner, ctx.out)) return true; return true; },
   },
   // mill(3) / mill(≤3): "up to" lets the player choose how many
   mill: {

@@ -116,3 +116,22 @@ describe("Megiddo: ultimate stride", () => {
     expect(s.players.me.circles.vc!.key).toBe(NIGHT_FOG);
   });
 });
+
+describe("ultimate stride: nation", () => {
+  it("Megiddo (Magallanica) can't ultimate stride onto a Genesis vanguard", () => {
+    game("ride", "stride");
+    const me = s.players.me;
+    me.circles = { vc: inst(ANGELICA) };
+    me.gZone = [inst(MEGIDDO, false), inst(MINERVA), inst(MINERVA), inst(MINERVA)];
+    me.hand = [inst(ANGELICA)];
+    refreshAwaiting(s);
+    expect(() => act("me", { type: "stride", gUid: me.gZone[0].uid, discardUids: [me.hand[0].uid] })).toThrow("err.ultimateCost");
+  });
+
+  it("cards know their nation: from content/nations.yaml, a nation clan field, or all (Cray Elemental)", () => {
+    expect(db[NIGHT_FOG].nation).toBe("Magallanica");
+    expect(db[MEGIDDO].nation).toBe("Magallanica");
+    expect(db[SEBREEZE].nation).toBe("all");
+    expect(db[ANGELICA].nation).toBeUndefined();
+  });
+});

@@ -35,8 +35,9 @@ export const TIMINGS: Record<string, TimingSpec> = {
     matches: (e, c, uid, owner, db) => moveOk(e, c, db) && e.to === c.pos[0] && whose(c.pos[1], e, uid, owner),
   },
   move: {
-    forms: ["move(self, from=hand, to=drop)", "move(own, from=deck, to=drop)", "move(opp, from=RC, to=drop)", "move(own, to=bind, filter={filter})"],
-    text: "A card moves between zones (who: self / own / other-own / opp; from= and to= a zone: hand, deck, drop, soul, damage, bind, G, VC, RC, GC; by= retire or hollow). Draws, checks, and heals don't send it yet",
+    forms: ["move(self, from=hand, to=drop)", "move(own, from=deck, to=drop)", "move(opp, from=RC, to=drop)", "move(own, to=bind, filter={filter})",
+      "move(own, from=deck, to=hand, by=draw)", "move(own, to=hand, by=drive-check)", "move(own, to=damage, by=damage-check)", "move(own, from=damage, to=drop, by=heal)"],
+    text: "A card moves between zones (who: self / own / other-own / opp; from= and to= a zone: hand, deck, drop, soul, damage, bind, G, VC, RC, GC; by= retire, hollow, draw, drive-check, damage-check, or heal)",
     matches: (e, c, uid, owner, db) => moveOk(e, c, db) && (!c.named.to || c.named.to === e.to) && whose(c.pos[0], e, uid, owner),
   },
   stride: {
@@ -71,7 +72,7 @@ export const TIMINGS: Record<string, TimingSpec> = {
   },
   retired: {
     forms: ["retired(self, from=RC)", "retired(own)"], text: "A unit is retired (by an effect, a cost, the rules, or Hollow)",
-    matches: (e, c, uid, owner, db) => moveOk(e, c, db) && e.to === "drop" && !!e.by && whose(c.pos[0], e, uid, owner),
+    matches: (e, c, uid, owner, db) => moveOk(e, c, db) && e.to === "drop" && (e.by === "retire" || e.by === "hollow") && whose(c.pos[0], e, uid, owner),
   },
   discarded: {
     forms: ["discarded(self, from=hand, as=g-guardian-cost)", "discarded(self)"], text: "This card is discarded from hand (as= for which cost)",

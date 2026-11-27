@@ -12,6 +12,7 @@ const content = {
   cards: load("content/cards/*/*/*.yaml").map(({ data }) => data),
   decks: load("content/decks/*.yaml").map(({ path, data }) => ({ id: basename(path, ".yaml"), ...data })),
   combos: load("content/combos/*.yaml").map(({ data }) => data),
+  nations: parse(readFileSync(join(root, "content/nations.yaml"), "utf8")),
 };
 
 writeFileSync(join(root, "src/data/content.json"), JSON.stringify(content));
