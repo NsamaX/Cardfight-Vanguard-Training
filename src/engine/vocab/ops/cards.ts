@@ -1,8 +1,8 @@
 // Moving cards between hand, deck, drop zone, and soul
 import { msg } from "../../../i18n/msg";
-import { emit } from "../../abilities";
 import { shuffle as shuffleCards } from "../../rng";
-import { drawCard, ev, pull, reset } from "../../state";
+import { drawCard, ev } from "../../state";
+import { moveCard } from "../../zones";
 import type { CardInstance, PlayerState } from "../../types";
 import { range } from "../counters";
 import { askCards, checkChosen, matching, record, say, sourceAt } from "../ctx";
@@ -18,10 +18,13 @@ function shuffleDeck(ctx: Ctx, log = true) {
   if (log) say(ctx, "log.shuffle");
 }
 
-function intoSoul(ctx: Ctx, insts: CardInstance[]) {
-  for (const inst of insts) { me(ctx).soul.push(reset(inst)); ev(ctx.out, "to-soul", ctx.owner, msg("log.soulIn", { card: cardName(ctx, inst) }), inst.uid); }
+function intoSoul(ctx: Ctx, uids: string[]) {
+  const insts = uids.map((u) => {
+    const inst = moveCard(ctx.db, ctx.s, u, "soul");
+    ev(ctx.out, "to-soul", ctx.owner, msg("log.soulIn", { card: cardName(ctx, inst) }), inst.uid);
+    return inst;
+  });
   record(ctx, "souled", insts);
-  if (insts.length) emit(ctx.db, ctx.s, { kind: "to-soul", player: ctx.owner, n: insts.length });
 }
 
 // Zones a code names as a source, e.g. "drop+soul"
@@ -36,9 +39,8 @@ export const CARD_OPS: Record<string, OpSpec> = {
     forms: ["mill(#)"], text: "Put cards from the top of the deck into the drop zone",
     canPay: (ctx) => me(ctx).deck.length >= num(ctx.c.pos[0]),
     run: (ctx) => {
-      const ps = me(ctx), n = num(ctx.c.pos[0]);
-      const milled = ps.deck.splice(0, n).map((i) => reset(i));
-      ps.drop.push(...milled);
+      const n = num(ctx.c.pos[0]);
+      const milled = me(ctx).deck.slice(0, n).map((i) => moveCard(ctx.db, ctx.s, i.uid, "drop"));
       record(ctx, "milled", milled);
       say(ctx, "log.mill", { n });
       return true;
@@ -52,7 +54,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
       const n = Math.min(num(ctx.c.pos[0]), opts.length);
       if (!n) return true;
       if (!ctx.r.answer?.uids) return askCards(ctx, msg("choice.discard", { n }), opts, n, n);
-      for (const u of ctx.r.answer.uids) { const { inst } = pull(ctx.s, u); ps.drop.push(reset(inst)); say(ctx, "log.discard", { card: cardName(ctx, inst) }, u); }
+      for (const u of ctx.r.answer.uids) { const inst = moveCard(ctx.db, ctx.s, u, "drop"); say(ctx, "log.discard", { card: cardName(ctx, inst) }, u); }
       return true;
     },
   },
@@ -75,9 +77,8 @@ export const CARD_OPS: Record<string, OpSpec> = {
       const max = num(ctx.c.pos.find((x) => x.startsWith("n")) ?? "n≤1");
       const pool = matching(ctx, ctx.c.named.look === "top-5" ? ps.deck.slice(0, 5) : ps.deck);
       if (pool.length && !ctx.r.answer?.uids) return askCards(ctx, msg(dst === "hand" ? "choice.searchHand" : "choice.searchDrop", { n: max }), pool, 0, max);
-      const found = (ctx.r.answer?.uids ?? []).map((u) => pull(ctx.s, u).inst);
+      const found = (ctx.r.answer?.uids ?? []).map((u) => moveCard(ctx.db, ctx.s, u, dst === "hand" ? "hand" : "drop"));
       for (const inst of found) {
-        (dst === "hand" ? ps.hand : ps.drop).push(reset(inst));
         say(ctx, dst === "hand" ? "log.searchHand" : "log.searchDrop", { card: cardName(ctx, inst) }, inst.uid);
       }
       if (dst === "drop") record(ctx, "milled", found);
@@ -103,13 +104,13 @@ export const CARD_OPS: Record<string, OpSpec> = {
         const dest = steps[i], want = ctx.c.named[dest], opts = left();
         const max = Math.min(num(want), opts.length);
         if (max && !r.answer?.uids) return askCards(ctx, msg(dest === "hand" ? "choice.lookHand" : "choice.lookSoul", { n: max }), opts, want.startsWith("n≤") ? 0 : max, max);
-        const picked = (r.answer?.uids ?? []).map((u) => pull(ctx.s, u).inst);
+        const picked = r.answer?.uids ?? [];
         r.answer = undefined;
         r.local.lookStep = i + 1;
-        if (dest === "hand") for (const inst of picked) { ps.hand.push(reset(inst)); say(ctx, "log.searchHand", { card: cardName(ctx, inst) }, inst.uid); }
+        if (dest === "hand") for (const u of picked) { const inst = moveCard(ctx.db, ctx.s, u, "hand"); say(ctx, "log.searchHand", { card: cardName(ctx, inst) }, u); }
         else intoSoul(ctx, picked);
       }
-      if (ctx.c.named.rest === "drop") for (const inst of left()) { pull(ctx.s, inst.uid); ps.drop.push(reset(inst)); say(ctx, "log.searchDrop", { card: cardName(ctx, inst) }, inst.uid); }
+      if (ctx.c.named.rest === "drop") for (const inst of left()) { moveCard(ctx.db, ctx.s, inst.uid, "drop"); say(ctx, "log.searchDrop", { card: cardName(ctx, inst) }, inst.uid); }
       return true;
     },
   },
@@ -120,7 +121,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     run: (ctx) => {
       if (ctx.c.pos[0] === "self") {
         const at = sourceAt(ctx);
-        if (at?.zone === "circle") intoSoul(ctx, [pull(ctx.s, ctx.r.uid).inst]);
+        if (at?.zone === "circle") intoSoul(ctx, [ctx.r.uid]);
         return true;
       }
       const pool = matching(ctx, zonesOf(ctx, ctx.c.pos[0]));
@@ -135,7 +136,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
         uids = ctx.r.answer.uids;
         checkChosen(ctx, uids);
       }
-      intoSoul(ctx, uids.map((u) => pull(ctx.s, u).inst));
+      intoSoul(ctx, uids);
       return true;
     },
   },
@@ -145,10 +146,8 @@ export const CARD_OPS: Record<string, OpSpec> = {
     run: (ctx) => {
       const at = sourceAt(ctx);
       if (at?.zone !== "circle") return true;
-      pull(ctx.s, ctx.r.uid);
-      me(ctx).soul.push(reset(at.inst));
       say(ctx, "log.soulIn", { card: cardName(ctx, at.inst) }, ctx.r.uid);
-      emit(ctx.db, ctx.s, { kind: "to-soul", player: ctx.owner, n: 1 });
+      moveCard(ctx.db, ctx.s, ctx.r.uid, "soul");
       return true;
     },
   },
@@ -168,8 +167,8 @@ export const CARD_OPS: Record<string, OpSpec> = {
         uids = ctx.r.answer.uids;
         checkChosen(ctx, uids);
       }
-      const moved = uids.map((u) => pull(ctx.s, u).inst);
-      for (const inst of moved) { ps.deck.push(reset(inst, false)); say(ctx, "log.returnToDeck", { card: cardName(ctx, inst) }, inst.uid); }
+      const moved = uids.map((u) => moveCard(ctx.db, ctx.s, u, "deck"));
+      for (const inst of moved) say(ctx, "log.returnToDeck", { card: cardName(ctx, inst) }, inst.uid);
       record(ctx, "returned", moved);
       return true;
     },
@@ -178,7 +177,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     forms: ["to-deck-top(self)"], text: "Put this unit on the top of the deck",
     run: (ctx) => {
       const at = sourceAt(ctx);
-      if (at?.zone === "circle") { pull(ctx.s, ctx.r.uid); me(ctx).deck.unshift(reset(at.inst, false)); say(ctx, "log.toDeckTop", { card: cardName(ctx, at.inst) }, ctx.r.uid); }
+      if (at?.zone === "circle") { moveCard(ctx.db, ctx.s, ctx.r.uid, "deck", { top: true }); say(ctx, "log.toDeckTop", { card: cardName(ctx, at.inst) }, ctx.r.uid); }
       return true;
     },
   },
@@ -186,7 +185,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     forms: ["return-to-deck(self)"], text: "Shuffle this card into the deck",
     run: (ctx) => {
       const at = sourceAt(ctx);
-      if (at) { pull(ctx.s, ctx.r.uid); me(ctx).deck.push(reset(at.inst, false)); shuffleDeck(ctx, false); say(ctx, "log.returnToDeck", { card: cardName(ctx, at.inst) }, ctx.r.uid); }
+      if (at) { moveCard(ctx.db, ctx.s, ctx.r.uid, "deck"); shuffleDeck(ctx, false); say(ctx, "log.returnToDeck", { card: cardName(ctx, at.inst) }, ctx.r.uid); }
       return true;
     },
   },
@@ -198,7 +197,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
       const { min, max } = range(ctx, ctx.c.pos[1], "n≤1");
       const top = Math.min(max, opts.length);
       if (!ctx.r.answer?.uids) return askCards(ctx, msg("choice.toHand", { n: max }), opts, Math.min(min, top), top);
-      for (const u of ctx.r.answer.uids) { const { inst } = pull(ctx.s, u); ps.hand.push(reset(inst)); say(ctx, "log.toHand", { card: cardName(ctx, inst) }, u); }
+      for (const u of ctx.r.answer.uids) { const inst = moveCard(ctx.db, ctx.s, u, "hand"); say(ctx, "log.toHand", { card: cardName(ctx, inst) }, u); }
       return true;
     },
   },

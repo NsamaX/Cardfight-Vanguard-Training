@@ -84,18 +84,31 @@ export interface PlayerState {
   removed: CardInstance[];   // removed from the game (e.g. the G assist cost)
 }
 
+// Zones as move events name them (G = the G zone, GC = the guardian circle)
+export type Zone = "hand" | "deck" | "drop" | "soul" | "damage" | "bind" | "G" | "VC" | "RC" | "GC" | "removed";
+
+// A card moved from one zone to another (every move sends one, see zones.ts)
+export interface MoveEvent {
+  kind: "move";
+  player: PlayerId;
+  uid: string;
+  key: string;
+  from: Zone;
+  to: Zone;
+  by?: "retire" | "hollow";        // left a rear-guard circle by being retired (hollow = by the Hollow keyword)
+  as?: "g-guardian-cost";          // discarded to pay this cost
+  grants: Ability[];               // abilities the card had been granted on the board (it may still trigger them as it leaves)
+}
+
 // Game events AUTO abilities listen for (matching the timing codes in vocabulary.md)
 export type TriggerEvent =
-  | { kind: "enter"; player: PlayerId; uid: string; zone: "VC" | "RC" | "GC"; from: string }
+  | MoveEvent
   | { kind: "stride"; player: PlayerId; uid: string; key: string }
   | { kind: "ridden-upon"; player: PlayerId; uid: string }
   | { kind: "attack"; player: PlayerId; uid: string; circle: Circle; target: Circle }
   | { kind: "attack-hit"; player: PlayerId; uid: string; target: Circle }
-  | { kind: "to-soul"; player: PlayerId; n: number }   // n cards were put into this player's soul at once; "when a card is put" triggers n times
   | { kind: "turn-end"; player: PlayerId }   // the end phase, after the G unit returns (player = the turn player)
   | { kind: "battle-end"; player: PlayerId; attackerUid: string; attackerCircle: Circle; boosterUid?: string; target: Circle }
-  | { kind: "to-drop" | "retired"; player: PlayerId; uid: string; from: "RC" | "soul"; by?: "hollow"; grants: Ability[] }
-  | { kind: "discarded"; player: PlayerId; uid: string; as: "g-guardian-cost" }
   | { kind: "phase-start"; player: PlayerId; phase: "battle" };
 
 // Abilities waiting in the check timing queue

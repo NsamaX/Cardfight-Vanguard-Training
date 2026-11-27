@@ -1,7 +1,6 @@
 // Counter Blast / Charge, Soul Blast / Charge, the G zone, and binding: the resources abilities pay with or refill
 import { msg } from "../../../i18n/msg";
-import { emit } from "../../abilities";
-import { pull, reset } from "../../state";
+import { moveCard } from "../../zones";
 import type { PlayerState } from "../../types";
 import { askCards, matching, record, say, sourceAt } from "../ctx";
 import type { Ctx, OpSpec } from "../types";
@@ -44,22 +43,15 @@ export const RESOURCE_OPS: Record<string, OpSpec> = {
       if (opts.length > n && !ctx.r.answer?.uids) return askCards(ctx, msg("choice.soulBlast", { n }), opts, n, n);
       const picked = opts.length > n ? ctx.r.answer!.uids!.map((u) => ps.soul.find((i) => i.uid === u)!) : opts;
       say(ctx, "log.sb", { n: picked.length });
-      for (const inst of picked) {
-        pull(ctx.s, inst.uid);
-        ps.drop.push(reset(inst));
-        emit(ctx.db, ctx.s, { kind: "to-drop", player: ctx.owner, uid: inst.uid, from: "soul", grants: [] });
-      }
+      for (const inst of picked) moveCard(ctx.db, ctx.s, inst.uid, "drop");
       return true;
     },
   },
   SC: {
     forms: ["SC(#)"], text: "Soul Charge: put cards from the top of the deck into the soul",
     run: (ctx) => {
-      const ps = me(ctx);
-      const charged = ps.deck.splice(0, num(ctx.c.pos[0])).map((i) => reset(i));
-      ps.soul.push(...charged);
+      const charged = me(ctx).deck.slice(0, num(ctx.c.pos[0])).map((i) => moveCard(ctx.db, ctx.s, i.uid, "soul"));
       record(ctx, "charged", charged);
-      if (charged.length) emit(ctx.db, ctx.s, { kind: "to-soul", player: ctx.owner, n: charged.length });
       say(ctx, "log.sc", { n: num(ctx.c.pos[0]) });
       return true;
     },
@@ -87,15 +79,14 @@ export const RESOURCE_OPS: Record<string, OpSpec> = {
       const ps = me(ctx);
       if (!ctx.r.local.selfDone) {
         const at = sourceAt(ctx);
-        if (at && at.zone !== "bind") { pull(ctx.s, ctx.r.uid); ps.bind.push(reset(at.inst)); say(ctx, "log.bind", { card: ctx.db[at.inst.key].name }, ctx.r.uid); }
+        if (at && at.zone !== "bind") { moveCard(ctx.db, ctx.s, ctx.r.uid, "bind"); say(ctx, "log.bind", { card: ctx.db[at.inst.key].name }, ctx.r.uid); }
         ctx.r.local.selfDone = 1;
       }
       if (ctx.c.pos[0] === "self") return true;
       const opts = ps.drop.filter((d) => ctx.db[d.key].trigger === "heal");
       if (!opts.length) return true;
       if (!ctx.r.answer?.uids) return askCards(ctx, msg("choice.bindHeal"), opts, 1, 1);
-      const { inst } = pull(ctx.s, ctx.r.answer.uids[0]);
-      ps.bind.push(reset(inst));
+      const inst = moveCard(ctx.db, ctx.s, ctx.r.answer.uids[0], "bind");
       say(ctx, "log.bind", { card: ctx.db[inst.key].name }, inst.uid);
       return true;
     },

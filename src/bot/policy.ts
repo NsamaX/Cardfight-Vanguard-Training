@@ -573,7 +573,7 @@ function guard(db: CardDB, s: GameState, p: PlayerId): Action {
 function wantHollow(db: CardDB, s: GameState, entry: QueueEntry): boolean {
   const at = locate(s, entry.uid);
   if (!at || at.zone !== "circle") return false;
-  if (entry.event?.kind === "enter" && entry.event.from === "drop") return true;
+  if (entry.event?.kind === "move" && entry.event.to === "RC" && entry.event.from === "drop") return true;
   return generationBreak(db, s.players[entry.owner]) >= 1 && hollowPayoff(db[at.inst.key]);
 }
 

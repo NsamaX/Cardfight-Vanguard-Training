@@ -1,7 +1,7 @@
 // G-era phase and battle mechanics + the hook into the ability system (abilities.ts)
 // apply() takes state + an action and returns a new state + events; never modifies the old state, and randomizes only via the seed
 import { actAt, blocked, condOk, declineEntry, emit, releaseDelayed, settle, startResolving, type ResumeHandlers } from "./abilities";
-import { placeOnRC, retireUnit } from "./zones";
+import { moveCard, moved, placeOnRC, retireUnit } from "./zones";
 import { guardianDiscardFilter, refreshContinuous, strideCostGrade, strideGradeNeeded } from "./cont";
 import { cardMatches } from "./vocab/filters";
 import { cloneState } from "./clone";
@@ -311,12 +311,12 @@ function ride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: 
   const old = ps.circles.vc!;
   inst.rested = old.rested;
   ps.soul.push(reset(old));
-  emit(db, s, { kind: "to-soul", player: p, n: 1 });
+  moved(db, s, { player: p, uid: old.uid, key: old.key, from: "VC", to: "soul" });
   ps.circles.vc = inst;
   s.rodeThisTurn = true;
   ev(out, "ride", p, msg("log.ride", { player: playerMsg(p), card: name(db, inst) }), inst.uid);
   emit(db, s, { kind: "ridden-upon", player: p, uid: old.uid });
-  emit(db, s, { kind: "enter", player: p, uid: inst.uid, zone: "VC", from: "hand" });
+  moved(db, s, { player: p, uid: inst.uid, key: inst.key, from: "hand", to: "VC" });
   s.resume = "ride-finish";
 }
 
@@ -336,7 +336,7 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   if (discards.length === 0 || discards.reduce((n, c) => n + strideCostGrade(db, s, p, c), 0) < strideGradeNeeded(db[g.key])) {
     throw new RuleError("err.strideCost");
   }
-  for (const c of discards) ps.drop.push(reset(takeFrom(ps.hand, c.uid, "hand")));
+  for (const c of discards) moveCard(db, s, c.uid, "drop");
   takeFrom(ps.gZone, g.uid, "G zone");
   const heart = ps.circles.vc!;
   // The old vanguard's (about to become the heart) AUTO (VC) "when your G unit strides" must be checked while it's still on VC
@@ -347,7 +347,7 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   ps.circles.vc = g;
   s.strodeThisTurn = true;
   ev(out, "stride", p, msg("log.stride", { player: playerMsg(p), card: name(db, g), heart: name(db, heart) }), g.uid);
-  emit(db, s, { kind: "enter", player: p, uid: g.uid, zone: "VC", from: "G" });
+  moved(db, s, { player: p, uid: g.uid, key: g.key, from: "G", to: "VC" });
 }
 
 // ---------- Main phase ----------
@@ -410,20 +410,18 @@ function guard(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type:
   requireGuard(s, p);
   const ps = s.players[p];
   for (const uid of a.uids) {
-    const inst = takeFrom(ps.hand, uid, "hand");
-    ps.guardian.push(reset(inst));
-    ev(out, "guard", p, msg("log.guard", { player: playerMsg(p), card: name(db, inst), shield: shieldOf(db, inst) }), inst.uid);
-    emit(db, s, { kind: "enter", player: p, uid: inst.uid, zone: "GC", from: "hand" });
+    const inst = ps.hand.find((c) => c.uid === uid);
+    if (!inst) throw new RuleError("err.notInHand");
+    ev(out, "guard", p, msg("log.guard", { player: playerMsg(p), card: name(db, inst), shield: shieldOf(db, reset(inst)) }), inst.uid);
+    moveCard(db, s, uid, "GC");
   }
   for (const c of a.intercept ?? []) {
     const inst = ps.circles[c];
     if (!inst || (c !== "front_left" && c !== "front_right") || c === s.battle!.target || !canIntercept(db[inst.key])) {
       throw new RuleError("err.intercept");
     }
-    delete ps.circles[c];
-    ps.guardian.push(reset(inst));
+    moveCard(db, s, inst.uid, "GC");
     ev(out, "intercept", p, msg("log.intercept", { card: name(db, inst), shield: shieldOf(db, inst) }), inst.uid);
-    emit(db, s, { kind: "enter", player: p, uid: inst.uid, zone: "GC", from: "RC" });
   }
 }
 
@@ -446,12 +444,10 @@ function callGGuardian(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action,
   if (!g || g.faceUp || db[g.key].type !== "g-guardian") throw new RuleError("err.gGuardNeedG");
   const discard = ps.hand.find((c) => c.uid === a.discardUid);
   if (!discard || !cardMatches(db[discard.key], guardianDiscardFilter(db[g.key]), { db })) throw new RuleError("err.gGuardDiscard");
-  ps.drop.push(reset(takeFrom(ps.hand, discard.uid, "hand")));
-  ps.guardian.push(reset(takeFrom(ps.gZone, g.uid, "G zone")));
   ev(out, "discard", p, msg("log.discard", { card: name(db, discard) }), discard.uid);
   ev(out, "g-guardian", p, msg("log.gGuardian", { player: playerMsg(p), card: name(db, g), shield: shieldOf(db, g) }), g.uid);
-  emit(db, s, { kind: "discarded", player: p, uid: discard.uid, as: "g-guardian-cost" });
-  emit(db, s, { kind: "enter", player: p, uid: g.uid, zone: "GC", from: "G" });
+  moveCard(db, s, discard.uid, "drop", { as: "g-guardian-cost" });
+  moveCard(db, s, g.uid, "GC");
 }
 
 function endGuard(db: CardDB, s: GameState, p: PlayerId, _a: Action, out: Out) {
@@ -544,10 +540,7 @@ function closeBattle(db: CardDB, s: GameState, _out: Out) {
   s.step = "close";
   for (const p of PLAYERS) {
     const ps = s.players[p];
-    for (const g of ps.guardian.splice(0)) {
-      if (db[g.key].type === "g-guardian") ps.gZone.push(reset(g, true));
-      else ps.drop.push(reset(g));
-    }
+    for (const g of [...ps.guardian]) moveCard(db, s, g.uid, db[g.key].type === "g-guardian" ? "G" : "drop");
   }
   const tp = s.players[s.turnPlayer];
   releaseDelayed(s, "battle-end");

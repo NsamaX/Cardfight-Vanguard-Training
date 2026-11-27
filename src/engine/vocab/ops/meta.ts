@@ -3,7 +3,8 @@ import { msg } from "../../../i18n/msg";
 import { splitTop } from "../../code";
 import { shuffle } from "../../rng";
 import { isG } from "../../rules";
-import { locate, playerMsg, pull, reset } from "../../state";
+import { locate, playerMsg } from "../../state";
+import { moveCard } from "../../zones";
 import type { Ability } from "../../types";
 import { ask, askCards, say } from "../ctx";
 import { runCode } from "../index";
@@ -59,7 +60,7 @@ export const META_OPS: Record<string, OpSpec> = {
           if (pool.length) return askCards(ctx, msg("choice.gAssistPick", { grade }), pool, 0, 1);
         }
         const picked = r.answer?.uids ?? [];
-        for (const u of picked) { const { inst } = pull(ctx.s, u); ps.hand.push(reset(inst)); say(ctx, "log.searchHand", { card: ctx.db[inst.key].name }, u); }
+        for (const u of picked) { const inst = moveCard(ctx.db, ctx.s, u, "hand"); say(ctx, "log.searchHand", { card: ctx.db[inst.key].name }, u); }
         [ps.deck, ctx.s.rngState] = shuffle(ps.deck, ctx.s.rngState);
         say(ctx, "log.shuffle");
         if (!picked.length) return true;
@@ -69,7 +70,7 @@ export const META_OPS: Record<string, OpSpec> = {
       const n = Math.min(2, ps.hand.length);
       if (!n) return true;
       if (!r.answer?.uids) return askCards(ctx, msg("choice.gAssistRemove", { n }), ps.hand, n, n);
-      for (const u of r.answer.uids) { const { inst } = pull(ctx.s, u); ps.removed.push(reset(inst)); say(ctx, "log.removed", { card: ctx.db[inst.key].name }, u); }
+      for (const u of r.answer.uids) { const inst = moveCard(ctx.db, ctx.s, u, "removed"); say(ctx, "log.removed", { card: ctx.db[inst.key].name }, u); }
       return true;
     },
   },

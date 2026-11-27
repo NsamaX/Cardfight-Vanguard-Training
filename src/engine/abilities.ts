@@ -64,7 +64,7 @@ function collectTriggers(db: CardDB, s: GameState) {
       const selfUid = "uid" in e && e.player === p ? e.uid : undefined;
       if (selfUid) {
         const at = locate(s, selfUid);
-        const captured = e.kind === "to-drop" || e.kind === "retired" ? e.grants : [];
+        const captured = e.kind === "move" ? e.grants : [];
         const known = cands.find((c) => c.inst.uid === selfUid);
         if (known) known.grants = [...known.grants, ...captured];
         else if (at) cands.push({ inst: at.inst, where: at.zone, grants: captured });
@@ -74,10 +74,7 @@ function collectTriggers(db: CardDB, s: GameState) {
           if (!triggers(db, ab, e, inst.uid, p)) continue;
           if (inst.uid !== selfUid && !abilityZoneOk(ab.zone, where)) continue;
           if (!condOk(db, s, p, inst, key, ab, "trigger")) continue;
-          // "When a card is put into the soul" triggers once per card put there
-          for (let n = e.kind === "to-soul" ? e.n : 1; n > 0; n--) {
-            s.queue.push({ owner: p, uid: inst.uid, key, ability: ab, event: e, label: label(db, inst, ab), optional: isOptional(ab) });
-          }
+          s.queue.push({ owner: p, uid: inst.uid, key, ability: ab, event: e, label: label(db, inst, ab), optional: isOptional(ab) });
         }
       }
     }

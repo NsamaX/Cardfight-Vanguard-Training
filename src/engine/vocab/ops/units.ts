@@ -1,10 +1,9 @@
 // Units on the board: call, retire, stand, swap, hollow, can't be hit
 import { msg } from "../../../i18n/msg";
-import { emit } from "../../abilities";
 import { RC, SAME_COLUMN, isG, other } from "../../rules";
-import { circleOf, ev, locate, pull, reset } from "../../state";
+import { circleOf, ev, locate } from "../../state";
 import type { CardInstance, Circle, PlayerState } from "../../types";
-import { placeOnRC, retireUnit } from "../../zones";
+import { moveCard, placeOnRC, retireUnit, takeForCircle } from "../../zones";
 import { amount, range } from "../counters";
 import { ask, askCards, checkChosen, matching, record, say, sourceAt } from "../ctx";
 import { isChoice, pickUnits } from "../selectors";
@@ -39,7 +38,7 @@ function runCall(ctx: Ctx): boolean {
     const at = sourceAt(ctx);
     if (at?.zone !== "soul") return true;
     if (!r.answer) return ask(ctx, { kind: "circle", prompt: msg("choice.callSelf", { card: ctx.db[at.inst.key].name }), side: ctx.owner, options: RC });
-    if (r.answer.to) { pull(ctx.s, r.uid); placeOnRC(ctx.db, ctx.s, ctx.owner, at.inst, r.answer.to, "soul", ctx.out); }
+    if (r.answer.to) { const { inst, from } = takeForCircle(ctx.s, r.uid); placeOnRC(ctx.db, ctx.s, ctx.owner, inst, r.answer.to, from, ctx.out); }
     return true;
   }
 
@@ -56,10 +55,8 @@ function runCall(ctx: Ctx): boolean {
     }
     checkChosen(ctx, r.answer.uids);
     for (const u of r.answer.uids) {
-      const { inst } = pull(ctx.s, u);
-      ps.guardian.push(reset(inst));
-      ev(ctx.out, "call", ctx.owner, msg("log.callGC", { card: ctx.db[inst.key].name }), u);
-      emit(ctx.db, ctx.s, { kind: "enter", player: ctx.owner, uid: u, zone: "GC", from: "drop" });
+      ev(ctx.out, "call", ctx.owner, msg("log.callGC", { card: ctx.db[locate(ctx.s, u)!.inst.key].name }), u);
+      moveCard(ctx.db, ctx.s, u, "GC");
     }
     return true;
   }
@@ -89,8 +86,8 @@ function runCall(ctx: Ctx): boolean {
     }
     const to = r.answer.to;
     r.answer = undefined;
-    const { inst, zone } = pull(ctx.s, String(r.local.card));
-    placeOnRC(ctx.db, ctx.s, ctx.owner, inst, to, zone, ctx.out);
+    const { inst, from } = takeForCircle(ctx.s, String(r.local.card));
+    placeOnRC(ctx.db, ctx.s, ctx.owner, inst, to, from, ctx.out);
     record(ctx, "called", [inst]);
     r.usedCircles.push(to);
     r.local.card = undefined;

@@ -29,6 +29,7 @@ code(main value, parameter=value)
 | Code | Meaning | Cards |
 |---|---|---|
 | `enter(RC, self)`<br>`enter(VC, self)`<br>`enter(GC, self)`<br>`enter(RC, self, from=hand)`<br>`enter(RC, other-own, from=drop)` | A card is placed on a circle (from= where it came from) | Agleam, Honoly, Iris, Urth, Eir, Laurier, Hemera, Freyja, Flap Angel, Jotun, Bragi, Angelica, Negronora, Deep Corpse Dragon, Obadiah, Negrolily, Immortal Galleon, Chappie the Ghostie, Gust Jinn, King Serpent, Nightstorm, Skeleton Cannoneer, Tommy the Ghostie Brothers, Grenache, Nightrose, Waterspout Djinn, Negrolazy, Negrorook, Zombie Whale of the Ocean Depths, Mick the Ghostie and Family, Megiddo |
+| `move(self, from=hand, to=drop)`<br>`move(own, from=deck, to=drop)`<br>`move(opp, from=RC, to=drop)`<br>`move(own, to=bind, filter=…)` | A card moves between zones (who: self / own / other-own / opp; from= and to= a zone: hand, deck, drop, soul, damage, bind, G, VC, RC, GC; by= retire or hollow). Draws, checks, and heals don't send it yet | - |
 | `stride(own)`<br>`stride(own, filter=name("…"))` | We stride a G unit (filter on its original card name) | Angelica, Verthandi, Nightrose |
 | `attack-hit(self)`<br>`attack-hit(self, target=VC)` | This unit's attack hits (target= VC or RC) | Verthandi |
 | `to-soul(own)` | A card is put into our soul (once per card) | Verthandi |
@@ -37,8 +38,8 @@ code(main value, parameter=value)
 | `attack(self)`<br>`attack(self, target=VC)`<br>`attack(own-VC)` | This unit (or our vanguard) attacks | Minerva, Freyja, Genil, Negrorook, Zombie Whale of the Ocean Depths, Rampage Shade |
 | `battle-end(self, did=attack)`<br>`battle-end(self, did=attack-VC)`<br>`battle-end(self, did=boost-RC)` | The end of a battle in which this unit attacked (a vanguard) or boosted a rear-guard | Nightstorm, Negrobone, Megiddo |
 | `to-drop(self, from=soul)`<br>`to-drop(self, from=RC, by=hollow)`<br>`to-drop(own, from=RC)` | A card is put into the drop zone (from=, by= how) | Norn, Jotun, Genil, Achlis, Grenache, Nightrose, Negrolazy |
-| `retired(self)`<br>`retired(own)` | A unit is retired | Mick the Ghostie and Family |
-| `discarded(self, from=hand, as=g-guardian-cost)` | This card is discarded (as= for which cost) | Eir, Dewey the Ghostie |
+| `retired(self, from=RC)`<br>`retired(own)` | A unit is retired (by an effect, a cost, the rules, or Hollow) | Mick the Ghostie and Family |
+| `discarded(self, from=hand, as=g-guardian-cost)`<br>`discarded(self)` | This card is discarded from hand (as= for which cost) | Eir, Dewey the Ghostie |
 | `phase-start(battle)` | Our battle phase starts | Nightrose |
 | `step(stride, own)`<br>`step(guard, opp)` | Used in this step by the rules (STRIDE, G GUARDIAN) | Sebreeze, Agleam, Inanna, Iris, Urth, Eir, Minerva, Laurier, Negronora, Deep Corpse Dragon, Obadiah, Negrolily, Nightrose, Immortal Galleon, Megiddo |
 

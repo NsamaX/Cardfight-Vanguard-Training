@@ -69,7 +69,7 @@ describe("vocabulary", () => {
 describe("documents/vocabulary.md", () => {
   it("its code reference matches the registry (run npm run vocab-doc after changing a code)", () => {
     const file = join(process.cwd(), "documents/vocabulary.md");
-    const doc = readFileSync(file, "utf8");
+    const doc = readFileSync(file, "utf8").replace(/\r\n/g, "\n");   // git may check it out with CRLF
     expect(withGenerated(doc, vocabularyMarkdown(cards))).toBe(doc);
   });
 });
