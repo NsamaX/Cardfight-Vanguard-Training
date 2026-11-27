@@ -22,6 +22,8 @@
     "vocab-doc": "vite-node scripts/vocab-doc.ts",
     "prechains": "npm run content",
     "chains": "vite-node scripts/chains.ts --",
+    "preseat": "npm run content",
+    "seat": "vite-node scripts/seat.ts --",
     "sync-defaults": "node --env-file=.env scripts/sync-defaults.mjs"
   },
   "dependencies": {
