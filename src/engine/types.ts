@@ -67,8 +67,7 @@ export interface CardInstance {
   mods: { stat: "power" | "critical" | "shield" | "drive"; value: number; source: string; until: "battle-end" | "turn-end" }[];
   usedThisTurn: string[];   // 1/Turn abilities already used (ability key)
   grants?: Ability[];       // abilities granted by other cards (end at end of turn or on zone change)
-  retireAtTurnEnd?: boolean;
-  soulAtBattleEnd?: boolean;   // put into the soul at the end of this battle (e.g. Genil after attacking)
+  leaving?: boolean;    // a delayed effect will remove it from the field at the end of the turn (e.g. retire the called units)
 }
 
 export interface PlayerState {
@@ -108,7 +107,14 @@ export interface QueueEntry {
   event?: TriggerEvent;
   label: string;
   optional: boolean;    // can be declined (has a cost, or a "may" effect)
+  carry?: { done: Record<string, Done[]>; at: "battle-end" | "turn-end" };   // the rest of an ability delayed by at= (see Delayed): what its earlier steps did
 }
+
+// A card an ability step acted on, remembered under a tag (souled, called, returned, charged, stood, milled) so later steps can refer to it
+export interface Done { uid: string; key: string }
+
+// The rest of an ability that waits for a later moment ("at the end of that battle / turn, ..."), queued as a forced ability then
+export interface Delayed { at: "battle-end" | "turn-end"; entry: QueueEntry }
 
 export type Choice =
   | { kind: "yesno"; prompt: Msg }
@@ -123,12 +129,8 @@ export interface Resolving extends QueueEntry {
   choice?: Choice;
   answer?: { uids?: string[]; to?: Circle; option?: string };
   local: Record<string, string | number | undefined>;
-  called: string[];
+  done: Record<string, Done[]>;   // what the steps so far did, by tag (see Done)
   usedCircles: Circle[];
-  hollowMilled: number;
-  souled?: string[];    // names of the cards this ability put into the soul (souled≥n, souled-name, per souled)
-  charged?: string[];   // uids of the cards this ability soul charged (soul-charged(filter))
-  returned?: number;    // cards this ability returned to the deck (per=returned, returned≥n)
   confirmed?: boolean;  // the player already chose to use it (don't ask again)
   thatCards?: string[]; // a 1/turn ability triggered by several cards at once: any of them can be "that card", since only one trigger can resolve this turn
 }
@@ -149,6 +151,7 @@ export interface GameState {
   battle?: Battle;
   events: TriggerEvent[];           // events not yet checked for which AUTO abilities trigger
   queue: QueueEntry[];              // check timing queue
+  delayed?: Delayed[];              // ability parts waiting for the end of the battle / turn
   resolving?: Resolving;            // the ability currently resolving
   resume?: string;                  // game step to continue once the queue is empty
   awaiting?: Decision;              // if set = the game is waiting for this player to decide
@@ -159,7 +162,6 @@ export interface GameState {
 }
 
 export interface Battle {
-  atEnd?: { player: PlayerId; source: string; filter: string; drive: number }[];   // "at the end of that battle, stand your units ..." (and their drive change), done in the close step
   attacker: Circle;
   booster?: Circle;
   target: Circle;

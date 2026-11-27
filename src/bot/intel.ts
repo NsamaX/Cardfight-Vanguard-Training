@@ -76,7 +76,7 @@ export function unitThreat(db: CardDB, s: GameState, q: PlayerId, uid: string): 
   const inst = c ? ps.circles[c] : undefined;
   if (!inst || !c) return 0;
   const card = db[inst.key];
-  if (inst.hollowed || inst.retireAtTurnEnd) return 0.1;
+  if (inst.hollowed || inst.leaving) return 0.1;
   const res = resources(db, s, q);
   let v = 0.3 + (card.power ?? 0) / 20000;
   for (const ab of card.abilities) {

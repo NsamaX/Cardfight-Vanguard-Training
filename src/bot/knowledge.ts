@@ -43,7 +43,7 @@ export function keepValue(db: CardDB, s: GameState, p: PlayerId, inst: CardInsta
 // Value of a unit on the board (used when choosing which unit to lose)
 export function unitValue(db: CardDB, inst: CardInstance): number {
   const card = db[inst.key];
-  if (inst.hollowed || inst.retireAtTurnEnd) return 0.1;
+  if (inst.hollowed || inst.leaving) return 0.1;
   return 0.35 + (card.power ?? 0) / 25000 + (dropCallPayoff(card) ? 0.1 : 0) + (hollowPayoff(card) ? 0.1 : 0);
 }
 

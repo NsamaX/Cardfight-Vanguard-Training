@@ -175,7 +175,7 @@ export function callScore(db: CardDB, s: GameState, p: PlayerId, inst: CardInsta
   if (!canBoost(card) && !FRONT.includes(to)) gain -= 1;
   if (canBoost(card) && FRONT.includes(to)) gain -= 0.6;
   // The pressure lost from the replaced unit is already in gain; only the unit's other value remains (interceptor etc.)
-  const loss = old && !old.hollowed && !old.retireAtTurnEnd ? 0.35 : 0;
+  const loss = old && !old.hollowed && !old.leaving ? 0.35 : 0;
   // After calling this card the hand must still guard next turn's lethal attacks (opponent strides + existing columns); if not, this card is worth more
   const handShield = ps.hand.reduce((n, h) => n + (isSentinel(db[h.key]) ? 15000 : shieldIn(db, h)), 0);
   const short = handShield - (isSentinel(card) ? 15000 : shieldIn(db, inst)) < nextTurnNeed(db, s, p);
@@ -837,7 +837,7 @@ export function pickCircle(db: CardDB, s: GameState, p: PlayerId, options: Circl
       const front = FRONT.find((f) => BEHIND[f] === c);
       v += isFront ? 0.5 : front && ps.circles[front] ? (front === "vc" ? 3 : 2.5) : 1.5;
     } else v += isFront ? 3 : 0.2;
-    if (occ) v -= occ.hollowed || occ.retireAtTurnEnd ? 0.4 : 1 + unitValue(db, occ) * 2;
+    if (occ) v -= occ.hollowed || occ.leaving ? 0.4 : 1 + unitValue(db, occ) * 2;
     return v;
   };
   const best = [...options].sort((a, b) => score(b) - score(a))[0];

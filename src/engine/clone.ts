@@ -42,6 +42,6 @@ export function cloneState(s: GameState): GameState {
     return o;
   };
   const out: GameState = { ...s, players: { me: player(s.players.me), bot: player(s.players.bot) }, mulliganDone: s.mulliganDone.slice() };
-  for (const k of ["battle", "events", "queue", "resolving", "awaiting"] as const) if (s[k] !== undefined) (out as unknown as Record<string, unknown>)[k] = any(s[k]);
+  for (const k of ["battle", "events", "queue", "delayed", "resolving", "awaiting"] as const) if (s[k] !== undefined) (out as unknown as Record<string, unknown>)[k] = any(s[k]);
   return out;
 }

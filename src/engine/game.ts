@@ -1,6 +1,7 @@
 // G-era phase and battle mechanics + the hook into the ability system (abilities.ts)
 // apply() takes state + an action and returns a new state + events; never modifies the old state, and randomizes only via the seed
-import { actAt, blocked, condOk, declineEntry, emit, placeOnRC, retireUnit, settle, standAtBattleEnd, startResolving, type ResumeHandlers } from "./abilities";
+import { actAt, blocked, condOk, declineEntry, emit, releaseDelayed, settle, startResolving, type ResumeHandlers } from "./abilities";
+import { placeOnRC, retireUnit } from "./zones";
 import { cloneState } from "./clone";
 import { shuffle } from "./rng";
 import { msg, type Msg } from "../i18n/msg";
@@ -261,6 +262,7 @@ function endTurn(db: CardDB, s: GameState, out: Out) {
     ev(out, "g-return", p, msg("log.gReturn", { card: name(db, vc) }), vc.uid);
   }
   emit(db, s, { kind: "turn-end", player: p });
+  releaseDelayed(s, "turn-end");
   retireEndOfTurn(db, s, out);
   s.resume = "end-finish";
 }
@@ -271,7 +273,6 @@ function retireEndOfTurn(db: CardDB, s: GameState, out: Out): boolean {
     for (const c of RC) {
       const u = s.players[q].circles[c];
       if (u?.hollowed) { retireUnit(db, s, q, c, out, msg("reason.hollow"), "hollow"); any = true; }
-      else if (u?.retireAtTurnEnd) { retireUnit(db, s, q, c, out, msg("reason.turnEnd")); any = true; }
     }
   }
   return any;
@@ -542,15 +543,7 @@ function closeBattle(db: CardDB, s: GameState, _out: Out) {
     }
   }
   const tp = s.players[s.turnPlayer];
-  for (const c of RC) {
-    const u = tp.circles[c];
-    if (!u?.soulAtBattleEnd) continue;
-    delete tp.circles[c];
-    tp.soul.push(reset(u));
-    ev(_out, "to-soul", s.turnPlayer, msg("log.soulIn", { card: name(db, u) }), u.uid);
-    emit(db, s, { kind: "to-soul", player: s.turnPlayer, n: 1 });
-  }
-  standAtBattleEnd(db, s, _out);
+  releaseDelayed(s, "battle-end");
   const atk = tp.circles[b.attacker];
   if (atk) {
     emit(db, s, {
