@@ -140,7 +140,9 @@ function collectTriggers(db: CardDB, s: GameState) {
           if (!self && !zoneOk(ab.zone, where)) continue;
           if (!matches(db, ab.timing, e, inst.uid, p)) continue;
           if (!condOk(db, s, p, inst, key, ab, "trigger")) continue;
-          s.queue.push({ owner: p, uid: inst.uid, key, ability: ab, event: e, label: label(db, inst, ab), optional: isOptional(ab) });
+          for (let n = e.kind === "to-soul" ? e.n : 1; n > 0; n--) {
+            s.queue.push({ owner: p, uid: inst.uid, key, ability: ab, event: e, label: label(db, inst, ab), optional: isOptional(ab) });
+          }
         }
       }
     }
@@ -172,7 +174,7 @@ export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandler
       if (s.passQueue === p) {
         const skip = mine.find((e) => e.optional);
         if (skip) { declineEntry(s, skip, out); continue; }
-      } else if (mine.length > 1) { s.ordering = p; return; }   // wait for the owner to choose which one / which order
+      } else if (mine.length > 1 && !sameAbility(mine)) { s.ordering = p; return; }   // wait for the owner to choose which one / which order
       else if (mine[0].optional || s.ordering === p) return;
       startResolving(db, s, mine[0], out);
       continue;
@@ -183,6 +185,9 @@ export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandler
   }
   throw new Error("ability resolution did not settle");
 }
+
+// The same ability of the same card waiting several times (e.g. several cards put into the soul at once): no order to choose
+const sameAbility = (q: QueueEntry[]) => q.every((e) => e.uid === q[0].uid && e.key === q[0].key && !e.optional);
 
 export function declineEntry(s: GameState, entry: QueueEntry, out: Out) {
   s.queue.splice(s.queue.indexOf(entry), 1);
@@ -273,6 +278,7 @@ function matchFilter(db: CardDB, s: GameState, r: Resolving, inst: CardInstance,
     else if (t === "not-same-name") { if (source && card.name === db[source.key].name) return false; }
     else if (t === "same-name") { if (source && inst.key !== source.key) return false; }
     else if (t === "has-hollow") { if (!hasHollow(card)) return false; }
+    else if (t === "has-revelation") { if (!card.abilities.some((a) => a.effect.includes("keyword(Revelation)"))) return false; }
     else if (t === "normal-unit") { if (card.type !== "normal") return false; }
     else if (t === "heal" || t === "heal-trigger") { if (card.trigger !== "heal") return false; }
     else if (t === "G-GUARDIAN") { if (card.type !== "g-guardian") return false; }
@@ -298,6 +304,7 @@ function evalIf(db: CardDB, s: GameState, r: Resolving, expr?: string): boolean 
     const flt = m[1] ?? "";
     return s.players[r.owner].gZone.filter((g) => g.faceUp && matchFilter(db, s, r, g, flt)).length >= +m[2];
   }
+  if ((m = expr.match(/^vc-grade≥(\d+)$/))) return vcInfo(db, s, r.owner).grade >= +m[1];
   if (expr.startsWith("souled-name(")) return (r.souled ?? []).some((n) => n.includes(quoted(expr)));
   return false;   // a condition the engine can't check yet: skip the effect rather than give it for free
 }
@@ -379,8 +386,10 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
       return true;
     }
     case "SC": {
-      for (let i = 0; i < num(c.pos[0]) && ps.deck.length; i++) ps.soul.push(reset(ps.deck.shift()!));
-      if (num(c.pos[0])) emit(db, s, { kind: "to-soul", player: p });
+      const charged = ps.deck.splice(0, num(c.pos[0])).map((i) => reset(i));
+      ps.soul.push(...charged);
+      r.charged = [...(r.charged ?? []), ...charged.map((i) => i.uid)];
+      if (charged.length) emit(db, s, { kind: "to-soul", player: p, n: charged.length });
       say("log.sc", { n: num(c.pos[0]) }); return true;
     }
     case "mill": {
@@ -417,7 +426,7 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
     }
     case "soul-in": {
       const at = src();
-      if (at?.zone === "circle") { pull(s, r.uid); ps.soul.push(reset(at.inst)); say("log.soulIn", { card: name(db, at.inst) }, r.uid); emit(db, s, { kind: "to-soul", player: p }); }
+      if (at?.zone === "circle") { pull(s, r.uid); ps.soul.push(reset(at.inst)); say("log.soulIn", { card: name(db, at.inst) }, r.uid); emit(db, s, { kind: "to-soul", player: p, n: 1 }); }
       return true;
     }
     case "bind": {
@@ -504,7 +513,23 @@ function runOp(db: CardDB, s: GameState, r: Resolving, op: string, out: Out): bo
       return true;
     }
     case "power": case "shield": case "critical": return opStat(db, s, r, c, out);
-    case "no-hit": { if (s.battle) { s.battle.noHit = true; say("log.noHitEffect"); } return true; }
+    case "no-hit": {
+      // no-hit(own-attacked, filter=…): "choose one of your units with …": only the attacked unit matters, so it must match
+      const attacked = s.battle && ps.circles[s.battle.target];
+      if (!s.battle || (c.named.filter && (!attacked || !matchFilter(db, s, r, attacked, c.named.filter)))) return true;
+      s.battle.noHit = true; say("log.noHitEffect");
+      return true;
+    }
+    case "opp-retires": {
+      // opp-retires(opp-RC, n=soul-charged(filter)): the opponent chooses that many of their rear-guards and retires them
+      const m = (c.named.n ?? "").match(/^soul-charged\((.*)\)$/);
+      const want = m ? (r.charged ?? []).filter((u) => { const i = locate(s, u)?.inst; return !!i && matchFilter(db, s, r, i, m[1]); }).length : num(c.named.n);
+      const opts = rcUnits(s, opp), n = Math.min(want, opts.length);
+      if (!n) return true;
+      if (!r.answer?.uids) return ask(r, { kind: "cards", prompt: msg("choice.oppRetires", { n }), options: opts.map((i) => i.uid), min: n, max: n, by: opp });
+      for (const u of r.answer.uids) retireUnit(db, s, opp, circleOf(s, opp, u)!, out, msg("reason.effect", { label: r.label }));
+      return true;
+    }
     case "choose": {
       // Remember the chosen effect; it may ask further (e.g. CC must choose a damage card), then come back to this code again
       if (r.local.pick === undefined) {
@@ -668,7 +693,7 @@ function opToSoul(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): bo
     if (c.named.at === "battle-end") { at.inst.soulAtBattleEnd = true; return true; }
     into(pull(s, r.uid).inst);
     noteSouled(db, r, [at.inst]);
-    emit(db, s, { kind: "to-soul", player: p });
+    emit(db, s, { kind: "to-soul", player: p, n: 1 });
     return true;
   }
   if (c.pos[0] !== "drop") { ev(out, "to-soul", p, msg("log.unsupported", { name: c.name, op: c.name })); return true; }
@@ -689,7 +714,7 @@ function opToSoul(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): bo
   const moved = uids.map((u) => pull(s, u).inst);
   moved.forEach(into);
   noteSouled(db, r, moved);
-  if (moved.length) emit(db, s, { kind: "to-soul", player: p });
+  if (moved.length) emit(db, s, { kind: "to-soul", player: p, n: moved.length });
   return true;
 }
 
@@ -715,7 +740,7 @@ function opLook(db: CardDB, s: GameState, r: Resolving, c: Code, out: Out): bool
       if (dest === "hand") { ps.hand.push(reset(inst)); ev(out, "look", p, msg("log.searchHand", { card: name(db, inst) }), inst.uid); }
       else { ps.soul.push(reset(inst)); ev(out, "to-soul", p, msg("log.soulIn", { card: name(db, inst) }), inst.uid); }
     }
-    if (dest === "soul") { noteSouled(db, r, picked); if (picked.length) emit(db, s, { kind: "to-soul", player: p }); }
+    if (dest === "soul") { noteSouled(db, r, picked); if (picked.length) emit(db, s, { kind: "to-soul", player: p, n: picked.length }); }
   }
   if (c.named.rest === "drop") {
     for (const inst of left()) { pull(s, inst.uid); ps.drop.push(reset(inst)); ev(out, "look", p, msg("log.searchDrop", { card: name(db, inst) }), inst.uid); }

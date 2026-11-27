@@ -14,9 +14,8 @@ clan: "Genesis"
 abilities:
   - kind: "ACT"
     zone: "RC"
-    cond: ["vc-grade≥3"]
     cost: ["soul-in(self)"]
-    effect: ["power(+3000, other-own, n≤1, until=turn-end)", "draw(1, if=G-faceup≥1)"]
+    effect: ["power(+3000, other-own, n≤1, until=turn-end, if=vc-grade≥3)", "draw(1, if=G-faceup≥1)"]
 text: |
   ### ACT
 

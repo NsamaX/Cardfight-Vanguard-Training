@@ -92,8 +92,8 @@ export type TriggerEvent =
   | { kind: "ridden-upon"; player: PlayerId; uid: string }
   | { kind: "attack"; player: PlayerId; uid: string; circle: Circle; target: Circle }
   | { kind: "attack-hit"; player: PlayerId; uid: string; target: Circle }
-  | { kind: "to-soul"; player: PlayerId }
-  | { kind: "turn-end"; player: PlayerId }   // the end phase, after the G unit returns (player = the turn player)   // one or more cards were put into this player's soul (one event per effect)
+  | { kind: "to-soul"; player: PlayerId; n: number }   // n cards were put into this player's soul at once; "when a card is put" triggers n times
+  | { kind: "turn-end"; player: PlayerId }   // the end phase, after the G unit returns (player = the turn player)
   | { kind: "battle-end"; player: PlayerId; attackerUid: string; attackerCircle: Circle; boosterUid?: string; target: Circle }
   | { kind: "to-drop" | "retired"; player: PlayerId; uid: string; from: "RC" | "soul"; by?: "hollow"; grants: Ability[] }
   | { kind: "discarded"; player: PlayerId; uid: string; as: "g-guardian-cost" }
@@ -113,7 +113,7 @@ export interface QueueEntry {
 export type Choice =
   | { kind: "yesno"; prompt: Msg }
   | { kind: "option"; prompt: Msg; options: string[] }
-  | { kind: "cards"; prompt: Msg; options: string[]; min: number; max: number; bonus?: { stat: "power" | "shield" | "critical"; value: number } }
+  | { kind: "cards"; prompt: Msg; options: string[]; min: number; max: number; bonus?: { stat: "power" | "shield" | "critical"; value: number }; by?: PlayerId }   // by: the opponent answers instead of the ability's owner
   | { kind: "circle"; prompt: Msg; side: PlayerId; options: Circle[] };
 
 export interface Resolving extends QueueEntry {
@@ -126,8 +126,9 @@ export interface Resolving extends QueueEntry {
   called: string[];
   usedCircles: Circle[];
   hollowMilled: number;
-  souled?: string[];
-  returned?: number;    // cards this ability returned to the deck (per=returned, returned≥n)    // names of the cards this ability put into the soul (souled≥n, souled-name, per souled)
+  souled?: string[];    // names of the cards this ability put into the soul (souled≥n, souled-name, per souled)
+  charged?: string[];   // uids of the cards this ability soul charged (soul-charged(filter))
+  returned?: number;    // cards this ability returned to the deck (per=returned, returned≥n)
   confirmed?: boolean;  // the player already chose to use it (don't ask again)
   thatCards?: string[]; // a 1/turn ability triggered by several cards at once: any of them can be "that card", since only one trigger can resolve this turn
 }

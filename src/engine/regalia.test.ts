@@ -254,6 +254,71 @@ describe("Kukurihime", () => {
   it("doesn't draw without a face-up card in the G zone", () => {
     expect(useAct(false)).toBe(0);
   });
+
+  it("with a grade 2 vanguard it can still be used: goes into the soul, but gives no Power", () => {
+    mainPhase(K.hemera);
+    const me = s.players.me;
+    me.circles.front_left = inst(K.bragi);
+    me.circles.back_left = inst(kukuri);
+    refreshAwaiting(s);
+    act("me", { type: "activate", cardUid: me.circles.back_left!.uid, abilityIndex: 0 });
+    answerAll();
+    const after = s.players.me;
+    expect(after.soul.at(-1)!.key).toBe(kukuri);
+    expect(after.circles.back_left).toBeUndefined();
+    expect(after.circles.front_left!.mods).toHaveLength(0);
+  });
+});
+
+describe("Jotun (sentinel)", () => {
+  const jotun = "G-BT14/021TH";
+  // The bot attacks our vanguard; we guard with Jotun and pay its cost
+  function guardWith(vc: string) {
+    mainPhase(K.angelica);
+    s.players.bot.circles = { vc: inst(K.angelica) };
+    s.players.me.circles = { vc: inst(vc) };
+    const j = inst(jotun), spare = inst(K.hemera);
+    s.players.me.hand = [j, spare];
+    Object.assign(s, { turnPlayer: "bot", phase: "battle", step: "attack" });
+    refreshAwaiting(s);
+    act("bot", { type: "attack", attacker: "vc", target: "vc" });
+    act("me", { type: "guard", uids: [j.uid] });
+    answerAll();
+    return s.battle?.noHit ?? false;
+  }
+
+  it("a Regalia unit attacked can't be hit", () => {
+    expect(guardWith(K.angelica)).toBe(true);
+  });
+
+  it("a unit without \"Regalia\" in its name isn't protected", () => {
+    expect(guardWith(K.dreaming)).toBe(false);
+  });
+});
+
+describe("Inanna", () => {
+  const inanna = "G-BT14/019TH";
+  it("ACT: the opponent chooses and retires a rear-guard for each card with Revelation soul charged", () => {
+    mainPhase(inanna);
+    const me = s.players.me, bot = s.players.bot;
+    me.damage = [inst(K.hemera)];
+    me.gZone = [inst(inanna, false)];
+    // A card with Revelation (none in the real deck): Hemera with the keyword added
+    const revelation = "TEST/REVELATION";
+    db[revelation] = { ...db[K.hemera], key: revelation, abilities: [{ kind: "AUTO", effect: ["keyword(Revelation)"] }] };
+    me.deck.unshift(inst(revelation), inst(K.hemera), inst(revelation));
+    bot.circles = { vc: inst(K.angelica), front_left: inst(K.hemera), front_right: inst(K.bragi), back_left: inst(K.clear) };
+    refreshAwaiting(s);
+    act("me", { type: "activate", cardUid: me.circles.vc!.uid, abilityIndex: 2 });
+    answerAll();
+    expect(s.awaiting?.player).toBe("bot");
+    const c = s.awaiting?.choice;
+    expect(c?.kind === "cards" && [c.min, c.max, c.options.length]).toEqual([2, 2, 3]);
+    act("bot", { type: "select-target", uids: [bot.circles.front_left!.uid, bot.circles.back_left!.uid] });
+    expect(Object.keys(s.players.bot.circles).sort()).toEqual(["front_right", "vc"]);
+    expect(s.players.me.soul).toHaveLength(3);
+    delete db[revelation];
+  });
 });
 
 describe("Verthandi", () => {
@@ -286,6 +351,22 @@ describe("Verthandi", () => {
     const plus1000 = (c: CardInstance) => c.mods.some((m) => m.stat === "power" && m.value === 1000);
     expect(plus1000(after.circles.vc!)).toBe(true);
     expect(plus1000(after.circles.front_left!)).toBe(true);
+  });
+
+  it("the granted ability triggers once per card: Hemera putting three cards into the soul gives Power+3000", () => {
+    strideOver(K.minerva);
+    act("me", { type: "next-phase" });
+    answerAll();
+    s.players.me.drop = [inst(K.norn), inst(K.achlis), inst(K.clear)];
+    const hemera = inst(K.hemera);
+    s.players.me.hand.push(hemera);
+    act("me", { type: "call", uid: hemera.uid, to: "front_right" });
+    answerAll();
+    const me = s.players.me;
+    expect(me.soul.filter((c) => [K.norn, K.achlis, K.clear].includes(c.key))).toHaveLength(3);
+    const from = (c: CardInstance) => c.mods.filter((m) => m.stat === "power" && m.value === 1000).length;
+    expect(from(me.circles.vc!)).toBe(3);
+    expect(from(me.circles.front_left!)).toBe(3);
   });
 
   it("striding a G unit without \"Regalia\" in its name doesn't trigger it", () => {

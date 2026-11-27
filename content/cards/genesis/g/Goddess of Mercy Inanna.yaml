@@ -46,4 +46,5 @@ text: |
     - **Effect:** All of your rear-guards get Power+2000 for each card in your soul with the revelation ability.
 notes: |
   The card names the Revelation keyword without its definition, so `keyword(Revelation)` is a placeholder that does nothing.
-  No main deck card in the friend's Regalia list has Revelation, so in that deck the ACT retires nothing and the CONT adds nothing.
+  The ACT counts soul charged cards with `keyword(Revelation)`; no main deck card in the friend's Regalia list has it, so in that deck the ACT retires nothing.
+  The CONT is not supported yet (CONT abilities aren't), and in that deck it would add nothing.

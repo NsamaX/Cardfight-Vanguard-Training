@@ -48,7 +48,7 @@ code(main value, parameter=value)
 | `turn-end` | End of the turn | "At the end of the turn" | The Hollow keyword, Immortal Galleon |
 | `ridden-upon(self)` | A card rides on this card | (in the Forerunner keyword) | The Forerunner keyword |
 | `to-drop(self, from=soul)` | This card goes from the soul to the drop zone (e.g. paid as Soul Blast) | "When this card is put into the drop zone from your soul" | Norn, Achlis, Genil, Jotun |
-| `to-soul(own)` | Cards are put into our soul (once per effect, however many cards; also riding) | "When your card is put into your soul" | The ability Verthandi grants |
+| `to-soul(own)` | Cards are put into our soul (triggers once per card, also when several go in at once; also riding) | "When your card is put into your soul" | The ability Verthandi grants |
 | `attack-hit(self, target=VC)` | This unit's attack hits a vanguard | "When this unit's attack hits a vanguard" | The ability Verthandi grants |
 | `stride(own, filter=…)` | We stride a G unit matching the filter (in its original card name) | "When your G unit with \"Regalia\" in its original card name strides" | Angelica, Verthandi |
 | `attack(own-VC, filter=…)` | Our vanguard matching the filter attacks | "When your vanguard with \"Regalia\" in its card name attacks" | Freyja |
@@ -65,6 +65,7 @@ code(main value, parameter=value)
 | `self-hollowed` | This card is hollowed | Nightstorm, Zombie Whale, Skeleton Cannoneer, Negrorook, Mick |
 | `vc-name("Nightrose")` | Our vanguard has "Nightrose" in its name | Negrolazy, Negrobone |
 | `vc-name("Nightrose") & vc-grade≥3` | Our vanguard is grade 3 or higher with "Nightrose" in its name | Rampage Shade |
+| `vc-grade≥3` | Our vanguard is grade 3 or higher; as `if=` it gates only that effect, not the ability | Freyja; Kukurihime (`if=`, its Power+3000) |
 | `vc-clan(Granblue)` | Our vanguard is Granblue | Rough Seas Banshee |
 | `drop-count≤5` | Our drop zone has 5 or fewer cards | Zombie Whale (CONT Power reduction) |
 | `name-in-drop("Waterspout Djinn")` | A card with this name is in the drop zone | Waterspout Djinn |
@@ -112,7 +113,7 @@ code(main value, parameter=value)
 | `power(±X, target, until)` | Raise/lower Power | Many |
 | `shield(+X, self)` | Raise Shield | Negrolily (+10000), Deep Corpse Dragon (+5000) |
 | `critical(+n, target)` | Raise Critical | Nightrose (G unit) |
-| `no-hit(target)` | The target unit can't be hit until the end of the battle | Gust Jinn, Waterspout Djinn |
+| `no-hit(target)` | The target unit can't be hit until the end of the battle; with `filter=`, only if the attacked unit matches it | Gust Jinn, Waterspout Djinn, Jotun |
 | `CC(n)` | Counter Charge | Waterspout Djinn, Grenache, Dewey, King Serpent, the ability Negrolazy grants |
 | `SC(n)` | Soul Charge | King Serpent, Dewey, the ability Negrolazy grants |
 | `damage-facedown(n)` | Flip face-up damage face down (as an effect, not a cost) | Honoly |
@@ -138,7 +139,7 @@ code(main value, parameter=value)
 | `shuffle(deck)` | Shuffle the deck | Laurier, Dreaming Dragon |
 | `stand(own, filter)` | Stand our units | Minerva |
 | `drive(±n, target)` | Change drive | Minerva |
-| `opp-retires(opp-RC, n)` | The opponent chooses and retires their own rear-guards | Inanna |
+| `opp-retires(opp-RC, n=soul-charged(filter))` | The opponent chooses and retires that many of their own rear-guards (`soul-charged(filter)` = cards this ability soul charged that match the filter, e.g. `has-revelation`) | Inanna |
 | `power(+X per souled, target)` | Power for each card this effect put into the soul | Bragi |
 
 ### Helpers in filter and n

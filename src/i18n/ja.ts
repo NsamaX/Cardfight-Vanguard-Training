@@ -278,6 +278,7 @@ export const ja: Dict = {
   "choice.gAssistRemove": "Gアシスト：手札を{n}枚選んでゲームから除外する",
   "choice.searchDrop": "カードを{n}枚まで探してドロップゾーンに置く",
   "choice.retireOpp": "退却させる相手のリアガードを選ぶ",
+  "choice.oppRetires": "相手の効果：退却させる自分のリアガードを{n}枚選ぶ",
   "choice.effect": "効果を選ぶ",
   "choice.hollow": "{card}をホロウ状態にしますか？（ターン終了時に退却）",
   "choice.swap": "位置を入れ替えるリアガードを選ぶ（選ばなくてもよい）",

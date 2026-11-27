@@ -11,7 +11,7 @@ import {
   type CardDB,
 } from "./rules";
 import { abilityTag, drawCard, ev, fieldUnits, locate, name, playerMsg, reset, takeFrom, win, type Out } from "./state";
-import type { Action, CardInstance, Choice, GameEvent, GameState, PlayerId, PlayerState } from "./types";
+import type { Action, CardInstance, Choice, GameEvent, GameState, PlayerId, PlayerState, Resolving } from "./types";
 
 export interface NewGame {
   seed: number;
@@ -91,9 +91,11 @@ function requirePhase(s: GameState, p: PlayerId, phase: GameState["phase"], step
 
 // ---------- Answer an ability's question ----------
 
+const chooser = (r: Resolving) => (r.choice?.kind === "cards" && r.choice.by) || r.owner;
+
 function currentChoice(s: GameState, p: PlayerId): Choice {
   const r = s.resolving;
-  if (!r?.choice || r.owner !== p) throw new RuleError("err.noQuestion");
+  if (!r?.choice || chooser(r) !== p) throw new RuleError("err.noQuestion");
   return r.choice;
 }
 
@@ -304,7 +306,7 @@ function ride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: 
   const old = ps.circles.vc!;
   inst.rested = old.rested;
   ps.soul.push(reset(old));
-  emit(db, s, { kind: "to-soul", player: p });
+  emit(db, s, { kind: "to-soul", player: p, n: 1 });
   ps.circles.vc = inst;
   s.rodeThisTurn = true;
   ev(out, "ride", p, msg("log.ride", { player: playerMsg(p), card: name(db, inst) }), inst.uid);
@@ -546,7 +548,7 @@ function closeBattle(db: CardDB, s: GameState, _out: Out) {
     delete tp.circles[c];
     tp.soul.push(reset(u));
     ev(_out, "to-soul", s.turnPlayer, msg("log.soulIn", { card: name(db, u) }), u.uid);
-    emit(db, s, { kind: "to-soul", player: s.turnPlayer });
+    emit(db, s, { kind: "to-soul", player: s.turnPlayer, n: 1 });
   }
   standAtBattleEnd(db, s, _out);
   const atk = tp.circles[b.attacker];
@@ -614,7 +616,7 @@ export function refreshAwaiting(s: GameState) {
   }
   const r = s.resolving;
   if (r?.choice) {
-    s.awaiting = { player: r.owner, kind: CHOICE_ACTION[r.choice.kind], prompt: msg("prompt.ability", { label: abilityTag(r.label), prompt: r.choice.prompt }), choice: r.choice };
+    s.awaiting = { player: chooser(r), kind: CHOICE_ACTION[r.choice.kind], prompt: msg("prompt.ability", { label: abilityTag(r.label), prompt: r.choice.prompt }), choice: r.choice };
     return;
   }
   const qp = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.queue.some((e) => e.owner === q));

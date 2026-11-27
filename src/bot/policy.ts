@@ -798,6 +798,7 @@ function selectTarget(db: CardDB, s: GameState, p: PlayerId): Action {
       uids = top((i) => threat(db, s, opp, i), c.max);
       break;
     }
+    case "opp-retires": uids = top((i) => -unitValue(db, i), c.min); break;   // the opponent's effect: give up our weakest rear-guards
     case "power": case "critical": case "shield": uids = top((i) => statTargetValue(db, s, p, i), c.max); break;
     case "swap": uids = []; break;
     case "g-assist":

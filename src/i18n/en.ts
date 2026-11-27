@@ -281,6 +281,7 @@ export const en = {
   "choice.gAssistRemove": ({ n }) => `G Assist: pick ${cards(n)} in hand to remove from the game`,
   "choice.searchDrop": ({ n }) => `Search for up to ${cards(n)} and put into the drop zone`,
   "choice.retireOpp": "Pick your opponent's rear-guards to retire",
+  "choice.oppRetires": "Your opponent's effect: pick {n} of your rear-guards to retire",
   "choice.effect": "Pick an effect",
   "choice.hollow": "Put {card} into hollow? (retired at end of turn)",
   "choice.swap": "Pick a rear-guard to swap with (optional)",
