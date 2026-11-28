@@ -69,17 +69,18 @@ function collectTriggers(db: CardDB, s: GameState) {
       for (const g of ps.guardian) cands.push({ inst: g, where: "guardian", grants: g.grants ?? [] });
       // The card the event is about may have just left the board: it can still trigger its own ability (with the grants it had)
       const selfUid = "uid" in e && e.player === p ? e.uid : undefined;
+      const known = selfUid ? cands.find((c) => c.inst.uid === selfUid) : undefined;
       if (selfUid) {
         const at = locate(s, selfUid);
         const captured = e.kind === "move" ? e.grants : [];
-        const known = cands.find((c) => c.inst.uid === selfUid);
         if (known) known.grants = [...known.grants, ...captured];
         else if (at) cands.push({ inst: at.inst, where: at.zone, grants: captured });
       }
       for (const { inst, where, grants } of cands) {
         for (const [key, ab] of abilitiesOf(db, inst, grants)) {
           if (!triggers(db, ab, e, inst.uid, p)) continue;
-          if (inst.uid !== selfUid && !abilityZoneOk(ab.zone, where)) continue;
+          // Only a card that has left the field skips the zone check: one still on a circle (e.g. attacking from VC) needs its ability's zone
+          if ((inst.uid !== selfUid || known) && !abilityZoneOk(ab.zone, where)) continue;
           if (!condOk(db, s, p, inst, key, ab, "trigger")) continue;
           s.queue.push({ owner: p, uid: inst.uid, key, ability: ab, event: e, label: label(db, inst, ab, key), optional: isOptional(ab) });
         }
@@ -172,7 +173,7 @@ export function blocked(db: CardDB, s: GameState, entry: QueueEntry): Msg | unde
   const asHeart = at?.zone === "heart" && entry.event?.kind === "stride";
   const where = at?.zone === "circle" ? at.circle! : asHeart ? "vc" : at?.zone ?? "";
   const self = entry.event && "uid" in entry.event && entry.event.uid === entry.uid;
-  if (!at || (!self && !abilityZoneOk(entry.ability.zone, where)) || !condOk(db, s, entry.owner, at.inst, entry.key, entry.ability, "resolve")) return msg("reason.condUnmet");
+  if (!at || ((!self || at.zone === "circle") && !abilityZoneOk(entry.ability.zone, where)) || !condOk(db, s, entry.owner, at.inst, entry.key, entry.ability, "resolve")) return msg("reason.condUnmet");
   const ctx = stepCtx(db, s, toResolving(entry, false), []);
   if (!(entry.ability.cost ?? []).every((code) => canPayCode(ctx, code))) return msg("reason.cannotPay");
   // A "you may" with no cost whose first step has nothing to work on (e.g. no card to choose): nothing to decide
