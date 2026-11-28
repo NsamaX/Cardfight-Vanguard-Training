@@ -148,7 +148,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
         if (!pool.length) return true;
         const { min, max } = range(ctx, amount, "n≤1");
         const top = Math.min(max, pool.length);
-        if (!ctx.r.answer?.uids) return askCards(ctx, msg("choice.toSoul", { n: top }), pool, Math.min(min, top), top);
+        if (!ctx.r.answer?.uids) return askCards(ctx, msg("choice.toSoul", { n: top, min: Math.min(min, top) }), pool, Math.min(min, top), top);
         uids = ctx.r.answer.uids;
         checkChosen(ctx, uids);
       }
@@ -181,12 +181,12 @@ export const CARD_OPS: Record<string, OpSpec> = {
       else {
         const { min, max } = range(ctx, amount, "n≤1");
         if (pool.length < Math.max(min, 1)) return true;
-        if (!ctx.r.answer?.uids) return askCards(ctx, msg("choice.toDeck", { n: max }), pool, min, Math.min(max, pool.length));
+        if (!ctx.r.answer?.uids) return askCards(ctx, msg("choice.toDeck", { n: Math.min(max, pool.length), min }), pool, min, Math.min(max, pool.length));
         uids = ctx.r.answer.uids;
         checkChosen(ctx, uids);
       }
       const moved = uids.map((u) => moveCard(ctx.db, ctx.s, u, "deck"));
-      for (const inst of moved) say(ctx, "log.returnToDeck", { card: cardName(ctx, inst) }, inst.uid);
+      for (const inst of moved) say(ctx, "log.toDeck", { card: cardName(ctx, inst) }, inst.uid);   // the shuffle is its own step (shuffle(deck))
       record(ctx, "returned", moved);
       return true;
     },
