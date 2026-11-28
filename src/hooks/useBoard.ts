@@ -5,17 +5,21 @@ import { cardByKey as db } from "../data/cards";
 import { ANSWERS, apply, gGuardianBlocked, usableActs } from "../engine/game";
 import { abilityTag, locate, playerMsg } from "../engine/state";
 import { msg, type Msg } from "../i18n/msg";
+import { abilitySummary } from "../lib/skillBlocks";
 import { fmt } from "../lib/format";
 import { BEHIND, FRONT, RuleError, SAME_COLUMN, isSentinel, other, powerOf, shieldOf } from "../engine/rules";
 import { guardianDiscardFilter, strideCostGrade, strideCostOk } from "../engine/cont";
 import { cardMatches } from "../engine/vocab/filters";
-import type { Action, CardInstance, Circle, GameState, PlayerId } from "../engine/types";
+import type { Action, CardInstance, Circle, GameState, PlayerId, QueueEntry } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
 import { canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealSteps, revealedBy, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
 
 const BOT_DELAY_MS = 450;   // pause between bot actions so you can follow along
 const REVEAL_MS = 800;      // how long revealed cards stay on show before going on
+
+// A button in the middle bar; title = what it does, shown on hover
+export interface QuestionButton { label: Msg | string; title?: string; onClick: () => void }
 
 // The board at one step, with the history and all actions up to that step (used for undo and saving replays)
 interface Snapshot { s: GameState; log: LogEntry[]; actions: RecordedAction[] }
@@ -421,7 +425,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   // First question of an ability just opened by clicking: the decline/skip button becomes Cancel
-  function question(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
+  function question(): { prompt?: Msg; buttons: QuestionButton[] } | undefined {
     const q = baseQuestion();
     if (!opened || !s.resolving || !choice) return q;
     const cancel = { label: msg("btn.cancel"), onClick: cancelOpened };
@@ -430,14 +434,21 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   // Question in the middle bar: an ability chosen by clicking (yes/no), or a question while an ability resolves (yes/no, choose effect, choose circle)
-  function baseQuestion(): { prompt?: Msg; buttons: { label: Msg | string; onClick: () => void }[] } | undefined {
+  function baseQuestion(): { prompt?: Msg; buttons: QuestionButton[] } | undefined {
     const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label: abilityTag(label), cost: cost.join(", ") }) : msg("q.use", { label: abilityTag(label) });
     const yes = msg("btn.yes"), no = msg("btn.no");
     if (botTurn || readOnly) return undefined;
     if (queuePick && ordering) {
       const here = queued.map((e, i) => ({ e, i })).filter(({ e }) => e.uid === queuePick);
+      // The same ability triggered by several events (e.g. each unit placed from the drop): name the card each one is about
+      const about = (e: QueueEntry) => {
+        const u = e.event && "uid" in e.event ? e.event.uid : undefined;
+        const f = u && u !== e.uid ? findCard(s, u) : undefined;
+        return here.filter((h) => h.e.key === e.key).length > 1 && f ? ` · ${db[f.inst.key].name}` : "";
+      };
+      const card = findCard(s, queuePick)?.inst;
       return { prompt: msg("q.whichAbility"), buttons: [
-        ...here.map(({ e, i }) => ({ label: abilityTag(e.label), onClick: () => openQueued(i) })),
+        ...here.map(({ e, i }) => ({ label: abilityTag(e.label) + about(e), title: card && abilitySummary(db[card.key].text, db[card.key].abilities, /^\d+$/.test(e.key) ? db[card.key].abilities[Number(e.key)] : e.ability), onClick: () => openQueued(i) })),
         { label: msg("btn.cancel"), onClick: () => setQueuePick(undefined) },
       ] };
     }

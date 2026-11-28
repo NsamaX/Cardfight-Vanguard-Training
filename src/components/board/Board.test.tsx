@@ -95,7 +95,7 @@ describe("board", () => {
     click(slots(1)[1]);
     click(slots(0)[4]);
     expect(host.querySelector(".toast")?.textContent).toContain("first turn");
-    click(button("End →"));
+    click(button("End"));
     expect(host.textContent).toContain("Bot's turn");
 
     // The bot's turn 2: ride, then attack our VC
@@ -266,9 +266,32 @@ describe("board", () => {
     rawClick(mickSlot);
     expect(host.textContent).toContain("This card has several abilities waiting");
     expect(button("[AUTO, granted]")).toBeTruthy();
+    expect(button("[AUTO 1]")!.title).toBe("Hollow");                    // hover: what the ability does
+    expect(button("[AUTO, granted]")!.title).toContain("return-to-deck(self)");
     rawClick(button("[AUTO 1]"));
     expect(host.textContent).not.toContain("This card has several abilities waiting");
     expect(host.querySelector(".prompt")!.textContent).toContain("[AUTO 1]: Put Mick the Ghostie and Family into hollow?");   // that ability's own question, not the granted one's
+  });
+
+  it("one ability triggered by two events: each button names the card it is about, with unique keys", () => {
+    const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    const MICK = "PR/0564TH", name = db[MICK].name;
+    Object.assign(s, { mulliganDone: ["me", "bot"], turn: 3, turnPlayer: "me", phase: "main", step: "main" });
+    const mick = inst(s, MICK), bone = inst(s, BONE), gun = inst(s, GUN);
+    s.players.me.circles = { vc: inst(s, TOMMY), front_left: mick, front_right: bone, back_left: gun };
+    const placed = (uid: string) => ({ kind: "move" as const, player: "me" as const, uid, key: "", from: "drop" as const, to: "RC" as const, grants: [] });
+    s.queue = [
+      { owner: "me", uid: mick.uid, key: "1", ability: db[MICK].abilities[1], label: `${name} [AUTO 2]`, optional: false, event: placed(bone.uid) },
+      { owner: "me", uid: mick.uid, key: "1", ability: db[MICK].abilities[1], label: `${name} [AUTO 2]`, optional: false, event: placed(gun.uid) },
+    ] as GameState["queue"];
+    refreshAwaiting(s);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(s);
+    rawClick([...slots(1)].find((el) => el.querySelector(".card")?.getAttribute("title") === name)!);
+    expect(button(`[AUTO 2] · ${db[BONE].name}`)).toBeTruthy();
+    expect(button(`[AUTO 2] · ${db[GUN].name}`)).toBeTruthy();
+    expect(errors.mock.calls.some((c) => String(c[0]).includes("same key"))).toBe(false);
+    errors.mockRestore();
   });
 
   it("a heal trigger with face-up and face-down damage: after the Power target, the damage zone opens to pick the card to heal", () => {
@@ -323,7 +346,7 @@ describe("board", () => {
       click(slots(1)[1]);
       expect(slots(1)[1].querySelector(":scope > .card")!.getAttribute("title")).toBe(db[BONE].name);
       expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
-      expect(button("End →")).toBeTruthy();                         // no battle phase on the first turn
+      expect(button("End")).toBeTruthy();                         // no battle phase on the first turn
     } finally {
       vi.useRealTimers();
     }

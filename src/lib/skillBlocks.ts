@@ -42,6 +42,13 @@ export function parseBlocks(text: string, abilities: Ability[]): SkillBlock[] {
   return blocks;
 }
 
+// What an ability does, as one line of plain text for a tooltip: the card text's block for it, or its code (granted abilities have no text)
+export function abilitySummary(text: string, abilities: Ability[], ab: Ability): string {
+  const b = parseBlocks(text, abilities).find((x) => x.ability === ab) ?? blocksFromCodes([ab])[0];
+  const plain = (s: string) => s.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+  return [b.timing && `Timing: ${plain(b.timing)}`, b.cost && `Cost: ${plain(b.cost)}`, plain(b.effect)].filter(Boolean).join(" | ");
+}
+
 // A text field not written in the ### format (cards created in the app): build the boxes from the code instead
 export const blocksFromCodes = (abilities: Ability[]): SkillBlock[] => abilities.map((a) => ({
   kind: a.kind, zone: a.zone, timing: a.timing, cond: a.cond?.join(", "), cost: a.cost?.join(", "), effect: a.effect.join(", "), ability: a,

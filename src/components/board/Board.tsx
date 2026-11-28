@@ -216,9 +216,9 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
           <div className="mid-actions">
             {view?.action}
             {online && winner && !online.abandoned && <button className="btn primary" disabled={online.ready[online.seat]} onClick={online.onReady}>{t("btn.ready")}</button>}
-            {started && !deckOpen && !board.mulligan && question && question.buttons.map((q) => {
+            {started && !deckOpen && !board.mulligan && question && question.buttons.map((q, i) => {
               const label = typeof q.label === "string" ? q.label : t(q.label);
-              return <button key={label} className="btn primary" onClick={q.onClick} title={label}>{label}</button>;
+              return <button key={i} className="btn primary" onClick={q.onClick} title={q.title ?? label}>{label}</button>;
             })}
             {showNext && (next || board.canNext || !s.battle) && (   /* during a battle, a plain Next that can't be pressed isn't shown */
               <button className="btn primary" disabled={!board.canNext} onClick={board.next}>{t(next ?? "btn.next")}</button>
