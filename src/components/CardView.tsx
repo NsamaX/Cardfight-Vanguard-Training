@@ -14,7 +14,7 @@ interface Props {
   picked?: boolean;
   hidden?: boolean;
   noRotate?: boolean;
-  mark?: boolean;          // trigger/G label in the top-right corner (shown in the deck builder); the Sentinel label shows everywhere
+  mark?: boolean;          // G label in the top-right corner (deck builder, field); trigger and Sentinel labels show everywhere
   plain?: boolean;         // hide the name and power strip (cards in hand)
   light?: Light;
   dim?: boolean;           // used (light gray)
@@ -41,7 +41,8 @@ export function CardView({ inst, power, small, selected, picked, hidden, noRotat
     <button className={cls} data-uid={inst.uid} onClick={onClick} title={card.name} onMouseEnter={hover && (() => hover(inst.uid))} onMouseLeave={hover && (() => hover(undefined))}>
       {card.image && <img src={card.image} alt="" draggable={false} />}
       {!noGrade && <span className="grade">{card.grade}</span>}
-      {mark && (card.trigger || card.type.startsWith("g-")) ? <span className="mark">{card.trigger ? t(`mark.${card.trigger}`) : "G"}</span>
+      {card.trigger ? <span className="mark">{t(`mark.${card.trigger}`)}</span>
+        : mark && card.type.startsWith("g-") ? <span className="mark">G</span>
         : isSentinel(card) && <span className="mark">{t("mark.sentinel")}</span>}
       {!plain && (
         <span className="strip">
