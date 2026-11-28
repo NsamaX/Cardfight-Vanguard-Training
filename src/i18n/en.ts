@@ -286,6 +286,7 @@ export const en = {
   "choice.toSoul": ({ n }) => `Pick ${cards(n)} from the drop zone to put into the soul`,
   "choice.lookHand": ({ n }) => `Pick ${cards(n)} to put into your hand`,
   "choice.lookSoul": ({ n }) => `Pick ${cards(n)} to put into your soul`,
+  "choice.noHit": "Pick the unit that can't be hit this battle",
   "choice.soulBlast": ({ n }) => `Pick ${cards(n)} in the soul to Soul Blast`,
   "choice.rcSoulBlast": ({ n }) => `Pick ${cards(n)} in this rear-guard's soul to Soul Blast`,
   "choice.toHand": ({ n }) => `Pick ${cards(n)} in the drop zone to return to hand`,

@@ -283,6 +283,7 @@ export const ja: Dict = {
   "choice.toSoul": "ドロップゾーンからソウルに入れるカードを{n}枚選ぶ",
   "choice.lookHand": "手札に加えるカードを{n}枚選ぶ",
   "choice.lookSoul": "ソウルに入れるカードを{n}枚選ぶ",
+  "choice.noHit": "このバトル中ヒットされないユニットを選ぶ",
   "choice.soulBlast": "ソウルブラストするカードを{n}枚選ぶ",
   "choice.rcSoulBlast": "このリアガードのソウルからソウルブラストするカードを{n}枚選ぶ",
   "choice.toHand": "ドロップゾーンから手札に戻すカードを{n}枚選ぶ",

@@ -78,8 +78,8 @@ export const CARD_OPS: Record<string, OpSpec> = {
   },
   search: {
     causes: (c) => [{ move: { from: "deck", to: c.pos[0].endsWith("hand") ? "hand" : "drop" }, who: "chosen", filter: c.named.filter }],
-    forms: ["search(deck→hand, n≤#, filter={filter})", "search(deck→drop, n≤#, filter={filter})", "search(deck→hand, n≤#, filter={filter}, look=top-5)"],
-    text: "Search the deck (or its top 5) for cards, put them into hand or the drop zone, then shuffle",
+    forms: ["search(deck→hand, n≤#, filter={filter})", "search(deck→drop, n≤#, filter={filter})", "search(deck→hand, n≤#, filter={filter}, look=top-5)", "search(deck→hand, n≤#, filter={filter}, shuffle=later)"],
+    text: "Search the deck (or its top 5) for cards, put them into hand or the drop zone, then shuffle (shuffle=later: a later shuffle(deck) step does it, when the card does something in between)",
     run: (ctx) => {
       const ps = me(ctx), dst = ctx.c.pos[0].split("→")[1];
       const max = num(ctx.c.pos.find((x) => x.startsWith("n")) ?? "n≤1");
@@ -90,7 +90,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
         say(ctx, dst === "hand" ? "log.searchHand" : "log.searchDrop", { card: cardName(ctx, inst) }, inst.uid);
       }
       if (dst === "drop") record(ctx, "milled", found);
-      shuffleDeck(ctx);
+      if (ctx.c.named.shuffle !== "later") shuffleDeck(ctx);
       return true;
     },
   },

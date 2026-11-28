@@ -194,14 +194,16 @@ export const UNIT_OPS: Record<string, OpSpec> = {
       return true;
     },
   },
-  // no-hit(own-attacked, filter={filter}): "choose one of your units with …": only the attacked unit matters, so it must match
+  // no-hit(own-attacked, filter={filter}): "choose one of your units … that is being attacked"
+  // no-hit(own-unit, filter={filter}): "choose one of your units with …": any of them may be chosen; it only matters if it is the attacked one
   "no-hit": {
-    forms: ["no-hit(own-attacked, until=battle-end)", "no-hit(own-attacked, filter={filter}, until=battle-end)", "no-hit(own-VC-attacked, until=battle-end)"],
-    text: "Our attacked unit can't be hit this battle",
+    forms: ["no-hit(own-attacked, until=battle-end)", "no-hit(own-attacked, filter={filter}, until=battle-end)", "no-hit(own-VC-attacked, until=battle-end)", "no-hit(own-unit, filter={filter}, until=battle-end)"],
+    text: "The chosen unit can't be hit this battle (only the attacked one makes a difference)",
     run: (ctx) => {
-      const uids = pickUnits(ctx, { who: ctx.c.pos[0], filter: ctx.c.named.filter });
+      const uids = pickUnits(ctx, { who: ctx.c.pos[0], filter: ctx.c.named.filter, prompt: () => msg("choice.noHit") });
       if (uids === false) return false;
-      if (ctx.s.battle && uids.length) { ctx.s.battle.noHit = true; say(ctx, "log.noHitEffect"); }
+      const b = ctx.s.battle, attacked = b && ctx.s.players[ctx.owner].circles[b.target];
+      if (b && attacked && uids.includes(attacked.uid)) { b.noHit = true; say(ctx, "log.noHitEffect"); }
       return true;
     },
   },

@@ -13,7 +13,7 @@ abilities:
   - kind: "AUTO"
     timing: "enter(GC, self, from=hand)"
     cost: ["discard(1)"]
-    effect: ["no-hit(own-attacked, filter=name(\"Regalia\"), until=battle-end)"]
+    effect: ["no-hit(own-unit, filter=name(\"Regalia\"), until=battle-end)"]
   - kind: "AUTO"
     timing: "to-drop(self, from=soul)"
     cond: ["GB(1)", "own-turn", "vc-name(\"Regalia\")"]

@@ -802,6 +802,7 @@ function selectTarget(db: CardDB, s: GameState, p: PlayerId): Action {
     case "opp-retires": uids = top((i) => -unitValue(db, i), c.min); break;   // the opponent's effect: give up our weakest rear-guards
     case "power": case "critical": case "shield": uids = top((i) => statTargetValue(db, s, p, i), c.max); break;
     case "swap": uids = []; break;
+    case "no-hit": uids = top((i) => (s.battle && ps.circles[s.battle.target]?.uid === i.uid ? 1 : 0), 1); break;   // the attacked unit
     case "g-assist":
       uids = c.prompt.key === "choice.gAssistPick" ? top((i) => searchValue(db, s, p, i), c.max) : top((i) => -keepValue(db, s, p, i), c.min);
       break;

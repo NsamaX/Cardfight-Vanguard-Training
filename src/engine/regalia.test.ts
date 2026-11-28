@@ -303,6 +303,24 @@ describe("Kukurihime", () => {
   });
 });
 
+describe("Flap Angel", () => {
+  it("search, discard, then shuffle (the card's order): the shuffle is logged after the discard", () => {
+    mainPhase(K.angelica);
+    const flap = inst("G-BT14/039TH");
+    const g3 = inst(K.angelica), other = inst(K.hemera);
+    s.players.me.hand = [flap, g3, other];
+    act("me", { type: "call", uid: flap.uid, to: "back_left" });
+    act("me", { type: "order-queue", index: 0 });                                    // reveal cost: the only grade 3 is picked by itself
+    const found = s.players.me.deck.find((c) => db[c.key].grade === 3 && db[c.key].name.includes("Regalia"))!;
+    act("me", { type: "select-target", uids: [found.uid] });
+    const r = apply(db, s, "me", { type: "select-target", uids: [other.uid] });       // discard
+    s = r.state;
+    const keys = r.events.map((e) => e.text.key);
+    expect(keys.indexOf("log.discard")).toBeGreaterThanOrEqual(0);
+    expect(keys.indexOf("log.shuffle")).toBeGreaterThan(keys.indexOf("log.discard"));
+  });
+});
+
 describe("Jotun (sentinel)", () => {
   const jotun = "G-BT14/021TH";
   // The bot attacks our vanguard; we guard with Jotun and pay its cost
@@ -326,6 +344,27 @@ describe("Jotun (sentinel)", () => {
 
   it("a unit without \"Regalia\" in its name isn't protected", () => {
     expect(guardWith(K.dreaming)).toBe(false);
+  });
+
+  it("with several Regalia units, the player chooses one: only the attacked one is protected", () => {
+    const pick = (choose: "vc" | "front_left") => {
+      mainPhase(K.angelica);
+      s.players.bot.circles = { vc: inst(K.angelica) };
+      s.players.me.circles = { vc: inst(K.angelica), front_left: inst(K.hemera) };
+      const j = inst(jotun), spare = inst(K.hemera);
+      s.players.me.hand = [j, spare];
+      Object.assign(s, { turnPlayer: "bot", phase: "battle", step: "attack" });
+      refreshAwaiting(s);
+      act("bot", { type: "attack", attacker: "vc", target: "vc" });
+      act("me", { type: "guard", uids: [j.uid] });
+      act("me", { type: "order-queue", index: 0 });                                  // the only other hand card is discarded by itself
+      const choice = s.awaiting?.choice;
+      expect(choice?.kind === "cards" && choice.prompt.key).toBe("choice.noHit");
+      act("me", { type: "select-target", uids: [s.players.me.circles[choose]!.uid] });
+      return s.battle?.noHit ?? false;
+    };
+    expect(pick("front_left")).toBe(false);
+    expect(pick("vc")).toBe(true);
   });
 });
 

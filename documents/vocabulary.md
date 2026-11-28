@@ -115,21 +115,21 @@ Codes that can be paid as a cost (the engine checks whether they can be paid bef
 | `SC(#)` | Soul Charge: put cards from the top of the deck into the soul | Inanna, Eir, King Serpent, Dewey the Ghostie |
 | `RC-SC(#)` | RC Soul Charge: put cards from the top of the deck into the soul of this rear-guard | - |
 | `draw(#)` | Draw cards | Agleam, Freyja, Daylight Angel, Angelica, Dreaming Dragon, Kukurihime, Skeleton Cannoneer, Rampage Shade, Rough Seas Banshee |
-| `search(deck→hand, n≤#, filter=…)`<br>`search(deck→drop, n≤#, filter=…)`<br>`search(deck→hand, n≤#, filter=…, look=top-5)` | Search the deck (or its top 5) for cards, put them into hand or the drop zone, then shuffle | Flap Angel, Obadiah, Chappie the Ghostie, Nightstorm, Tommy the Ghostie Brothers |
+| `search(deck→hand, n≤#, filter=…)`<br>`search(deck→drop, n≤#, filter=…)`<br>`search(deck→hand, n≤#, filter=…, look=top-5)`<br>`search(deck→hand, n≤#, filter=…, shuffle=later)` | Search the deck (or its top 5) for cards, put them into hand or the drop zone, then shuffle (shuffle=later: a later shuffle(deck) step does it, when the card does something in between) | Flap Angel, Obadiah, Chappie the Ghostie, Nightstorm, Tommy the Ghostie Brothers |
 | `look(#, hand=1, soul=1, rest=drop)`<br>`look(#, soul=n≤1, rest=drop)`<br>`look(#, hand=1, soul=1)`<br>`look(#, reveal, soul=n≤1, rest=drop)` | Look at (or reveal) the top cards of the deck: some to hand, some to the soul, the rest to the drop zone | Daylight Angel, Angelica, Verthandi |
 | `to-soul(drop, n≤#, filter=…)`<br>`to-soul(drop, n=#, filter=…)`<br>`to-soul(drop, all, filter=…)`<br>`to-soul(self)` | Put cards from the drop zone (or this unit) into the soul (filter different-grades = all chosen differ in grade) | Iris, Urth, Eir, Hemera, Freyja, Genil, Bragi, Angelica |
 | `to-deck(drop, all)`<br>`to-deck(drop+soul, n=#..#, filter=…)` | Return cards to the deck (filter same-grade = all chosen share a grade) | Laurier, Dreaming Dragon |
 | `to-deck-top(self)` | Put this unit on the top of the deck | Dreaming Dragon |
 | `return-to-deck(self)` | Shuffle this card from the drop zone into the deck | Mick the Ghostie and Family |
 | `to-hand(drop, n≤#, filter=…)` | Return cards from the drop zone to hand | Jotun |
-| `shuffle(deck)` | Shuffle the deck | Laurier, Dreaming Dragon |
+| `shuffle(deck)` | Shuffle the deck | Laurier, Flap Angel, Dreaming Dragon |
 | `call(drop→RC, n≤#, filter=…)`<br>`call(hand+drop→RC, n≤#, filter=…, to=empty)`<br>`call(drop→RC, n=#, filter=that-card)`<br>`call(drop→GC, n≤#, filter=different-grades)`<br>`call(self→RC)`<br>`call(G→GC, self)` | Call cards to rear-guard circles (to= empty / different / not-self / same-column) or to the guardian circle | Agleam, Iris, Eir, Laurier, Daylight Angel, Negronora, Deep Corpse Dragon, Obadiah, Negrolily, Nightrose, Immortal Galleon, Nightstorm, Grenache, Negrolazy, Negrobone, Megiddo |
 | `retire(target)`<br>`retire(opp-RC, n≤#)`<br>`retire(own, target=boosted)`<br>`retire(own, target=called, at=turn-end)` | Retire units | Immortal Galleon, Nightstorm, Skeleton Cannoneer, Grenache, Nightrose, Negrolazy, Negrobone, Negrorook, Zombie Whale of the Ocean Depths, Mick the Ghostie and Family |
 | `opp-retires(opp-RC, n=#)`<br>`opp-retires(opp-RC, n=soul-charged(filter))` | The opponent chooses and retires that many of their own rear-guards | Inanna |
 | `stand(own, filter=…)`<br>`stand(own, filter=…, at=battle-end)` | Stand units | Minerva |
 | `swap(self, other-own-RC)` | Switch this rear-guard with another of our rear-guards (may skip) | Megiddo |
 | `hollow(self)`<br>`hollow(called)` | Hollow: the unit is retired at the end of the turn (the player may choose not to hollow itself) | Nightrose, Nightstorm, Skeleton Cannoneer, Grenache, Negrolazy, Negrorook, Zombie Whale of the Ocean Depths, Mick the Ghostie and Family |
-| `no-hit(own-attacked, until=battle-end)`<br>`no-hit(own-attacked, filter=…, until=battle-end)`<br>`no-hit(own-VC-attacked, until=battle-end)` | Our attacked unit can't be hit this battle | Jotun, Gust Jinn, Waterspout Djinn |
+| `no-hit(own-attacked, until=battle-end)`<br>`no-hit(own-attacked, filter=…, until=battle-end)`<br>`no-hit(own-VC-attacked, until=battle-end)`<br>`no-hit(own-unit, filter=…, until=battle-end)` | The chosen unit can't be hit this battle (only the attacked one makes a difference) | Jotun, Gust Jinn, Waterspout Djinn |
 | `power(+#, target, until=…)`<br>`power(-#, target, until=…)`<br>`power(+#, self, until=turn-end)`<br>`power(+#, own-VC, until=turn-end)`<br>`power(+#, other-own, n≤#, filter=…, until=turn-end)`<br>`power(+#, front-row ≤#, filter=…)`<br>`power(+#, called, until=turn-end)`<br>`power(+# per souled, own-VC & self, until=turn-end)`<br>`power(+# per # drop, self, until=battle-end)`<br>`power(+#, own-units, n=count-in-drop(filter), until=turn-end)`<br>`power(+# per count-in-soul(filter), own-RC)`<br>`power(-#, self)` | Change Power (until= battle-end or turn-end) | Inanna, Urth, Minerva, Freyja, Norn, Genil, Bragi, Verthandi, Achlis, Kukurihime, Nightrose, Immortal Galleon, Negrolazy, Negrorook, Zombie Whale of the Ocean Depths, Mick the Ghostie and Family, Rampage Shade, Megiddo |
 | `shield(+#, target, until=…)`<br>`shield(+#, self, until=battle-end)`<br>`shield(+#, self, per=returned, until=battle-end)` | Change Shield | Iris, Eir, Laurier, Deep Corpse Dragon, Negrolily |
 | `critical(+#, self)`<br>`critical(+#, target, until=…)` | Change Critical | Urth, Nightrose |
@@ -157,6 +157,7 @@ Which units an effect acts on (the second argument of `power`, `grant`, `retire`
 | `own` | All our units |
 | `own-RC` | All our rear-guards |
 | `other-own, n≤#` | Our units other than this card (choose) |
+| `own-unit` | One of our units (choose) |
 | `own-units, n=count-in-drop(filter)` | Our units (choose) |
 | `other-own-RC` | Our rear-guards other than this card (choose) |
 | `front-row ≤#` | Units in our front row (choose) |
