@@ -173,7 +173,6 @@ export const CARD_OPS: Record<string, OpSpec> = {
     causes: (c) => [{ move: { from: "drop", to: "deck" }, who: "chosen", filter: c.named.filter }],
     forms: ["to-deck(drop, all)", "to-deck(drop+soul, n=#..#, filter={filter})"], text: "Return cards to the deck (filter same-grade = all chosen share a grade)",
     run: (ctx) => {
-      const ps = me(ctx);
       const pool = matching(ctx, zonesOf(ctx, ctx.c.pos[0]));
       const amount = howMany(ctx);
       let uids: string[];

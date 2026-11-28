@@ -9,7 +9,7 @@ import { VanguardBot } from "./index";
 import { estimateDefense, nextTurnNeed } from "./intel";
 import { damageCost, lethalGap, policy, triggerDist } from "./policy";
 import { attachPools, deckOdds, determinize, HIDDEN, viewFor, withHidden } from "./view";
-import { affordable, analyze, deckCombos, shieldForced } from "./combos";
+import { analyze, deckCombos } from "./combos";
 
 const deck = presetDecks.find((d) => d.id === "nightrose-sample")!;
 const decks = { me: deck, bot: deck };
@@ -289,11 +289,6 @@ describe("deck combos", () => {
     const nora = r.combos.find((c) => c.steps[0].key === "G-FC04/043TH" && c.steps.length === 2)!.profile;
     expect(nora.shield).toBeGreaterThan(15000);
     expect(nora).toMatchObject({ sb: 1, flipG: 1, gb: 1 });
-    // An attack that can't reach the opponent's vanguard power doesn't force a guard
-    expect(shieldForced({ ...cannon, attacks: [{ power: 9000, crit: 1 }, { power: 16000, crit: 1 }] }, 11000)).toBe(10000);
-    expect(affordable(cannon, { cb: 1, sb: 0, gb: 1, gFaceDown: 2, deck: 20 })).toBe(false);
-    expect(affordable(cannon, { cb: 2, sb: 0, gb: 1, gFaceDown: 2, deck: 20 })).toBe(true);
-    expect(affordable(cannon, { cb: 2, sb: 0, gb: 1, gFaceDown: 2, deck: 1 })).toBe(false);
   });
 
   it("marks vanguard-only pieces as VC, tags phase, and lists how to get drop pieces there", () => {

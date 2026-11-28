@@ -39,7 +39,7 @@ function queued(p: PlayerId, word: string, key?: string) {
 const use = (p: PlayerId, word: string, key?: string) => act(p, { type: "order-queue", index: queued(p, word, key) });
 const skip = (p: PlayerId, word: string, key?: string) => act(p, { type: "decline-queue", index: queued(p, word, key) });
 
-describe("off-turn shot combo (content/combos/off-turn-shot.yaml)", () => {
+describe("off-turn shot combo", () => {
   function setup() {
     newGame();
     const me = s.players.me, bot = s.players.bot;
@@ -63,7 +63,6 @@ describe("off-turn shot combo (content/combos/off-turn-shot.yaml)", () => {
     setup();
     expect(powerOf(db, s.players.bot, "vc")).toBe(33000);
     const gun = s.players.me.circles.front_left!.uid;
-    const tommy = s.players.me.drop[0].uid;
     const otherDewey = s.players.me.drop[1].uid;
     const botLazy = s.players.bot.circles.front_left!.uid;
     const lily = s.players.me.gZone[2].uid;

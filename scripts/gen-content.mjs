@@ -1,4 +1,4 @@
-// Converts cards/decks/combos (.yaml) in content/ into src/data/content.json before dev/build/test, so the browser doesn't need a yaml library
+// Converts cards/decks (.yaml) in content/ into src/data/content.json before dev/build/test, so the browser doesn't need a yaml library
 // After adding or editing data files, restart the dev server (or run npm run content)
 import { globSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -11,7 +11,6 @@ const load = (pattern) =>
 const content = {
   cards: load("content/cards/*/*/*.yaml").map(({ data }) => data),
   decks: load("content/decks/*.yaml").map(({ path, data }) => ({ id: basename(path, ".yaml"), ...data })),
-  combos: load("content/combos/*.yaml").map(({ data }) => data),
   nations: parse(readFileSync(join(root, "content/nations.yaml"), "utf8")),
 };
 

@@ -1,6 +1,5 @@
 // Shared shapes for the ability vocabulary: every code a card file can use is declared once in a registry
 // (filters, counters, conditions, selectors, timings, ops), and the resolver, the validator, and the card editor all read from there.
-import type { Msg } from "../../i18n/msg";
 import type { Code } from "../code";
 import type { CardDB } from "../rules";
 import type { Out } from "../state";
@@ -81,5 +80,4 @@ export interface Caused {
   filter?: string;
 }
 
-export type Question = Msg;
 export type { Ability };

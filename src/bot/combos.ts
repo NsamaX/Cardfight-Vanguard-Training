@@ -485,17 +485,6 @@ function profileOf(steps: ComboStep[], cards: Entry[], kind: ComboKind): ComboPr
   return pr;
 }
 
-// Shield the opponent must spend to guard every attack of the combo (estimates how much frequent attacks drain the opponent's hand)
-// An attack whose Power can't reach the opponent's vanguard doesn't force a guard
-export function shieldForced(pr: ComboProfile, oppVc: number): number {
-  return pr.attacks.reduce((n, a) => n + (a.power >= oppVc ? Math.ceil((a.power - oppVc + 1) / 5000) * 5000 : 0), 0);
-}
-
-// Can this combo be played with the available resources (CB SB GB face-down G zone) without decking out
-export function affordable(pr: ComboProfile, res: { cb: number; sb: number; gb: number; gFaceDown: number; deck: number }): boolean {
-  return res.cb >= pr.cbNeed && res.sb >= pr.sbNeed && res.gb >= pr.gb && res.gFaceDown >= pr.flipG && res.deck > pr.deckUse;
-}
-
 function distinctPieces(steps: ComboStep[]): { key: string; at: PieceAt }[] {
   const out: { key: string; at: PieceAt }[] = [];
   for (const s of steps) if (!out.some((p) => p.key === s.key)) out.push({ key: s.key, at: s.at });

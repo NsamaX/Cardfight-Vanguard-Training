@@ -28,10 +28,10 @@ signed-in players (Google) get their own copy of it in Supabase. What the app do
 | `src/lib/`              | Non-React helpers: board rules (`board.ts`), deck editing, ability drafts and the code picker for the card editor, card text ↔ plain text (`cardText.ts`), settings, Supabase access (`library.ts`, `online.ts`, `supabase.ts`), image resizing |
 | `src/engine/`           | Game state and rules: phases and actions (`game.ts`), ability resolver (`abilities.ts`), CONT and card-driven rules (`cont.ts`), code parser (`code.ts`), ability vocabulary (`vocab/`), shared types (`types.ts`) |
 | `src/bot/`              | The bot: rules (`policy.ts`), search (`search.ts`), evaluation, `arena.ts` (bot vs bot), `lab/` (combo lab boards and search) |
-| `src/data/`             | In-memory card registry (bundled set, replaced by the Supabase library at runtime), default decks, deck validation, combos, sleeves |
+| `src/data/`             | In-memory card registry (bundled set, replaced by the Supabase library at runtime), default decks, deck validation, sleeves |
 | `src/replay/`           | Replay format (`types.ts`), playback (`play.ts`), guest storage |
 | `src/i18n/`             | Dictionaries (`en.ts` defines the keys, `ja.ts`) and `useT()` |
-| `content/`              | Default cards, decks, combos, card images, sleeves (YAML; source of `src/data/content.json` and `sync-defaults`) |
+| `content/`              | Default cards, decks, card images, sleeves (YAML; source of `src/data/content.json` and `sync-defaults`) |
 | `supabase/migrations/`  | Database schema, RLS, and the online-match functions |
 | `scripts/`              | Command-line tools (see Scripts) |
 | `tools/`                | `clean_images.py`: card and sleeve images from raw scans |
@@ -85,7 +85,6 @@ Beta (= Nightmare; the only level players can pick for now). It doesn't ultimate
 | `content/cards/<clan>/normal/`   | Normal units, including non-trigger grade 0 |
 | `content/cards/<clan>/trigger/`  | Trigger units |
 | `content/decks/`                 | Default decks (the file name is the deck id) |
-| `content/combos/`                | Combo tutorials (loader exists, no screen yet) |
 | `content/nations.yaml`           | Clans of each nation (ultimate stride needs the nations to match) |
 | `content/images/<clan>/`         | Card images, 544×793 PNG, named by card code with `/` → `_` |
 | `content/sleeves/`               | Sleeve images, 440×640 |

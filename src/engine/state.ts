@@ -1,6 +1,6 @@
 // Helpers for moving cards between zones, shared by game.ts and abilities.ts
 import { msg, type Msg } from "../i18n/msg";
-import { PLAYERS, other, type CardDB } from "./rules";
+import { PLAYERS, type CardDB } from "./rules";
 import type { CardInstance, Circle, GameEvent, GameState, PlayerId, PlayerState } from "./types";
 
 export const playerMsg = (p: PlayerId): Msg => msg(`player.${p}`);
