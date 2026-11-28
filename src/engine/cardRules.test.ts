@@ -159,7 +159,7 @@ describe("an optional ability whose every step would do nothing isn't offered", 
     s.players.me.circles = { vc };
     s.players.me.gZone = [inst(MINERVA, true), inst(MINERVA, true)];
     const entry = { owner: "me" as const, uid: vc.uid, key: "0", ability: db[NIGHT_FOG].abilities[0], label: "Night Fog [AUTO 1]", optional: true,
-      event: { kind: "move" as const, player: "me" as const, uid: tommy.uid, key: tommy.key, from: "RC" as const, to: "drop" as const } };
+      event: { kind: "move" as const, player: "me" as const, uid: tommy.uid, key: tommy.key, from: "RC" as const, to: "drop" as const, grants: [] } };
     s.players.me.drop = [tommy];
     expect(blocked(db, s, entry)).toBeUndefined();
     s.players.me.drop = [];
