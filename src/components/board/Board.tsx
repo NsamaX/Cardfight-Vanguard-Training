@@ -172,7 +172,27 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const defender: PlayerId = s.turnPlayer === "me" ? "bot" : "me";
   return (
     <div className="app">
-      <LogPanel log={board.log} onInspect={board.setInspect}><PhaseTrack s={s} /></LogPanel>
+      {/* Left: history, the phase track, and the game's buttons under it */}
+      <LogPanel log={board.log} onInspect={board.setInspect}>
+        <PhaseTrack s={s} />
+        {view && <div className="panel-foot replay-foot">{view.foot}</div>}
+        {online && (
+          <div className="panel-foot">
+            {!started && <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>}
+            {(board.desync || (online.problem && online.problem !== "online.otherOutOfSync")) && <button className="btn primary" onClick={() => location.reload()}>{t("btn.reload")}</button>}
+            <button className="btn" onClick={() => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); }}>{t("btn.leave")}</button>
+          </div>
+        )}
+        {!view && !online && (
+          <div className="panel-foot">
+            <button className="btn" onClick={onNewGame}>{t("btn.reset")}</button>
+            <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>
+            <button className="btn" onClick={() => setShowReplays(true)}>{t("btn.replays")}</button>
+            {onOnline && <button className="btn" onClick={() => setShowOnline(true)}>{t("btn.online")}</button>}
+            <button className="btn" onClick={() => setShowSettings(true)}>{t("btn.settings")}</button>
+          </div>
+        )}
+      </LogPanel>
       <CardHover.Provider value={board.setHover}>
       <main ref={mainRef} style={sleeveVars} className={started ? `turn-${pos(s.turnPlayer)}` : undefined}>
         {hand(other(bottom))}
@@ -243,23 +263,6 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
           const c = board.inspectedOf(p);
           return <Inspector key={p} p={pos(p)} cardKey={c?.inst.key} power={c?.power} onClose={() => board.closeInspect(p)} />;
         })}
-        {view && <div className="panel-foot replay-foot">{view.foot}</div>}
-        {online && (
-          <div className="panel-foot">
-            {!started && <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>}
-            {(board.desync || (online.problem && online.problem !== "online.otherOutOfSync")) && <button className="btn primary" onClick={() => location.reload()}>{t("btn.reload")}</button>}
-            <button className="btn" onClick={() => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); }}>{t("btn.leave")}</button>
-          </div>
-        )}
-        {!view && !online && (
-          <div className="panel-foot">
-            <button className="btn" onClick={onNewGame}>{t("btn.reset")}</button>
-            <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>
-            <button className="btn" onClick={() => setShowReplays(true)}>{t("btn.replays")}</button>
-            {onOnline && <button className="btn" onClick={() => setShowOnline(true)}>{t("btn.online")}</button>}
-            <button className="btn" onClick={() => setShowSettings(true)}>{t("btn.settings")}</button>
-          </div>
-        )}
       </aside>
     </div>
   );
