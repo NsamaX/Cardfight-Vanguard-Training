@@ -95,6 +95,7 @@ async function main() {
       for (const c of ["vc", ...RC] as const) {
         const u = ps.circles[c];
         if (!u) continue;
+        if (!u.faceUp && !mine) { out.push(`  ${c.padEnd(12)} face down [${u.uid}]`); continue; }   // the opponent's starter before the game starts
         const mods = u.mods.filter((x) => x.stat === "power").reduce((n, x) => n + x.value, 0);
         out.push(`  ${c.padEnd(12)} ${name(u.key)} | P${powerOf(db, ps, c)}${mods ? ` (${mods > 0 ? "+" : ""}${mods})` : ""} C${criticalOf(db, u)}${u.rested ? " REST" : ""}${u.hollowed ? " HOLLOW" : ""}${u.grants?.length ? ` +${u.grants.length} granted` : ""} [${u.uid}]`);
       }
