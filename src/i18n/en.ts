@@ -330,7 +330,7 @@ export const en = {
   "log.turnStart": "Turn {turn} · {player}",
   "log.battlePhase": "Battle phase starts",
   "log.gReturn": "{card} returns to the G zone face up",
-  "log.gZoneRemoved": "Ultimate stride: {player}'s G zone is removed from the game",
+  "log.gZoneRemoved": "Ultimate stride: {player} removed the G zone from the game",
   "log.ride": "{player} rode {card}",
   "log.stride": "{player} strode {card} · heart {heart}",
   "log.move": "{player} moved {card} to {circle}",

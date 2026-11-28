@@ -21,8 +21,9 @@
 //     damage: [...]          # face up
 //     damageDown: [...]      # face down (counter blast already paid)
 //     deckTop: [<card>, ...]    # first = top of the deck
-//     gZone: [...]           # face down; default: the deck's G zone
+//     gZone: [...]           # face down; default: the deck's G zone less gFaceUp
 //     gFaceUp: [...]
+//     rodeLastTurn: true     # a unit was ridden on this side's VC during its preceding turn
 //   bot: { ... the same ... }
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -49,6 +50,7 @@ interface Side {
   damage?: string[]; damageDown?: string[];
   deckTop?: string[];
   gZone?: string[]; gFaceUp?: string[];
+  rodeLastTurn?: boolean;
 }
 interface Scenario { title?: string; seed?: number; turn?: number; turnPlayer?: PlayerId; phase?: "ride" | "stride" | "main" | "battle"; me: Side; bot: Side }
 
@@ -106,8 +108,11 @@ function build(sc: Scenario): Replay {
     [rest, s.rngState] = shuffle(rest, s.rngState);
     ps.deck = [...top, ...rest.map((k) => inst(k, false))];
 
+    // The deck's G zone by default, less the cards listed face up
     const gDown = side.gZone ?? Object.entries(deck.g_zone).flatMap(([k, n]) => Array<string>(n).fill(k));
+    if (!side.gZone) for (const k of (side.gFaceUp ?? []).map(cardOf)) { const i = gDown.indexOf(k); if (i >= 0) gDown.splice(i, 1); }
     ps.gZone = [...gDown.map((k) => inst(k, false)), ...(side.gFaceUp ?? []).map((k) => inst(k))];
+    if (side.rodeLastTurn) ps.rodeLastTurn = true;
     s.players[p] = ps;
   }
   refreshAwaiting(s);
