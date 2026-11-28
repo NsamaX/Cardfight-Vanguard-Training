@@ -135,6 +135,7 @@ export const en = {
   "modal.picked": ({ n }) => `${n} selected`,
   "modal.pile": ({ zone, n }) => `${zone} ${cards(n)}`,
   "modal.deckHidden": "The deck is face down and can't be viewed",
+  "modal.gZoneHidden": "The opponent's G zone is face down and can't be viewed",
   "settings.title": "Settings",
   "settings.first": "Who goes first",
   "settings.firstRandom": "Randomize who goes first every game",

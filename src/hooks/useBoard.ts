@@ -469,12 +469,13 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   return {
     s, log, error, actor,
     lightOf: (uid: string): Light =>
-      trig && uid === s.battle?.checkCard?.uid ? (trigArmed ? "active" : "source")
+      trig && !botTurn && uid === s.battle?.checkCard?.uid ? (trigArmed ? "active" : "source")
       : fieldChoice?.options.includes(uid) ? (choicePicks.includes(uid) ? "active" : "source")
       : (striding || mode?.kind === "stride") && s.players[actor!]?.gZone.some((g) => g.uid === uid && !g.faceUp && db[g.key].type === "g-unit") ? (mode?.kind === "stride" && mode.gUid === uid ? "active" : "source")
       : active.includes(uid) ? "active" : sources.includes(uid) ? "source" : undefined,
     // Trigger: click the revealed check card and the cursor shows what it will give (the trigger's Power first, then Critical/Stand); the unit chosen for Power shows the value in advance
-    clickCheck: (uid: string) => { setInspect(uid); if (trig && uid === s.battle?.checkCard?.uid) setTrigArmed(true); },
+    // Only the trigger's owner arms it; the other player (or the side the bot plays) just inspects the card
+    clickCheck: (uid: string) => { setInspect(uid); if (trig && !botTurn && uid === s.battle?.checkCard?.uid) setTrigArmed(true); },
     trigTip: trig && trigArmed
       ? mode?.kind === "trigger" && mode.powerTo ? { text: trig.kind === "critical" ? msg("tip.critical", { v: "+1" }) : msg("tip.stand"), kind: "cri" } : { text: msg("tip.power", { v: `+${fmt(trig.power)}` }), kind: "pow" }
       : undefined,

@@ -132,6 +132,7 @@ export const ja: Dict = {
   "modal.picked": "{n}枚選択中",
   "modal.pile": "{zone} {n}枚",
   "modal.deckHidden": "山札は裏向きのため見られません",
+  "modal.gZoneHidden": "相手のGゾーンは裏向きのため見られません",
   "settings.title": "設定",
   "settings.first": "先攻",
   "settings.firstRandom": "毎ゲーム先攻をランダムにする",

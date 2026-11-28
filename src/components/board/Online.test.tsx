@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cardByKey as db } from "../../data/cards";
 import { presetDecks } from "../../data/decks";
-import { createGame } from "../../engine/game";
+import { apply, createGame, refreshAwaiting } from "../../engine/game";
 import type { Card, Deck, GameState, PlayerId } from "../../engine/types";
 import { FixedText } from "../../i18n/react";
 import { OnlineError, matchCards, problemOf } from "../../lib/online";
@@ -67,6 +67,42 @@ describe("online match", () => {
     expect(client("bot").querySelector(".log")!.textContent).not.toContain("Bot");
     expect(client("me").querySelector(".mid-history button")).toBeTruthy();
     expect([...client("me").querySelectorAll(".mid-history button")].every((b) => (b as HTMLButtonElement).disabled)).toBe(true);   // no undo online
+  });
+});
+
+describe("hidden information online", () => {
+  it("the opponent's face-down G zone can't be opened; your own can", () => {
+    const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    act(() => root.render(<Pair s={s} />));
+    const open = (pos: "me" | "bot") => act(() => [...client("me").querySelectorAll<HTMLElement>(".zone-row.gZone .zone-slot")].find((z) => z.closest(`.${pos}`))!.click());
+    const shown = () => host.querySelectorAll(".modal .card").length;
+    open("bot");
+    expect(host.textContent).toContain("The opponent's G zone is face down");
+    expect(shown()).toBe(0);
+    act(() => host.querySelector<HTMLButtonElement>(".modal .mh button")!.click());
+    open("me");
+    expect(shown()).toBe(s.players.me.gZone.length);
+  });
+
+  it("only the trigger's owner can pick it up; the other player's click just inspects it", () => {
+    let s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    s = apply(db, s, "me", { type: "mulligan", returnUids: [] }).state;
+    s = apply(db, s, "bot", { type: "mulligan", returnUids: [] }).state;
+    const crit = s.players.me.deck.findIndex((c) => db[c.key].trigger === "critical");
+    s.players.me.deck.unshift(...s.players.me.deck.splice(crit, 1));
+    s.players.me.circles = { vc: s.players.me.circles.vc };
+    Object.assign(s, { turn: 3, turnPlayer: "me", phase: "battle", step: "attack", queue: [] });
+    refreshAwaiting(s);
+    s = apply(db, s, "me", { type: "attack", attacker: "vc", target: "vc" }).state;
+    s = apply(db, s, "bot", { type: "end-guard" }).state;
+    expect(s.awaiting?.kind).toBe("trigger-target");
+    act(() => root.render(<Pair s={s} />));
+    const trigger = (seat: PlayerId) => client(seat).querySelector<HTMLElement>(".bside.left .card")!;
+    act(() => trigger("bot").click());
+    expect(trigger("bot").className).not.toMatch(/active|source/);
+    expect(trigger("me").className).toContain("source");
+    act(() => trigger("me").click());
+    expect(trigger("me").className).toContain("active");
   });
 });
 

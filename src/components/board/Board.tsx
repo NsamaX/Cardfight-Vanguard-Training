@@ -229,7 +229,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {tray(bottom)}
         {stack(bottom)}
         {hand(bottom)}
-        <PileModal board={board} started={started} decks={decks} onMoveG={online ? undefined : onDeckUpdated && reorderG} />
+        <PileModal board={board} started={started} decks={decks} onMoveG={online ? undefined : onDeckUpdated && reorderG} opponent={online && other(online.seat)} />
         <ChoiceModal board={board} />
         {showReplays && <ReplayModal signedIn={signedIn} current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
         {showOnline && onOnline && <OnlineDialog library={library} deck={decks.me} onReady={(m) => { setShowOnline(false); onOnline(m); }} onClose={() => setShowOnline(false)} />}

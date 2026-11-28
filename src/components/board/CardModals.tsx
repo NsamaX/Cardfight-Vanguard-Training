@@ -31,7 +31,8 @@ export function ChoiceModal({ board }: { board: BoardModel }) {
 // Dialog for viewing cards in a zone (click a G zone card to stride/call a G guardian), ordered from the top card
 // The deck can be viewed while watching a replay, and both decks before Start (sorted by grade like the deck screen, not revealing the draw order)
 // The G zone shows only face-down cards (played ones are already shown face up next to the G zone), in deck order; drag a card onto another to reorder (onMoveG saves it to the deck)
-export function PileModal({ board, started, decks, onMoveG }: { board: BoardModel; started: boolean; decks: Record<PlayerId, Deck>; onMoveG?: (p: PlayerId, from: string, to: string) => void }) {
+// opponent: the other player's side online, whose face-down G zone this player may not look at
+export function PileModal({ board, started, decks, onMoveG, opponent }: { board: BoardModel; started: boolean; decks: Record<PlayerId, Deck>; onMoveG?: (p: PlayerId, from: string, to: string) => void; opponent?: PlayerId }) {
   const { s, pile, setPile, clickPileCard } = board;
   const t = useT();
   if (!pile) return null;
@@ -48,7 +49,8 @@ export function PileModal({ board, started, decks, onMoveG }: { board: BoardMode
   const close = () => setPile(null);
   return (
     <Modal title={t("modal.pile", { zone: { key: `pile.${pile.zone}` }, n: list.length })} onClose={close}>
-      {pile.zone === "deck" && !board.readOnly && !preview ? <span className="mute">{t("modal.deckHidden")}</span> : list.map((c) => (
+      {pile.zone === "deck" && !board.readOnly && !preview ? <span className="mute">{t("modal.deckHidden")}</span>
+        : pile.zone === "gZone" && pile.player === opponent ? <span className="mute">{t("modal.gZoneHidden")}</span> : list.map((c) => (
         <ModalCard key={c.uid} inst={c} light={board.lightOf(c.uid)} onClick={() => clickPileCard(pile.player, pile.zone, c)} onDrop={drop?.(c.key)} />
       ))}
     </Modal>
