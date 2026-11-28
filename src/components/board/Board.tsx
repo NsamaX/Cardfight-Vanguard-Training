@@ -201,6 +201,16 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {stack(other(bottom))}
         {started && !deckOpen && board.botTurn && !online && <span className="thinking">{t("ui.botThinking")}</span>}
         {online && !deckOpen && <OnlineStatus online={online} desync={board.desync} waiting={board.botTurn} between={!started || !!winner} />}
+        {board.shownAbility && !board.reveal && (
+          <div className={`ability-shown ${pos(other(bottom))}`} key={board.shownAbility.inst.uid + board.shownAbility.tag}>
+            <CardView inst={board.shownAbility.inst} plain noRotate />
+            <div className="ability-text">
+              <span className="tag">{board.shownAbility.tag}</span>
+              <span className="nm">{db[board.shownAbility.inst.key].name}</span>
+              {board.shownAbility.text && <p>{board.shownAbility.text}</p>}
+            </div>
+          </div>
+        )}
         {!!board.reveal?.cards.length && (
           <div className={`reveal ${pos(board.reveal.player)}`}>
             {board.reveal.cards.map((c) => <CardView key={c.uid} inst={c} plain noRotate />)}

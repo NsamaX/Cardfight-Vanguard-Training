@@ -1,8 +1,9 @@
 // Board-screen rules (pure functions, no React): which circles are clickable, battle numbers, and finding the card being viewed
 import { BEHIND, FRONT, RC, SAME_COLUMN, canBoost as cardBoosts, canIntercept as cardIntercepts, circleMsg, isG, other, powerOf, shieldOf, vcGrade, type CardDB } from "../engine/rules";
-import { locate, playerMsg, pull } from "../engine/state";
+import { abilityTag, locate, playerMsg, pull } from "../engine/state";
 import type { CardInstance, Choice, Circle, GameEvent, GameState, PlayerId } from "../engine/types";
 import { msg, type Msg, type MsgKey } from "../i18n/msg";
+import { abilitySummary } from "./skillBlocks";
 
 // The board before dealing: hand cards go back on top of the deck; starterOnVc = false also puts the starting vanguard back on top of the deck
 // Nobody needs to answer anything (so the bot doesn't start thinking before dealing is done)
@@ -205,4 +206,21 @@ export function groupByTurn(log: LogEntry[]): { turn: number; items: LogEntry[] 
     turns.at(-1)!.items.push(e);
   }
   return turns;
+}
+
+// An ability the other side started, shown in the middle of the board for a moment: the card, the ability's tag ([AUTO 2]), and what it does
+export interface ShownAbility { inst: CardInstance; tag: string; text?: string }
+
+export function abilitiesStarted(db: CardDB, events: GameEvent[], s: GameState, side: PlayerId): ShownAbility[] {
+  return events.filter((e) => e.code === "ability" && e.player === side && e.cardUid).flatMap((e) => {
+    const f = findCard(s, e.cardUid!);
+    if (!f) return [];
+    const label = String(e.text.params?.label ?? "");
+    const tag = abilityTag(label);
+    const card = db[f.inst.key];
+    const m = tag.match(/^\[(\w+)(?: (\d+))?(, granted)?\]$/);
+    const same = m && !m[3] ? card.abilities.filter((a) => a.kind === m[1]) : [];
+    const ab = m?.[2] ? same[Number(m[2]) - 1] : same.length === 1 ? same[0] : undefined;
+    return [{ inst: { ...f.inst, faceUp: true, rested: false }, tag, text: ab && abilitySummary(card.text, card.abilities, ab) }];
+  });
 }

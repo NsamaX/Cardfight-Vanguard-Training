@@ -13,10 +13,11 @@ import { cardMatches } from "../engine/vocab/filters";
 import type { Action, CardInstance, Circle, GameState, PlayerId, QueueEntry } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
-import { canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealSteps, revealedBy, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type Zone } from "../lib/board";
+import { abilitiesStarted, canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealSteps, revealedBy, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type ShownAbility, type Zone } from "../lib/board";
 
 const BOT_DELAY_MS = 450;   // pause between bot actions so you can follow along
 const REVEAL_MS = 800;      // how long revealed cards stay on show before going on
+const ABILITY_MS = 1600;    // how long an ability the other side started stays on show
 
 // A button in the middle bar; title = what it does, shown on hover
 export interface QuestionButton { label: Msg | string; title?: string; onClick: () => void }
@@ -58,6 +59,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [choiceMin, setChoiceMin] = useState(false);    // card choice dialog minimized to look at the board
 
   const [desync, setDesync] = useState(false);
+  const [shownAbility, setShownAbility] = useState<ShownAbility>();   // the other side's ability on show in the middle (one at a time)
+  const abilityQueue = useRef<ShownAbility[]>([]);
   const applied = useRef(online?.actions.length ?? 0);   // online: how many of the match's actions this board has played
 
   const actor = s.awaiting?.player;
@@ -167,8 +170,23 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   // Show the new board after actions were played: the mulligan's cards go back to the deck first, revealed cards stay on show for a moment
+  // The other side's abilities, one after another (doesn't hold up the game)
+  function showAbilities(list: ShownAbility[]) {
+    const idle = !abilityQueue.current.length;
+    abilityQueue.current.push(...list);
+    if (!idle || !list.length) return;
+    const step = () => {
+      const a = abilityQueue.current[0];
+      setShownAbility(a);
+      if (!a) return;
+      setTimeout(() => { abilityQueue.current.shift(); step(); }, ABILITY_MS);
+    };
+    step();
+  }
+
   function commit(st: GameState, entries: LogEntry[], done: RecordedAction[]) {
     const shown = revealedBy(entries, st);
+    if (remote && !readOnly) showAbilities(abilitiesStarted(db, entries, st, remote));
     bot?.observe?.(entries);
     setPast((h) => h.concat({ s, log, actions }));
     setFuture([]);
@@ -563,7 +581,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     redo: future.length && !readOnly && !staged && !online ? () => travel(false) : undefined,
     act, unguard, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
     canNext: !botTurn && !readOnly && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
-    botTurn, hiddenHand: remote, reveal, desync,
+    botTurn, hiddenHand: remote, reveal, desync, shownAbility,
     actions, readOnly,
     setInspect, setPile,
     setState: setS,   // replace the whole board, used when dealing after Start

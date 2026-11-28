@@ -349,6 +349,14 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .bside.right > span:last-child { flex: 0 1 calc(var(--card-w) + 6px); }
 .bside.right > span:first-child { flex: none; }
 .thinking { position: absolute; top: 8px; left: 16px; z-index: 3; padding: 4px 10px; border-radius: 6px; background: var(--panel); white-space: nowrap; }
+/* The other side's ability on show for a moment, over the middle of the board; clicks go through to the board */
+.ability-shown { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; display: flex; gap: 12px; align-items: flex-start; max-width: min(560px, 80%); padding: 10px; border-radius: 10px; background: var(--panel); box-shadow: 0 6px 24px rgba(0, 0, 0, .45); pointer-events: none; animation: ability-in .18s ease-out; }
+.ability-shown .card { flex: none; }
+.ability-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ability-text .tag { font: 600 11px/16px "IBM Plex Mono", monospace; letter-spacing: .08em; color: var(--mute); }
+.ability-text .nm { font-weight: 600; }
+.ability-text p { margin: 0; font-size: 12px; line-height: 1.5; }
+@keyframes ability-in { from { opacity: 0; transform: translate(-50%, -46%); } to { opacity: 1; transform: translate(-50%, -50%); } }
 .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; display: flex; gap: 8px; padding: 10px; border-radius: 10px; background: var(--panel); box-shadow: 0 6px 24px rgba(0, 0, 0, .45); }
 /* Hand hugs the screen edge, 10 cards per row; when space runs out cards overlap, later rows float overlapping toward the board center */
 .hand { position: relative; z-index: 3; min-width: 0; padding-top: 6px; min-height: calc(var(--card-h) + 6px); }
