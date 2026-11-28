@@ -4,7 +4,7 @@ import { useT } from "../../i18n/react";
 import { PHASES, phaseIndex } from "../../lib/board";
 
 const STORE = "phases-folded";
-const readFolded = () => { try { return localStorage.getItem(STORE) === "1"; } catch { return false; } };
+const readFolded = () => { try { return localStorage.getItem(STORE) !== "0"; } catch { return true; } };
 
 // Phases run bottom to top: START at the bottom, END at the top.
 // Hovering the line above them shows a tab that folds them down to the current step (remembered in this browser)
