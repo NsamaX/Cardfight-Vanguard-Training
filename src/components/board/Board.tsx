@@ -180,12 +180,19 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   );
   const stack = (p: PlayerId) => (
     <div className={`stack ${pos(p)}`}>
-      {p === bottom && <GameMenu items={menuItems} label={t("btn.menu")} />}
       <PileSlot ps={s.players[p]} zone="deck" light={board.pileLight(p, "deck")} shuffling={board.shuffling[p]} onOpen={open(p, "deck")} />
       <PileSlot ps={s.players[p]} zone="drop" light={board.pileLight(p, "drop")} onOpen={open(p, "drop")} />
       <PileSlot ps={s.players[p]} zone="bind" light={board.pileLight(p, "bind")} onOpen={open(p, "bind")} />
     </div>
   );
+
+  // The menu's place by default: left of our deck slot, level with it
+  const menuHome = () => {
+    const main = mainRef.current, slot = main?.querySelector(".stack.me .pile-group.deck .zone-slot");
+    if (!main || !slot) return undefined;
+    const m = main.getBoundingClientRect(), r = slot.getBoundingClientRect();
+    return { x: r.left - m.left - 12 - 34, y: r.top - m.top };
+  };
 
   const defender: PlayerId = s.turnPlayer === "me" ? "bot" : "me";
   return (
@@ -197,6 +204,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
       </LogPanel>
       <CardHover.Provider value={board.setHover}>
       <main ref={mainRef} style={sleeveVars} className={started ? `turn-${pos(s.turnPlayer)}` : undefined}>
+        <GameMenu items={menuItems} label={t("btn.menu")} board={mainRef} home={menuHome} />
         {hand(other(bottom))}
         {side(other(bottom))}
         {tray(other(bottom))}

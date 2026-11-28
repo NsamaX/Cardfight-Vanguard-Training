@@ -326,8 +326,8 @@ describe("board", () => {
     const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
     render(s);
     expect(host.querySelector(".panel-foot")).toBeNull();
-    const menu = () => host.querySelector(".stack.me .game-menu")!;
-    expect(host.querySelector(".stack.bot .game-menu")).toBeNull();                 // only on our side
+    const menu = () => host.querySelector(".game-menu")!;
+    expect(host.querySelectorAll(".game-menu")).toHaveLength(1);
     expect(menu().classList.contains("open")).toBe(false);
     rawClick(menu().querySelector(".menu-orb"));
     expect(menu().classList.contains("open")).toBe(true);
@@ -340,6 +340,33 @@ describe("board", () => {
     rawClick(menu().querySelector(".menu-orb"));
     rawClick(button("Show the side panels"));
     expect(host.querySelector(".app")!.classList.contains("wide")).toBe(false);
+  });
+
+  it("the menu stays over the deck screen (with Close), can be dragged anywhere and remembers the spot; a double click puts it back", () => {
+    const size = { clientWidth: 1000, clientHeight: 800 };
+    const saved = Object.fromEntries(Object.keys(size).map((k) => [k, Object.getOwnPropertyDescriptor(HTMLElement.prototype, k)]));
+    for (const [k, v] of Object.entries(size)) Object.defineProperty(HTMLElement.prototype, k, { configurable: true, get: () => v });
+    try { localStorage.removeItem("game-menu-pos"); } catch { /* none */ }
+    const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    act(() => root.render(<Board initial={s} started onStart={() => {}} settings={{ seed: s.seed, firstPlayer: s.firstPlayer }} decks={{ me: deck, bot: deck }} deckOpen onDeckOpen={() => {}}
+      onNewGame={() => {}} onApplySettings={() => {}} onSwapDecks={() => {}} onPickDeck={() => {}} onDeckChanged={() => {}} />));
+    const menu = () => host.querySelector<HTMLElement>(".game-menu")!;
+    expect(menu()).toBeTruthy();
+    expect([...menu().querySelectorAll(".menu-item")].map((b) => b.getAttribute("aria-label"))).toContain("Close");
+    const orb = menu().querySelector(".menu-orb")!;
+    const fire = (type: string, x: number, y: number) => act(() => { orb.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: y })); });
+    const start = { x: parseFloat(menu().style.left), y: parseFloat(menu().style.top) };
+    fire("pointerdown", 100, 100);
+    fire("pointermove", 400, 300);
+    fire("pointerup", 400, 300);
+    act(() => { (orb as HTMLElement).click(); });                                  // the click that ends the drag doesn't open it
+    expect(menu().classList.contains("open")).toBe(false);
+    expect(parseFloat(menu().style.left)).toBe(Math.max(4, start.x + 300));
+    expect(parseFloat(menu().style.top)).toBe(Math.max(4, start.y + 200));
+    expect(JSON.parse(localStorage.getItem("game-menu-pos")!)).toEqual({ x: parseFloat(menu().style.left) / 1000, y: parseFloat(menu().style.top) / 800 });
+    act(() => { orb.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); });
+    expect(localStorage.getItem("game-menu-pos")).toBeNull();
+    for (const [k, d] of Object.entries(saved)) { if (d) Object.defineProperty(HTMLElement.prototype, k, d); else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[k]; }
   });
 
   it("one ability triggered by two events: each button names the card it is about, with unique keys", () => {

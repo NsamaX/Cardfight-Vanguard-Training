@@ -59,9 +59,12 @@ aside.right { border-left: 1px solid var(--line); }
 .app.wide { grid-template-columns: 0 minmax(0, 1fr) 0; }
 .app.wide > aside { visibility: hidden; overflow: hidden; border: none; }
 
-/* Game menu: one round button between the RCs and the deck, level with the deck slot; its icons drop down below it,
-   and a hovered icon's name slides out to its left with a pointer, toward the board */
-.game-menu { position: absolute; top: var(--lane); right: calc(100% + 12px); z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* Game menu: one round button, by default between the RCs and the deck, level with the deck slot (can be dragged anywhere);
+   its icons drop down below it (or up near the bottom), and a hovered icon's name slides out beside it with a pointer */
+.game-menu { position: absolute; z-index: 8; display: flex; flex-direction: column; align-items: center; gap: 8px; }   /* over the deck editor too */
+.game-menu.up { flex-direction: column-reverse; }
+.game-menu.up .menu-items { flex-direction: column-reverse; }
+.game-menu.dragging .menu-orb { cursor: grabbing; transform: scale(1.08); }
 .menu-orb, .menu-item { position: relative; width: 34px; height: 34px; padding: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
 .menu-orb { border: 1px solid var(--mute); background: var(--panel); transition: border-color .15s, transform .15s; }
 .menu-orb .orb-ring { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--mute); transition: border-color .15s, background .15s; }
@@ -77,6 +80,8 @@ aside.right { border-left: 1px solid var(--line); }
 .menu-label { position: absolute; right: calc(100% + 10px); top: 50%; transform: translate(6px, -50%); padding: 4px 10px; border-radius: 4px; background: var(--ink); color: var(--inv); font: 600 11px/16px "IBM Plex Mono", monospace; letter-spacing: .06em; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .12s, transform .12s; }
 .menu-label::after { content: ""; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); border: 5px solid transparent; border-left-color: var(--ink); }
 .menu-item:hover .menu-label, .menu-item:focus-visible .menu-label { opacity: 1; transform: translate(0, -50%); }
+.names-right .menu-label { right: auto; left: calc(100% + 10px); transform: translate(-6px, -50%); }
+.names-right .menu-label::after { left: auto; right: 100%; border-left-color: transparent; border-right-color: var(--ink); }
 
 /* Board: top half is the bot (upside down), bottom half is us, the battle bar sits exactly at the screen center */
 main {
