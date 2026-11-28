@@ -153,6 +153,7 @@ export const ja: Dict = {
   "btn.replays": "リプレイ",
   "btn.online": "オンライン",
   "btn.leave": "退出",
+  "btn.menu": "メニュー",
   "btn.wide": "盤面のみ表示",
   "btn.unwide": "サイドパネルを表示",
   "btn.reload": "再読み込み",

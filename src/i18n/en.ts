@@ -156,6 +156,7 @@ export const en = {
   "btn.replays": "Replays",
   "btn.online": "Online",
   "btn.leave": "Leave",
+  "btn.menu": "Menu",
   "btn.wide": "Board only",
   "btn.unwide": "Show the side panels",
   "btn.reload": "Reload",

@@ -55,12 +55,28 @@ aside.right { border-left: 1px solid var(--line); }
 .dot.me { background: var(--ink); }
 .dot.bot { border: 1px solid var(--ink); }
 .panel-foot { flex: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 10px 16px 12px; }
-.panel-foot.icons { display: flex; flex-wrap: wrap; }
 /* Board only: the side panels fold away; the button to bring them back sits in the board's top-left corner */
 .app.wide { grid-template-columns: 0 minmax(0, 1fr) 0; }
 .app.wide > aside { visibility: hidden; overflow: hidden; border: none; }
-.wide-toggle { position: absolute; top: 8px; left: 8px; z-index: 6; }
-.app.wide .thinking { left: 52px; }
+
+/* Game menu: one round button between the RCs and the deck, level with the deck slot; its icons drop down below it,
+   and a hovered icon's name slides out to its left with a pointer, toward the board */
+.game-menu { position: absolute; top: var(--lane); right: calc(100% + 12px); z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.menu-orb, .menu-item { position: relative; width: 34px; height: 34px; padding: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.menu-orb { border: 1px solid var(--mute); background: var(--panel); transition: border-color .15s, transform .15s; }
+.menu-orb .orb-ring { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--mute); transition: border-color .15s, background .15s; }
+.game-menu.open .menu-orb, .menu-orb:hover { border-color: var(--ink); }
+.game-menu.open .orb-ring, .menu-orb:hover .orb-ring { border-color: var(--ink); background: var(--ink); }
+.menu-orb.alert .orb-ring { border-color: var(--bad); background: var(--bad); animation: ph-blink 1.6s ease-in-out infinite; }
+.menu-items { display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.menu-item { border: 1px solid var(--line); background: var(--panel); color: var(--ink); opacity: 0; transform: translateY(-8px) scale(.8); transition: opacity .15s, transform .15s, border-color .15s, background .15s; }
+.game-menu.open .menu-items { pointer-events: auto; }
+.game-menu.open .menu-item { opacity: 1; transform: none; }
+.menu-item:hover, .menu-item:focus-visible { border-color: var(--ink); background: var(--ink); color: var(--inv); }
+.menu-item.alert { border-color: var(--bad); color: var(--bad); }
+.menu-label { position: absolute; right: calc(100% + 10px); top: 50%; transform: translate(6px, -50%); padding: 4px 10px; border-radius: 4px; background: var(--ink); color: var(--inv); font: 600 11px/16px "IBM Plex Mono", monospace; letter-spacing: .06em; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .12s, transform .12s; }
+.menu-label::after { content: ""; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); border: 5px solid transparent; border-left-color: var(--ink); }
+.menu-item:hover .menu-label, .menu-item:focus-visible .menu-label { opacity: 1; transform: translate(0, -50%); }
 
 /* Board: top half is the bot (upside down), bottom half is us, the battle bar sits exactly at the screen center */
 main {

@@ -322,14 +322,22 @@ describe("board", () => {
     expect([...host.querySelectorAll(".modal .card")].map((c) => c.getAttribute("title"))).toEqual([db[BONE].name, db[TOMMY].name]);
   });
 
-  it("the panel buttons are icons named on hover; Board only folds both side panels away and the corner button brings them back", () => {
+  it("the game's buttons sit in one round menu by the deck: it opens on click, each icon names itself, Board only folds the side panels away", () => {
     const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
     render(s);
-    const names = [...host.querySelectorAll(".panel-foot button")].map((b) => b.getAttribute("title"));
-    expect(names).toEqual(["Reset", "Decks", "Replays", "Settings", "Board only"]);
-    expect([...host.querySelectorAll(".panel-foot button")].every((b) => b.querySelector("svg") && !b.textContent)).toBe(true);
+    expect(host.querySelector(".panel-foot")).toBeNull();
+    const menu = () => host.querySelector(".stack.me .game-menu")!;
+    expect(host.querySelector(".stack.bot .game-menu")).toBeNull();                 // only on our side
+    expect(menu().classList.contains("open")).toBe(false);
+    rawClick(menu().querySelector(".menu-orb"));
+    expect(menu().classList.contains("open")).toBe(true);
+    const items = [...menu().querySelectorAll(".menu-item")];
+    expect(items.map((b) => b.querySelector(".menu-label")!.textContent)).toEqual(["Reset", "Decks", "Replays", "Settings", "Board only"]);
+    expect(items.every((b) => b.querySelector("svg"))).toBe(true);
     rawClick(button("Board only"));
+    expect(menu().classList.contains("open")).toBe(false);                          // closes after a choice
     expect(host.querySelector(".app")!.classList.contains("wide")).toBe(true);
+    rawClick(menu().querySelector(".menu-orb"));
     rawClick(button("Show the side panels"));
     expect(host.querySelector(".app")!.classList.contains("wide")).toBe(false);
   });
