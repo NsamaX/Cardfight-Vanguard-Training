@@ -76,10 +76,10 @@ export type Mode =
   | { kind: "mulligan"; picks: string[] }
   | { kind: "stride"; gUid?: string; picks: string[] }            // G unit to stride + hand cards to discard (total grade 3+)
   | { kind: "gguard"; gUid: string; discardUid?: string }
-  | { kind: "guard"; picks: string[] }                      // hand cards chosen to guard (several allowed)
+  | { kind: "guard"; picks: string[]; intercept: Circle[] }  // hand cards and intercepting rear-guards chosen to guard (several allowed)
   | { kind: "trigger"; powerTo?: Circle };
 export type LogEntry = GameEvent & { turn: number };
-export type Light = "source" | "active" | undefined;   // yellow border = ability pending, orange border = selected/resolving
+export type Light = "source" | "active" | "can" | "chosen" | undefined;   // yellow = ability pending, orange = resolving, green dashed/solid = can be picked/picked
 
 // Rows in the phase bar in game order: START (setup/mulligan), then STAND → END in a loop, with RIDE and STRIDE as separate rows
 export const PHASES: { label: MsgKey; phase: GameState["phase"]; step?: string }[] = [

@@ -2,7 +2,7 @@
 
 :root {
   --bg: #0e0e0e; --panel: #141414; --ink: #ececea; --mute: #8c8c88; --line: #2a2a2a;
-  --soft: #232323; --card: #1a1a1a; --inv: #111; --veil: rgba(14, 14, 14, .84); --hi: #f2c14e; --act: #f28c28; --bad: #e5484d;
+  --soft: #232323; --card: #1a1a1a; --inv: #111; --veil: rgba(14, 14, 14, .84); --hi: #f2c14e; --act: #f28c28; --bad: #e5484d; --guard: #4ea8f2; --pick: #4cc38a;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -322,21 +322,29 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .grid { display: grid; grid-template-columns: repeat(3, calc(var(--card-h) + 10px)); grid-auto-rows: calc(var(--card-h) + 4px); gap: var(--lane) var(--gap); }
 .slot { position: relative; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; }
 .slot.vc { border-style: solid; border-color: var(--mute); }
-.slot.target, .slot.source { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
-/* Abilities: yellow border = waiting to be clicked, orange border = selected/resolving (cards in piles/damage/soul highlight the whole zone) */
+/* Colors: red = attack (solid attacker, dashed attacked), blue = guard, green = can be picked (dashed) / picked (solid),
+   yellow = ability that can be used, orange = ability resolving (glows). Cards in piles/damage/soul light the whole zone */
+.slot.target { border: 2px dashed var(--pick); background: color-mix(in srgb, var(--pick) 10%, transparent); }
+.slot.source { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
 .slot.atk { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
-/* Attacked unit: blue, opposite the red attacker (yellow = clickable, e.g. intercept) */
-.slot.aimed { border: 2px solid #3b9eff; background: color-mix(in srgb, #3b9eff 12%, transparent); }
-.slot.active { border: 2px solid var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
-/* A unit in battle with a pending ability (e.g. Negrobone at battle end) shows a yellow border instead of red; an attacker that can take trigger effects stays red */
-.slot.atk.source, .slot.aimed.source, .slot.aimed.target { border-color: var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
+.slot.aimed { border: 2px dashed var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); }
+.slot.guard { border: 2px solid var(--guard); background: color-mix(in srgb, var(--guard) 12%, transparent); }
+.slot.active { border: 2px solid var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); box-shadow: 0 0 10px 1px var(--act); }
+/* A unit in battle with a pending ability (e.g. Negrobone at battle end) shows yellow instead of red; an attacker that can take trigger effects stays red */
+.slot.atk.source, .slot.aimed.source { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
+.slot.aimed.target { border-color: var(--pick); background: color-mix(in srgb, var(--pick) 10%, transparent); }
 .card.source { outline: 3px solid var(--hi); outline-offset: 2px; }
-.card.active { outline: 3px solid var(--act); outline-offset: 2px; }
+.card.active { outline: 3px solid var(--act); outline-offset: 2px; box-shadow: 0 0 12px 2px var(--act); }
+.card.can { outline: 3px dashed var(--pick); outline-offset: 2px; }
+.card.chosen { outline: 3px solid var(--pick); outline-offset: 2px; }
 /* Pile frames light up like RC circles (the inset shadow makes the 1px border look 2px without moving the cards) */
 .zone-slot.source, .damage.source::before { border: 1px solid var(--hi); box-shadow: inset 0 0 0 1px var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
-.zone-slot.active, .damage.active::before { border: 1px solid var(--act); box-shadow: inset 0 0 0 1px var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
+.zone-slot.active, .damage.active::before { border: 1px solid var(--act); box-shadow: inset 0 0 0 1px var(--act), 0 0 10px 1px var(--act); background: color-mix(in srgb, var(--act) 12%, transparent); }
+.zone-slot.can, .damage.can::before { border: 1px dashed var(--pick); box-shadow: inset 0 0 0 1px var(--pick); background: color-mix(in srgb, var(--pick) 10%, transparent); }
+.zone-slot.chosen, .damage.chosen::before { border: 1px solid var(--pick); box-shadow: inset 0 0 0 1px var(--pick); background: color-mix(in srgb, var(--pick) 12%, transparent); }
 .badge.source { border-color: var(--hi); background: var(--hi); color: var(--inv); }
 .badge.active { border-color: var(--act); background: var(--act); color: var(--inv); }
+.badge.can, .badge.chosen { border-color: var(--pick); background: var(--pick); color: var(--inv); }
 .slot .lbl { position: absolute; top: 2px; left: 5px; font-family: "IBM Plex Mono", monospace; font-size: 9px; color: var(--mute); }
 .badge { flex: none; height: 18px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font: 600 11px/16px "IBM Plex Mono", monospace; white-space: nowrap; }
 .soul-count { position: absolute; left: 50%; transform: translateX(-50%); cursor: pointer; }
@@ -348,12 +356,14 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .heart { position: absolute; transform: translate(6px, -6px); opacity: .55; pointer-events: none; }
 .soul-peek { position: absolute; transform: translateX(calc(var(--card-w) * -.45)); }
 .heart.lit { opacity: 1; pointer-events: auto; }
+.soul-stack { position: absolute; visibility: hidden; pointer-events: none; }
+.soul-stack .card { position: absolute; transform: translate(-50%, -50%); }
 
 /* Cards */
 .card { position: relative; height: var(--card-h); width: var(--card-w); flex: none; border: 1px solid var(--ink); border-radius: 5px; overflow: hidden; padding: 0; cursor: pointer; background: var(--card) repeating-linear-gradient(135deg, var(--soft) 0 3px, transparent 3px 7px); text-align: left; transition: transform .2s; display: block; }
 .card.small { height: calc(var(--card-h) * .7); width: calc(var(--card-w) * .7); }
-.card.sel { outline: 3px solid var(--hi); outline-offset: 1px; }
-.card.pick { outline: 3px dashed var(--hi); outline-offset: 1px; }
+.card.sel, .card.pick { outline: 3px solid var(--pick); outline-offset: 1px; }
+.card.guard { outline: 3px solid var(--guard); outline-offset: 1px; }
 .card.rested { transform: rotate(90deg); }
 .card.ghost, .back.ghost { position: fixed; z-index: 9; margin: 0; pointer-events: none; transition: none; }
 .card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

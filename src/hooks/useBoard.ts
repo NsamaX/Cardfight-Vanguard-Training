@@ -12,6 +12,7 @@ import { guardianDiscardFilter, strideCostGrade, strideCostOk } from "../engine/
 import { cardMatches } from "../engine/vocab/filters";
 import type { Action, CardInstance, Circle, GameState, PlayerId, QueueEntry } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
+import type { CardMove } from "../engine/zones";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
 import { abilitiesStarted, abilityResolving, canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealSteps, revealedBy, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type ShownAbility, type Zone } from "../lib/board";
 
@@ -54,7 +55,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [error, setError] = useState<Msg>();
   const [focus, setFocus] = useState<string>();         // card clicked to use its ACT
   const [queuePick, setQueuePick] = useState<string>();  // a card with several pending abilities was clicked: ask which one
-  const [opened, setOpened] = useState(false);          // a pending ability was just opened by clicking: Cancel on its first question goes back
+  const [opened, setOpened] = useState(false);
+  const [flight, setFlight] = useState<{ s: GameState; moves: CardMove[] }>();   // the cards the last action moved, in order (animated one step after another)          // a pending ability was just opened by clicking: Cancel on its first question goes back
   const [trigArmed, setTrigArmed] = useState(false);    // the trigger card was clicked; the cursor shows what it will give
   const [staged, setStaged] = useState(false);          // showing cards returning to the deck before the redraw, or revealed cards: undo/redo disabled
   const [reveal, setReveal] = useState<{ player: PlayerId; cards: CardInstance[]; drive: CardInstance[] }>();   // cards shown in the middle of the board / drive check cards on the battle bar
@@ -89,7 +91,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const active = focusedAct ? [focus!] : choice && s.resolving ? [s.resolving.uid] : [];
   const sources = [...offered, ...acts].map((e) => e.uid).filter((u) => !active.includes(u));
   const waitingPiles = sourcePiles(s, sources), activePiles = sourcePiles(s, active);
-  // Piles a card choice picks from (deck, drop...): yellow for both players, so the opponent sees where a card is being chosen even without the dialog
+  // Piles a card choice picks from (deck, drop...): green for both players, so the opponent sees where a card is being chosen even without the dialog
   const choicePiles = sourcePiles(s, choice?.kind === "cards" ? choice.options : []);
 
   // Replay viewer: stepping shows that step's board (no new board is created, so cards move continuously)
@@ -140,17 +142,19 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (!actor || readOnly || botTurn !== fromBot) return;
     try {
       const done: RecordedAction[] = [];
-      const events = [];
+      const events = [], moves: CardMove[] = [];
       let base = s;
       if (skippable && !ANSWERS.includes(action.type)) {
         const r0 = apply(db, s, actor, { type: "pass-queue" });
         base = r0.state;
         events.push(...r0.events);
+        moves.push(...r0.moves);
         done.push({ player: actor, action: { type: "pass-queue" } });
       }
       const r = apply(db, base, actor, action);
       let st = r.state;
       events.push(...r.events);
+      moves.push(...r.moves);
       const entries = events.map((e) => ({ ...e, turn: st.turn }));
       done.push({ player: actor, action });
       const follow = then?.(st);
@@ -160,6 +164,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
           const r2 = apply(db, st, p2, follow);
           st = r2.state;
           entries.push(...r2.events.map((e) => ({ ...e, turn: st.turn })));
+          moves.push(...r2.moves);
           done.push({ player: p2, action: follow });
         } catch (e) { if (!(e instanceof RuleError)) throw e; }
       }
@@ -168,7 +173,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
         online.send(done);
         applied.current += done.length;
       }
-      commit(st, entries, done);
+      commit(st, entries, done, moves);
     } catch (e) {
       if (e instanceof RuleError) setError(e.msg); else throw e;
     }
@@ -194,7 +199,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     step();
   }
 
-  function commit(st: GameState, entries: LogEntry[], done: RecordedAction[]) {
+  function commit(st: GameState, entries: LogEntry[], done: RecordedAction[], moves: CardMove[]) {
     const shown = revealedBy(entries, st);
     if (remote && !readOnly) showAbilities(abilitiesStarted(db, entries, st, remote));
     const shuffled = [...new Set(entries.filter((e) => e.text.key === "log.shuffle" || e.text.key === "log.returnToDeck").map((e) => e.player))];
@@ -224,7 +229,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
         setTimeout(() => play(i + 1), MOVE_MS + REVEAL_MS);
       };
       play(0);
-    } else setS(st);
+    } else { setS(st); setFlight({ s: st, moves }); }
     clearUi();
   }
 
@@ -236,12 +241,13 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (traceOnline) console.info("[online] remote", applied.current, JSON.stringify(fresh.map((r) => r.action)));
     applied.current += fresh.length;
     let st = s;
-    const entries: LogEntry[] = [];
+    const entries: LogEntry[] = [], moves: CardMove[] = [];
     try {
       for (const r of fresh) {
         const res = apply(db, st, r.player, r.action);
         st = res.state;
         entries.push(...res.events.map((e) => ({ ...e, turn: st.turn })));
+        moves.push(...res.moves);
       }
     } catch (e) {
       if (!(e instanceof RuleError)) throw e;
@@ -251,7 +257,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       online.outOfSync?.();
       return;
     }
-    commit(st, entries, fresh);
+    commit(st, entries, fresh, moves);
   }, [online?.actions, staged, desync]);
 
   // The bot's turn: let the bot think and send an action (cancelled if the state changes before it finishes, e.g. undo)
@@ -313,9 +319,9 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (actor && p !== actor) { setError(msg("err.turnOf", { player: playerMsg(actor) })); return; }
     if (choice || (ordering && !skippable) || offered.some((e) => e.uid === inst.uid)) return;
     if (guarding && mode?.kind !== "gguard") {
-      const picks = mode?.kind === "guard" ? mode.picks : [];
+      const picks = mode?.kind === "guard" ? mode.picks : [], intercept = mode?.kind === "guard" ? mode.intercept : [];
       const next = picks.includes(inst.uid) ? picks.filter((u) => u !== inst.uid) : picks.concat(inst.uid);
-      setMode(next.length ? { kind: "guard", picks: next } : null);
+      setMode(next.length || intercept.length ? { kind: "guard", picks: next, intercept } : null);
       return;
     }
     if (mode?.kind === "mulligan" || mode?.kind === "stride") {
@@ -357,7 +363,12 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       else act({ type: "trigger-target", powerTo: c });
       return;
     }
-    if (mine && guarding && unit && canIntercept(c)) { act({ type: "guard", uids: [], intercept: [c] }); return; }
+    if (mine && guarding && unit && canIntercept(c) && mode?.kind !== "gguard") {
+      const picks = mode?.kind === "guard" ? mode.picks : [], intercept = mode?.kind === "guard" ? mode.intercept : [];
+      const next = intercept.includes(c) ? intercept.filter((x) => x !== c) : intercept.concat(c);
+      setMode(picks.length || next.length ? { kind: "guard", picks, intercept: next } : null);
+      return;
+    }
     if (mine && sel?.kind === "hand") {
       if (s.phase === "ride" && s.step === "ride" && c === "vc") { act({ type: "ride", uid: sel.uid }); return; }
       if (s.phase === "main" && c !== "vc") { act({ type: "call", uid: sel.uid, to: c }); return; }
@@ -513,9 +524,9 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       ] };
     }
     if (guarding && mode?.kind === "guard") {
-      const uids = mode.picks;
+      const { picks: uids, intercept } = mode;
       return { buttons: [
-        { label: yes, onClick: () => act({ type: "guard", uids }) },
+        { label: yes, onClick: () => act({ type: "guard", uids, intercept }) },
         { label: no, onClick: () => setMode(null) },
       ] };
     }
@@ -541,11 +552,12 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
 
   return {
     s, log, error, actor,
+    moves: flight?.s === s ? flight.moves : undefined,
     lightOf: (uid: string): Light =>
       trig && !botTurn && uid === s.battle?.checkCard?.uid ? (trigArmed ? "active" : "source")
-      : healing && s.players[actor!].damage.some((d) => d.uid === uid) ? "source"
-      : fieldChoice?.options.includes(uid) ? (choicePicks.includes(uid) ? "active" : "source")
-      : (striding || mode?.kind === "stride") && s.players[actor!]?.gZone.some((g) => g.uid === uid && !g.faceUp && db[g.key].type === "g-unit") ? (mode?.kind === "stride" && mode.gUid === uid ? "active" : "source")
+      : healing && s.players[actor!].damage.some((d) => d.uid === uid) ? "can"
+      : fieldChoice?.options.includes(uid) ? (choicePicks.includes(uid) ? "chosen" : "can")
+      : (striding || mode?.kind === "stride") && s.players[actor!]?.gZone.some((g) => g.uid === uid && !g.faceUp && db[g.key].type === "g-unit") ? (mode?.kind === "stride" && mode.gUid === uid ? "chosen" : "can")
       : active.includes(uid) ? "active" : sources.includes(uid) ? "source" : undefined,
     // Trigger: click the revealed check card and the cursor shows what it will give (the trigger's Power first, then Critical/Stand); the unit chosen for Power shows the value in advance
     // Only the trigger's owner arms it; the other player (or the side the bot plays) just inspects the card
@@ -562,20 +574,20 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       : undefined,
     fieldChoice: !!fieldChoice, choiceMin, setChoiceMin,
     pileLight: (p: PlayerId, zone: string): Light =>
-      healing && p === actor && zone === "damage" ? "source"
-      : (striding || mode?.kind === "stride") && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "active" : "source")
-      : activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) || choicePiles[p].has(zone) ? "source" : undefined,
+      healing && p === actor && zone === "damage" ? "can"
+      : (striding || mode?.kind === "stride") && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "chosen" : "can")
+      : activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) ? "source" : choicePiles[p].has(zone) ? "can" : undefined,
     choice, ordering, trig, guarding, mode, choicePicks, pile,
     selUid: sel?.kind === "hand" ? sel.uid : sel?.kind === "circle" ? s.players[sel.player].circles[sel.circle]?.uid : undefined,
     // Units chosen to attack/boost (red border) and the Power the boost will give
-    // A declared battle: attacker/booster red border, target yellow border (the defender sees who attacks whom)
+    // A declared battle: attacker/booster red border, target red dashed border (the defender sees who attacks whom)
     battleMarks: s.battle ? {
       [s.turnPlayer]: { atk: [s.battle.attacker, s.battle.booster].filter((c): c is Circle => !!c), aimed: [] as Circle[] },
       [s.turnPlayer === "me" ? "bot" : "me"]: { atk: [] as Circle[], aimed: [s.battle.target] },
     } as Record<PlayerId, { atk: Circle[]; aimed: Circle[] }> : undefined,
     // Shield from the currently selected cards (shown in advance on the guard number) and whether a sentinel is among them
     guardPreview: guarding ? (() => {
-      const uids = mode?.kind === "guard" ? mode.picks : mode?.kind === "gguard" ? [mode.gUid] : [];
+      const uids = mode?.kind === "guard" ? [...mode.picks, ...mode.intercept.map((c) => s.players[actor!].circles[c]!.uid)] : mode?.kind === "gguard" ? [mode.gUid] : [];
       const insts = uids.map((u) => findCard(s, u)!.inst);
       return { shield: insts.reduce((n, i) => n + shieldOf(db, i), 0), sentinel: insts.some((i) => isSentinel(db[i.key])) };
     })() : undefined,
@@ -584,7 +596,10 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       circles: [sel.front && sel.col, sel.back && BEHIND[sel.col]].filter((c): c is Circle => !!c),
       bonus: sel.front && sel.back ? { [sel.col]: powerOf(db, s.players[sel.player], BEHIND[sel.col]!) } as Partial<Record<Circle, number>> : {},
     } : undefined,
-    picks: mode && "picks" in mode ? mode.picks : mode?.kind === "gguard" && mode.discardUid ? [mode.discardUid] : [],
+    picks: mode && "picks" in mode && mode.kind !== "guard" ? mode.picks : mode?.kind === "gguard" && mode.discardUid ? [mode.discardUid] : [],
+    // Chosen to guard but not yet confirmed (blue): hand cards and the circles of intercepting rear-guards
+    guardPicks: mode?.kind === "guard" ? mode.picks : [],
+    interceptPicks: mode?.kind === "guard" ? mode.intercept : [],
     inspectedOf,
     setHover,
     closeInspect: (p: PlayerId) => setInspectUids((i) => ({ ...i, [p]: undefined })),

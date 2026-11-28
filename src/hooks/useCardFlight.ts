@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
+import type { CardMove } from "../engine/zones";
 
 export const MOVE_MS = 400;
 export const MOVE_EASE = "cubic-bezier(.2,.7,.2,1)";
@@ -19,7 +20,7 @@ function fly(el: HTMLElement, from: Spot, to: Spot, look: HTMLElement = el, dela
   const w = el.offsetWidth, h = el.offsetHeight;
   const ghost = look.cloneNode(true) as HTMLElement;
   ghost.removeAttribute("data-uid");
-  ghost.classList.remove("sel", "picked", "source", "active");
+  ghost.classList.remove("sel", "pick", "guard", "source", "active", "can", "chosen");
   ghost.classList.add("ghost");
   const css = getComputedStyle(el);
   for (const v of ["--sleeve", "--g-sleeve"]) ghost.style.setProperty(v, css.getPropertyValue(v));
@@ -58,7 +59,9 @@ function flip(el: HTMLElement) {
 // Cards in hand are moved by Hand itself (using these remembered positions as the start for cards entering the hand); cards in dialogs don't count
 // Cards returning from hand to the deck: the ghost looks like it did in hand, flying one by one left to right like a draw
 // Units turned face up without moving (the vanguard at game start) flip visibly
-export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown) {
+// moves: the cards the action moved, in order. Each run of moves between the same two zones is one step, and a step flies once
+// the step before has landed (King Serpent lands on RC, then its Soul Charge goes deck → soul); steps where nothing visibly moves take no time
+export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown, moves?: CardMove[]) {
   const seen = useRef(new Map<string, Spot>()).current;
   const inHand = useRef(new Map<string, HTMLElement>()).current;   // copies of the previous hand cards (the real ones are gone once they leave the hand)
   const faceDown = useRef(new Set<string>()).current;
@@ -71,6 +74,7 @@ export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown)
     inHand.clear();
     faceDown.clear();
     const toDeck: { el: HTMLElement; from: Spot; now: Spot; look: HTMLElement }[] = [];
+    const flying: { el: HTMLElement; from: Spot; now: Spot; look?: HTMLElement; uid: string }[] = [];
     for (const el of main.querySelectorAll<HTMLElement>("[data-uid]")) {
       const uid = el.dataset.uid!;
       if (seen.has(uid) || el.closest(".veil")) continue;
@@ -90,8 +94,20 @@ export function useCardFlight(root: RefObject<HTMLElement | null>, dep: unknown)
       if (Math.abs(from.x - now.x) < 1 && Math.abs(from.y - now.y) < 1) continue;
       const look = el.closest(".reveal") ? undefined : prevHand.get(uid);   // a revealed card shows its face on the way, even from a hidden hand
       if (look && el.closest(".deck")) toDeck.push({ el, from, now, look });
-      else fly(el, from, now, look);
+      else flying.push({ el, from, now, look, uid });
     }
+    // Each step starts once the last step in which something flew has landed (cards entering the hand fly in Hand, and count too)
+    const shown = new Set([...flying.map((f) => f.uid), ...(moves ?? []).filter((m) => m.to === "hand" && inHand.has(m.uid) && !prevHand.has(m.uid)).map((m) => m.uid)]);
+    const delay = new Map<string, number>();
+    let start = 0, clock = 0;
+    moves?.forEach((m, i) => {
+      const prevMove = moves[i - 1];
+      if (prevMove && (prevMove.from !== m.from || prevMove.to !== m.to)) start = clock;
+      if (shown.has(m.uid)) clock = start + MOVE_MS;
+      delay.set(m.uid, start);
+    });
+    const delayOf = (uid: string) => delay.get(uid) ?? 0;
+    for (const f of flying) fly(f.el, f.from, f.now, f.look, delayOf(f.uid));
     toDeck.sort((a, b) => a.from.x - b.from.x).forEach((f, i) => fly(f.el, f.from, f.now, f.look, i * DEAL_GAP_MS));
   }, [dep]);
   return seen;

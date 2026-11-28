@@ -17,7 +17,18 @@ export function zoneOf(at: NonNullable<ReturnType<typeof locate>>): Zone {
   return at.zone;
 }
 
+export interface CardMove { uid: string; from: Zone; to: Zone }
+
+// Moves made while apply() runs, in order (the board animates them one step after another); not part of the state
+let moveLog: CardMove[] | undefined;
+export function collectMoves<T>(run: () => T): { result: T; moves: CardMove[] } {
+  const outer = moveLog, moves: CardMove[] = [];
+  moveLog = moves;
+  try { return { result: run(), moves }; } finally { moveLog = outer; }
+}
+
 export function moved(db: CardDB, s: GameState, e: Omit<MoveEvent, "kind" | "grants"> & { grants?: Ability[] }) {
+  moveLog?.push({ uid: e.uid, from: e.from, to: e.to });
   emit(db, s, { kind: "move", grants: [], ...e });
 }
 

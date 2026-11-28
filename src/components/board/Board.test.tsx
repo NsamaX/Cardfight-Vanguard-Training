@@ -217,6 +217,8 @@ describe("board", () => {
     rawClick(handCard("me", db[BONE].name));
     rawClick(button("Yes"));
     rawClick(slots(1)[0]);                                         // intercept from front left
+    expect(slots(1)[0].classList).toContain("guard");
+    rawClick(button("Yes"));
     const gc = () => [...host.querySelectorAll(".bside.me .card")];
     expect(gc()).toHaveLength(2);
     expect(handCard("me", db[BONE].name)).toBeUndefined();

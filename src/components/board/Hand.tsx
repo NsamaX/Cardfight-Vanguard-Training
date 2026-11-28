@@ -7,7 +7,7 @@ import { DEAL_GAP_MS, MOVE_EASE, MOVE_MS, type Spot } from "../../hooks/useCardF
 const PER_ROW = 10;
 
 // The hand hugs the screen edge, at most 10 cards per row (cards overlap if space runs out); cards 11+ go to a back row showing 60% (--peek), popping up fully on hover
-export function Hand({ p, hidden, cards, seen, selUid, lightOf, picks, onClick, onHover }: {
+export function Hand({ p, hidden, cards, seen, selUid, lightOf, picks, guards, onClick, onHover }: {
   p: PlayerId;
   hidden?: boolean;                                // the bot's hand: show card backs
   cards: CardInstance[];
@@ -15,6 +15,7 @@ export function Hand({ p, hidden, cards, seen, selUid, lightOf, picks, onClick, 
   selUid?: string;
   lightOf: (uid: string) => Light;
   picks: string[];
+  guards: string[];
   onClick: (inst: CardInstance) => void;
   onHover: (uid: string | undefined) => void;     // on hover the detail panel temporarily shows that card
 }) {
@@ -50,7 +51,7 @@ export function Hand({ p, hidden, cards, seen, selUid, lightOf, picks, onClick, 
     <div key={i} className="hand-row" style={{ zIndex: rows.length - i }}>
       {list.map((h) => (
         <span key={h.uid} ref={slotRef(h.uid)} className="hand-slot" onMouseEnter={hidden ? undefined : () => onHover(h.uid)} onMouseLeave={hidden ? undefined : () => onHover(undefined)}>
-          <CardView inst={h} plain hidden={hidden} selected={h.uid === selUid} light={hidden ? undefined : lightOf(h.uid)} picked={!hidden && picks.includes(h.uid)} onClick={() => onClick(h)} />
+          <CardView inst={h} plain hidden={hidden} selected={h.uid === selUid} light={hidden ? undefined : lightOf(h.uid)} picked={!hidden && picks.includes(h.uid)} guarding={!hidden && guards.includes(h.uid)} onClick={() => onClick(h)} />
         </span>
       ))}
     </div>

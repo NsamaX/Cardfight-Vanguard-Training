@@ -144,7 +144,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
 
   const { s, actor, mode, selUid, picks } = board;
   const mainRef = useRef<HTMLElement>(null);
-  const seen = useCardFlight(mainRef, s);
+  const seen = useCardFlight(mainRef, s, board.moves);
   // Press Start: the starting vanguard leaves the deck for VC first, then 5 cards are drawn (no timer to cancel, since the board only waits for Start once)
   const dealPending = useRef(!started);
   useEffect(() => {
@@ -168,6 +168,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
       lightOf={board.lightOf} soulLight={board.pileLight(p, "soul")}
       atkCircles={board.attackPick?.player === p ? board.attackPick.circles : board.battleMarks?.[p].atk ?? []}
       aimedCircles={board.battleMarks?.[p].aimed ?? []}
+      guardCircles={p === actor ? board.interceptPicks : []}
       bonus={board.attackPick?.player === p ? board.attackPick.bonus : board.trigBonus?.player === p ? board.trigBonus.bonus : {}}
       isTarget={(c) => board.isTarget(p, c)}
       onCircle={(c) => board.clickCircle(p, c)}
@@ -176,7 +177,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     />
   );
   const hand = (p: PlayerId) => (
-    <Hand p={pos(p)} hidden={p === board.hiddenHand} cards={s.players[p].hand} seen={seen} selUid={selUid} lightOf={board.lightOf} picks={picks} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
+    <Hand p={pos(p)} hidden={p === board.hiddenHand} cards={s.players[p].hand} seen={seen} selUid={selUid} lightOf={board.lightOf} picks={picks} guards={p === actor ? board.guardPicks : []} onClick={(h) => board.clickHand(p, h)} onHover={board.setHover} />
   );
   // Board sides: on our side the G zone + damage are on the left, deck + drop + bind on the right; the bot side is upside down
   const open = (p: PlayerId, zone: Zone) => () => board.setPile({ player: p, zone });

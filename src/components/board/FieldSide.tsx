@@ -10,10 +10,11 @@ interface Props {
   ps: PlayerState;
   selUid?: string;
   pickedCircle?: Circle;                  // circle already chosen to receive the trigger's Power+5000
-  lightOf: (uid: string) => Light;        // yellow/orange border for cards with a pending/resolving ability
+  lightOf: (uid: string) => Light;        // yellow/orange border for cards with a pending/resolving ability, green for cards to pick
   soulLight: Light;
   atkCircles: Circle[];                   // attacker/booster selected or attacking (red border)
-  aimedCircles: Circle[];                 // unit being attacked (blue border)
+  aimedCircles: Circle[];                 // unit being attacked (red dashed border)
+  guardCircles: Circle[];                 // rear-guards chosen to intercept (blue border)
   bonus: Partial<Record<Circle, number>>; // Power from the selected boost (shown in advance)
   isTarget: (c: Circle) => boolean;
   onCircle: (c: Circle) => void;
@@ -21,7 +22,7 @@ interface Props {
   onCard: (uid: string) => void;          // click a soul card that sticks out (choose that card's ability)
 }
 
-export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atkCircles, aimedCircles, bonus, isTarget, onCircle, onPile, onCard }: Props) {
+export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atkCircles, aimedCircles, guardCircles, bonus, isTarget, onCircle, onPile, onCard }: Props) {
   // Soul cards with a pending ability (e.g. the starter after being ridden upon) stick out from under VC so they can be seen and clicked
   const soulCard = ps.soul.find((c) => lightOf(c.uid));
   const t = useT();
@@ -32,7 +33,7 @@ export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atk
         {LAYOUT[p].map((c) => {
           const unit = ps.circles[c];
           return (
-            <div key={c} className={`slot ${c === "vc" ? "vc" : ""} ${isTarget(c) ? "target" : ""} ${(unit && lightOf(unit.uid)) ?? ""} ${atkCircles.includes(c) ? "atk" : ""} ${aimedCircles.includes(c) ? "aimed" : ""}`} onClick={() => onCircle(c)}>
+            <div key={c} className={`slot ${c === "vc" ? "vc" : ""} ${isTarget(c) ? "target" : ""} ${(unit && lightOf(unit.uid)) ?? ""} ${atkCircles.includes(c) ? "atk" : ""} ${aimedCircles.includes(c) ? "aimed" : ""} ${guardCircles.includes(c) ? "guard" : ""}`} onClick={() => onCircle(c)}>
               <span className="lbl">{c === "vc" ? "VC" : "RC"}</span>
               {c === "vc" && ps.heart && (lightOf(ps.heart.uid)
                 // A heart with a pending ability (e.g. Nightrose "when a G unit strides") sticks out to be clicked separately from the G unit
@@ -55,6 +56,8 @@ export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atk
                   selected={unit.uid === selUid} picked={pickedCircle === c} />;
               })()}
               {unit?.hollowed && <span className="tag">{t("card.hollow")}</span>}
+              {/* The soul, stacked unseen under VC: cards going into or out of the soul fly to and from VC */}
+              {c === "vc" && <span className="soul-stack">{ps.soul.filter((s) => s.uid !== soulCard?.uid).map((s) => <CardView key={s.uid} inst={s} noRotate plain />)}</span>}
             </div>
           );
         })}

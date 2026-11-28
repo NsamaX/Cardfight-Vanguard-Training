@@ -12,6 +12,7 @@ interface Props {
   small?: boolean;
   selected?: boolean;
   picked?: boolean;
+  guarding?: boolean;      // chosen to guard, not yet confirmed (blue border)
   hidden?: boolean;
   noRotate?: boolean;
   mark?: boolean;          // G label in the top-right corner (deck builder, field); trigger and Sentinel labels show everywhere
@@ -28,11 +29,11 @@ interface Props {
 // Hovering a face-up card temporarily shows it in the detail panel (only on boards that pass a handler)
 export const CardHover = createContext<((uid: string | undefined) => void) | undefined>(undefined);
 
-export function CardView({ inst, power, small, selected, picked, hidden, noRotate, mark, plain, light, dim, noName, noGrade, powerUp, critUp, onClick }: Props) {
+export function CardView({ inst, power, small, selected, picked, guarding, hidden, noRotate, mark, plain, light, dim, noName, noGrade, powerUp, critUp, onClick }: Props) {
   const card = db[inst.key];
   const hover = useContext(CardHover);
   const t = useT();
-  const cls = ["card", small && "small", selected && "sel", picked && "pick", light, dim && "dim", inst.rested && !noRotate && "rested"].filter(Boolean).join(" ");
+  const cls = ["card", small && "small", selected && "sel", picked && "pick", guarding && "guard", light, dim && "dim", inst.rested && !noRotate && "rested"].filter(Boolean).join(" ");
   if (hidden || !inst.faceUp) {
     return <button className={cls} data-uid={inst.uid} onClick={onClick} title={t("card.faceDown")}><span className={`back ${card.type.startsWith("g-") ? "g" : ""}`} /></button>;
   }

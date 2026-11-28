@@ -1,7 +1,7 @@
 // G-era phase and battle mechanics + the hook into the ability system (abilities.ts)
 // apply() takes state + an action and returns a new state + events; never modifies the old state, and randomizes only via the seed
 import { actAt, blocked, condOk, declineEntry, emit, releaseDelayed, settle, startResolving, type ResumeHandlers } from "./abilities";
-import { drawCard, moveCard, moved, placeOnRC, retireUnit, strideOnto } from "./zones";
+import { collectMoves, drawCard, moveCard, moved, placeOnRC, retireUnit, strideOnto, type CardMove } from "./zones";
 import { attackTaxes, guardianDiscardFilter, isUltimate, payRuleCost, refreshContinuous, strideCostOk } from "./cont";
 import { cardMatches } from "./vocab/filters";
 import { cloneState } from "./clone";
@@ -25,6 +25,7 @@ export interface NewGame {
 export interface Result {
   state: GameState;
   events: GameEvent[];
+  moves: CardMove[];   // cards moved, in order
 }
 
 function newInstance(s: GameState, key: string, faceUp = true): CardInstance {
@@ -71,12 +72,14 @@ export function apply(db: CardDB, state: GameState, player: PlayerId, action: Ac
   if (!busy && ANSWERS.includes(action.type)) throw new RuleError("err.noPendingAnswer");
   const s: GameState = cloneState(state);
   const out: Out = [];
-  refreshContinuous(db, s);
-  HANDLERS[action.type](db, s, player, action as never, out);
-  settle(db, s, out, RESUME);
-  refreshContinuous(db, s);
-  refreshAwaiting(s);
-  return { state: s, events: out };
+  const { moves } = collectMoves(() => {
+    refreshContinuous(db, s);
+    HANDLERS[action.type](db, s, player, action as never, out);
+    settle(db, s, out, RESUME);
+    refreshContinuous(db, s);
+    refreshAwaiting(s);
+  });
+  return { state: s, events: out, moves };
 }
 
 type Handler<T extends Action["type"]> = (db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type: T }>, out: Out) => void;
