@@ -90,9 +90,12 @@ describe("look", () => {
     me.deck.unshift(a, b, c);
     const hand = me.hand.length;
     refreshAwaiting(s);
-    act("me", { type: "activate", cardUid: me.circles.back_center!.uid, abilityIndex: 1 });
+    const r = apply(db, s, "me", { type: "activate", cardUid: me.circles.back_center!.uid, abilityIndex: 1 });
+    s = r.state;
     const choice = s.awaiting?.choice;
     expect(choice?.kind === "cards" && choice.options).toEqual([a.uid, b.uid, c.uid]);
+    const shown = r.events.filter((e) => e.text.key === "log.revealTop").map((e) => e.cardUid);
+    expect(shown).toEqual([a.uid, b.uid, c.uid]);   // revealed one by one, so the opponent sees them too
     pick("me", a.uid);
     const after = s.players.me;
     expect(keys(after.soul)).toEqual(expect.arrayContaining([K.daylight, K.norn]));

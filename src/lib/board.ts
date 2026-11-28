@@ -26,14 +26,14 @@ export function returningToDeck(state: GameState, p: PlayerId, uids: string[]): 
   return s;
 }
 
-// Cards an action showed the opponent (revealed from hand, searched into hand, the whole hand, drive checks); next = the state after the action
+// Cards an action showed the opponent (revealed from hand or the top of the deck, searched into hand, the whole hand, drive checks); next = the state after the action
 // drive = drive check cards (shown on the attacker's side of the battle bar like triggers, the rest in the middle of the board)
 export function revealedBy(events: GameEvent[], next: GameState): { player: PlayerId; uids: string[]; drive: string[] } | undefined {
   const uids: string[] = [], drive: string[] = [];
   let player: PlayerId | undefined;
   for (const e of events) {
     const found = e.text.key === "log.revealHand" ? next.players[e.player].hand.map((h) => h.uid)
-      : (e.text.key === "log.reveal" || e.text.key === "log.searchHand" || e.code === "drive-check") && e.cardUid ? [e.cardUid] : [];
+      : (e.text.key === "log.reveal" || e.text.key === "log.revealTop" || e.text.key === "log.searchHand" || e.code === "drive-check") && e.cardUid ? [e.cardUid] : [];
     if (!found.length) continue;
     player ??= e.player;
     if (e.code === "drive-check") drive.push(...found);

@@ -95,17 +95,19 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   // look(n, hand=1, soul=1 | soul=n≤1, rest=drop): look at the top n, pick some for hand, then for soul; the rest go to the drop zone (unset = stay on top)
+  // reveal: both players see the cards (the card says "reveal"), not only their owner
   look: {
     causes: (c) => (["hand", "soul"] as const).filter((d) => c.named[d]).map((to) => ({ move: { from: "deck", to }, who: "chosen" as const })),
-    forms: ["look(#, hand=1, soul=1, rest=drop)", "look(#, soul=n≤1, rest=drop)", "look(#, hand=1, soul=1)"],
-    text: "Look at the top cards of the deck: some to hand, some to the soul, the rest to the drop zone",
+    forms: ["look(#, hand=1, soul=1, rest=drop)", "look(#, soul=n≤1, rest=drop)", "look(#, hand=1, soul=1)", "look(#, reveal, soul=n≤1, rest=drop)"],
+    text: "Look at (or reveal) the top cards of the deck: some to hand, some to the soul, the rest to the drop zone",
     run: (ctx) => {
       const ps = me(ctx), r = ctx.r;
       if (r.local.looked === undefined) {
         const top = ps.deck.slice(0, num(ctx.c.pos[0]));
         if (!top.length) return true;
         r.local.looked = top.map((i) => i.uid).join(",");
-        say(ctx, "log.lookTop", { n: top.length });
+        if (ctx.c.pos.includes("reveal")) for (const inst of top) say(ctx, "log.revealTop", { card: cardName(ctx, inst) }, inst.uid);
+        else say(ctx, "log.lookTop", { n: top.length });
       }
       const left = () => String(r.local.looked).split(",").map((u) => ps.deck.find((d) => d.uid === u)).filter((i): i is CardInstance => !!i);
       const steps = (["hand", "soul"] as const).filter((d) => ctx.c.named[d] !== undefined);

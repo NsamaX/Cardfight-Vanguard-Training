@@ -339,6 +339,7 @@ export const en = {
   "log.damageFacedown": "Turned 1 damage face down",
   "log.mill": ({ n }) => `Put the top ${cards(n)} of the deck into the drop zone`,
   "log.reveal": "Revealed {card} from hand",
+  "log.revealTop": "Revealed {card} from the top of the deck",
   "log.lookTop": ({ n }) => `Looked at the top ${cards(n)} of the deck`,
   "log.toHand": "{card} returns to hand",
   "log.toDeckTop": "{card} goes on top of the deck",

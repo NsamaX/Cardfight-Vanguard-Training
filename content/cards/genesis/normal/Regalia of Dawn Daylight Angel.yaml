@@ -16,7 +16,7 @@ abilities:
   - kind: "ACT"
     zone: "RC"
     cost: ["CB(1)", "soul-in(self)"]
-    effect: ["look(3, soul=n≤1, rest=drop)", "draw(1, if=souled-name(\"Regalia\"))"]
+    effect: ["look(3, reveal, soul=n≤1, rest=drop)", "draw(1, if=souled-name(\"Regalia\"))"]
 text: |
   ### AUTO
 

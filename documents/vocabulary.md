@@ -114,7 +114,7 @@ Codes that can be paid as a cost (the engine checks whether they can be paid bef
 | `SC(#)` | Soul Charge: put cards from the top of the deck into the soul | Inanna, Eir, King Serpent, Dewey the Ghostie |
 | `draw(#)` | Draw cards | Agleam, Freyja, Daylight Angel, Angelica, Dreaming Dragon, Kukurihime, Skeleton Cannoneer, Rampage Shade, Rough Seas Banshee |
 | `search(deck→hand, n≤#, filter=…)`<br>`search(deck→drop, n≤#, filter=…)`<br>`search(deck→hand, n≤#, filter=…, look=top-5)` | Search the deck (or its top 5) for cards, put them into hand or the drop zone, then shuffle | Flap Angel, Obadiah, Chappie the Ghostie, Nightstorm, Tommy the Ghostie Brothers |
-| `look(#, hand=1, soul=1, rest=drop)`<br>`look(#, soul=n≤1, rest=drop)`<br>`look(#, hand=1, soul=1)` | Look at the top cards of the deck: some to hand, some to the soul, the rest to the drop zone | Daylight Angel, Angelica, Verthandi |
+| `look(#, hand=1, soul=1, rest=drop)`<br>`look(#, soul=n≤1, rest=drop)`<br>`look(#, hand=1, soul=1)`<br>`look(#, reveal, soul=n≤1, rest=drop)` | Look at (or reveal) the top cards of the deck: some to hand, some to the soul, the rest to the drop zone | Daylight Angel, Angelica, Verthandi |
 | `to-soul(drop, n≤#, filter=…)`<br>`to-soul(drop, n=#, filter=…)`<br>`to-soul(drop, all, filter=…)`<br>`to-soul(self)` | Put cards from the drop zone (or this unit) into the soul (filter different-grades = all chosen differ in grade) | Iris, Urth, Eir, Hemera, Freyja, Genil, Bragi, Angelica |
 | `to-deck(drop, all)`<br>`to-deck(drop+soul, n=#..#, filter=…)` | Return cards to the deck (filter same-grade = all chosen share a grade) | Laurier, Dreaming Dragon |
 | `to-deck-top(self)` | Put this unit on the top of the deck | Dreaming Dragon |

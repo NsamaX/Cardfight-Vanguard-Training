@@ -336,6 +336,7 @@ export const ja: Dict = {
   "log.damageFacedown": "ダメージを1枚裏にした",
   "log.mill": "山札の上から{n}枚をドロップゾーンに置いた",
   "log.reveal": "手札から{card}を公開",
+  "log.revealTop": "山札の上から{card}を公開",
   "log.lookTop": "山札の上から{n}枚を見た",
   "log.toHand": "{card}が手札に戻った",
   "log.toDeckTop": "{card}が山札の上に置かれた",
