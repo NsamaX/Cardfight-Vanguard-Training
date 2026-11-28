@@ -284,6 +284,26 @@ describe("board", () => {
     expect(dewey.querySelector(".mark")!.textContent).toBe("HEAL");
   });
 
+  it("a shuffle plays the deck's shuffle animation", () => {
+    vi.useFakeTimers();
+    const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    Object.assign(s, { mulliganDone: ["me", "bot"], turn: 3, turnPlayer: "me", phase: "draw", step: undefined });
+    const vc = inst(s, TOMMY);
+    s.players.me.circles = { vc };
+    s.players.me.deck = s.players.me.deck.filter((c) => db[c.key].grade !== 2);   // G assist looks for grade 2 and finds none
+    s.queue = [{ owner: "me", uid: vc.uid, key: "g-assist", ability: { kind: "AUTO", effect: ["g-assist(2)"] }, label: "G ASSIST", optional: true }];
+    refreshAwaiting(s);
+    render(s);
+    const deckSlot = () => host.querySelector(".stack.me .pile-group.deck .zone-slot")!;
+    expect(deckSlot().classList.contains("shuffling")).toBe(false);
+    rawClick([...slots(1)].find((el) => el.querySelector(".card")?.getAttribute("title") === db[TOMMY].name));
+    expect(host.querySelector(".log")!.textContent).toContain("No grade 2 unit");
+    expect(deckSlot().classList.contains("shuffling")).toBe(true);
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(deckSlot().classList.contains("shuffling")).toBe(false);
+    vi.useRealTimers();
+  });
+
   it("one ability triggered by two events: each button names the card it is about, with unique keys", () => {
     const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
     const MICK = "PR/0564TH", name = db[MICK].name;

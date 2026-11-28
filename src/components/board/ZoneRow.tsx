@@ -39,13 +39,14 @@ const PILE_BADGE = { bind: "badge.bind", deck: "badge.deck", drop: "badge.drop" 
 
 // Bind / deck / drop: count label above the slot (like GB/SB) + the top card (the deck shows a card back); click to view the whole zone
 // Every card is stacked in the slot (the last one on top), so cards entering/leaving any pile fly from and to it
-export function PileSlot({ ps, zone, light, onOpen }: { ps: PlayerState; zone: keyof typeof PILE_BADGE; light: Light; onOpen: () => void }) {
+// shuffling: the deck was just shuffled (the top cards split and come back together)
+export function PileSlot({ ps, zone, light, shuffling, onOpen }: { ps: PlayerState; zone: keyof typeof PILE_BADGE; light: Light; shuffling?: boolean; onOpen: () => void }) {
   const list = ps[zone];
   const t = useT();
   return (
     <div className={`pile-group ${zone}`} onClick={onOpen}>
       <span className="badge">{t(PILE_BADGE[zone])} {list.length}</span>
-      <div className={`zone-slot ${light ?? ""}`}>{zone === "deck"
+      <div className={`zone-slot ${light ?? ""} ${shuffling ? "shuffling" : ""}`}>{zone === "deck"
         ? list.slice().reverse().map((c) => <span key={c.uid} className="back" data-uid={c.uid} />)
         : list.map((c) => <CardView key={c.uid} inst={c} noRotate plain />)}</div>
     </div>

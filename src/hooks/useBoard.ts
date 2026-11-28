@@ -18,6 +18,7 @@ import { abilitiesStarted, canBoost, canIntercept, columnOf, findCard, isTarget,
 const BOT_DELAY_MS = 450;   // pause between bot actions so you can follow along
 const REVEAL_MS = 800;      // how long revealed cards stay on show before going on
 const ABILITY_MS = 1600;    // how long an ability the other side started stays on show
+const SHUFFLE_MS = 900;     // the deck's shuffle animation
 
 // A button in the middle bar; title = what it does, shown on hover
 export interface QuestionButton { label: Msg | string; title?: string; onClick: () => void }
@@ -61,6 +62,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [desync, setDesync] = useState(false);
   const [shownAbility, setShownAbility] = useState<ShownAbility>();   // the other side's ability on show in the middle (one at a time)
   const abilityQueue = useRef<ShownAbility[]>([]);
+  const [shuffling, setShuffling] = useState<Partial<Record<PlayerId, boolean>>>({});   // decks being shuffled (animation)
   const applied = useRef(online?.actions.length ?? 0);   // online: how many of the match's actions this board has played
 
   const actor = s.awaiting?.player;
@@ -187,6 +189,11 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   function commit(st: GameState, entries: LogEntry[], done: RecordedAction[]) {
     const shown = revealedBy(entries, st);
     if (remote && !readOnly) showAbilities(abilitiesStarted(db, entries, st, remote));
+    const shuffled = [...new Set(entries.filter((e) => e.text.key === "log.shuffle" || e.text.key === "log.returnToDeck").map((e) => e.player))];
+    if (shuffled.length && !readOnly) {
+      setShuffling(Object.fromEntries(shuffled.map((p) => [p, true])));
+      setTimeout(() => setShuffling({}), SHUFFLE_MS);
+    }
     bot?.observe?.(entries);
     setPast((h) => h.concat({ s, log, actions }));
     setFuture([]);
@@ -581,7 +588,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     redo: future.length && !readOnly && !staged && !online ? () => travel(false) : undefined,
     act, unguard, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
     canNext: !botTurn && !readOnly && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
-    botTurn, hiddenHand: remote, reveal, desync, shownAbility,
+    botTurn, hiddenHand: remote, reveal, desync, shownAbility, shuffling,
     actions, readOnly,
     setInspect, setPile,
     setState: setS,   // replace the whole board, used when dealing after Start

@@ -234,6 +234,12 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .zone-slot { position: relative; flex: none; width: calc(var(--card-h) + 4px); height: calc(var(--card-h) + 4px); border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; }
 .zone-slot > .back, .zone-slot > .card { position: absolute; left: calc(50% - var(--card-w) / 2); top: calc(50% - var(--card-h) / 2); width: var(--card-w); height: var(--card-h); }
 .zone-slot > .back { border-radius: 4px; }
+/* Shuffle: the top three cards of the deck split sideways and come back together, twice */
+.zone-slot.shuffling > .back:nth-last-child(1) { animation: shuffle-a .42s ease-in-out 2; }
+.zone-slot.shuffling > .back:nth-last-child(2) { animation: shuffle-b .42s ease-in-out 2; }
+.zone-slot.shuffling > .back:nth-last-child(3) { animation: shuffle-a .42s ease-in-out .08s 2 reverse; }
+@keyframes shuffle-a { 50% { transform: translateX(-38%) rotate(-6deg); } }
+@keyframes shuffle-b { 50% { transform: translateX(38%) rotate(6deg); } }
 /* Count label above the slot: 18px label + gap = --lane, same as GB above the G zone (on the bot side the label is below) */
 .pile-group { display: flex; flex-direction: column; align-items: center; gap: calc(var(--lane) - 18px); cursor: pointer; }
 .stack.bot .pile-group { flex-direction: column-reverse; }

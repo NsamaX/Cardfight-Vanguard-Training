@@ -163,7 +163,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   );
   const stack = (p: PlayerId) => (
     <div className={`stack ${pos(p)}`}>
-      <PileSlot ps={s.players[p]} zone="deck" light={board.pileLight(p, "deck")} onOpen={open(p, "deck")} />
+      <PileSlot ps={s.players[p]} zone="deck" light={board.pileLight(p, "deck")} shuffling={board.shuffling[p]} onOpen={open(p, "deck")} />
       <PileSlot ps={s.players[p]} zone="drop" light={board.pileLight(p, "drop")} onOpen={open(p, "drop")} />
       <PileSlot ps={s.players[p]} zone="bind" light={board.pileLight(p, "bind")} onOpen={open(p, "bind")} />
     </div>
