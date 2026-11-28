@@ -66,7 +66,7 @@ export function OnlineRoom({ start, library, userId, onNext, onLeave }: {
       onDeckChanged={noop}
       library={library}
       online={{
-        seat: m.seat, actions: live.actions, send: live.send, opponent: m.opponent, abandoned: m.abandoned, problem: live.problem,
+        seat: m.seat, actions: live.actions, send: live.send, outOfSync: live.outOfSync, opponent: m.opponent, abandoned: m.abandoned, problem: live.problem,
         ready: { ...m.ready, [m.seat]: m.ready[m.seat] || pressed },
         onReady: () => press(async () => { const next = await readyRematch(m.id); if (next) onNext(await fetchMatch(next, userId, m.opponent)); }),
         onLeave: () => { leaveMatch(m.id).catch(() => {}); onLeave(); },

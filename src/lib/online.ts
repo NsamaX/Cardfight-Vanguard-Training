@@ -161,24 +161,35 @@ interface ActionRow { seq: number; player: string; action: Action }
 const toRecorded = (host: string) => (r: ActionRow): { seq: number; rec: RecordedAction } =>
   ({ seq: r.seq, rec: { player: r.player === host ? "me" : "bot", action: r.action } });
 
-export async function fetchActions(matchId: string, host: string, from: number): Promise<RecordedAction[]> {
+// Every stored action from seq on, with its seq (a gap is kept: the caller can tell a missing seq from the end)
+export async function fetchActionRows(matchId: string, host: string, from: number): Promise<{ seq: number; rec: RecordedAction }[]> {
   const rows: ActionRow[] = must(await db().from("match_actions").select("seq, player, action").eq("match_id", matchId).gte("seq", from).order("seq"));
-  return rows.map(toRecorded(host)).filter((r, i) => r.seq === from + i).map((r) => r.rec);
+  return rows.map(toRecorded(host));
+}
+
+// The actions from seq on, up to the first gap
+export async function fetchActions(matchId: string, host: string, from: number): Promise<RecordedAction[]> {
+  return (await fetchActionRows(matchId, host, from)).filter((r, i) => r.seq === from + i).map((r) => r.rec);
 }
 
 export async function sendAction(matchId: string, seq: number, action: Action) {
   must(await db().from("match_actions").insert({ match_id: matchId, seq, action }));
 }
 
-// Live updates for one match: new actions from either player, and changes to the match row; returns the unsubscribe function
-export function watchMatch(matchId: string, host: string, on: { action: (seq: number, rec: RecordedAction) => void; changed: () => void; connected: () => void }) {
+// Live updates for one match: new actions from either player, changes to the match row, and the other client saying its board
+// can't go on (outOfSync); returns stop (unsubscribe) and outOfSync (tell the other client)
+export function watchMatch(matchId: string, host: string, on: { action: (seq: number, rec: RecordedAction) => void; changed: () => void; connected: () => void; outOfSync: () => void }) {
   const c = db();
   const ch = c.channel(`match:${matchId}`)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "match_actions", filter: `match_id=eq.${matchId}` },
       (p) => { const r = toRecorded(host)(p.new as ActionRow); on.action(r.seq, r.rec); })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${matchId}` }, () => on.changed())
+    .on("broadcast", { event: "out-of-sync" }, () => on.outOfSync())
     .subscribe((status) => { if (status === "SUBSCRIBED") on.connected(); });
-  return () => { c.removeChannel(ch); };
+  return {
+    stop: () => { c.removeChannel(ch); },
+    outOfSync: () => { ch.send({ type: "broadcast", event: "out-of-sync", payload: {} }).catch(() => {}); },
+  };
 }
 
 async function displayName(id: string): Promise<string> {

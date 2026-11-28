@@ -21,8 +21,12 @@ const REVEAL_MS = 800;      // how long revealed cards stay on show before going
 interface Snapshot { s: GameState; log: LogEntry[]; actions: RecordedAction[] }
 
 // An online match as seen by this client: seat = our side; actions = every action of the match so far in order (initial already includes
-// the ones present when the board was created); send = hand our own new actions to the match
-export interface OnlineSeat { seat: PlayerId; actions: RecordedAction[]; send: (done: RecordedAction[]) => void }
+// the ones present when the board was created); send = hand our own new actions to the match;
+// outOfSync = this board refused one of the other player's actions (tell them)
+export interface OnlineSeat { seat: PlayerId; actions: RecordedAction[]; send: (done: RecordedAction[]) => void; outOfSync?: () => void }
+
+// Every online action played, in the console: set localStorage "debug-online" to "1" and reload
+const traceOnline = (() => { try { return globalThis.localStorage?.getItem("debug-online") === "1"; } catch { return false; } })();
 
 // bot: the bot playing the "bot" side (none = control both sides yourself)
 // view: replay viewer (shows the board with the given history; clicks don't affect the game)
@@ -136,7 +140,11 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
           done.push({ player: p2, action: follow });
         } catch (e) { if (!(e instanceof RuleError)) throw e; }
       }
-      if (online) { online.send(done); applied.current += done.length; }
+      if (online) {
+        if (traceOnline) console.info("[online] local", applied.current, JSON.stringify(done.map((r) => r.action)));
+        online.send(done);
+        applied.current += done.length;
+      }
       commit(st, entries, done);
     } catch (e) {
       if (e instanceof RuleError) setError(e.msg); else throw e;
@@ -176,6 +184,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     if (!online || staged || desync || !s.awaiting) return;   // no awaiting = not dealt yet (or the game is over)
     const fresh = online.actions.slice(applied.current);
     if (!fresh.length) return;
+    if (traceOnline) console.info("[online] remote", applied.current, JSON.stringify(fresh.map((r) => r.action)));
     applied.current += fresh.length;
     let st = s;
     const entries: LogEntry[] = [];
@@ -187,7 +196,10 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       }
     } catch (e) {
       if (!(e instanceof RuleError)) throw e;
+      const zones = (p: "me" | "bot") => ({ hand: st.players[p].hand.map((h) => h.uid).join(" "), deckTop: st.players[p].deck.slice(0, 5).map((h) => h.uid).join(" "), drop: st.players[p].drop.map((h) => h.uid).join(" "), damage: st.players[p].damage.map((h) => h.uid).join(" "), soul: st.players[p].soul.map((h) => h.uid).join(" ") });
+      console.error("[online] desync: a remote action was refused " + JSON.stringify({ applied: applied.current - fresh.length, fresh, error: e.msg.key, phase: st.phase, step: st.step, turn: st.turn, me: zones("me"), bot: zones("bot") }));
       setDesync(true);
+      online.outOfSync?.();
       return;
     }
     commit(st, entries, fresh);

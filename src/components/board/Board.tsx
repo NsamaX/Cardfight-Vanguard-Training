@@ -77,7 +77,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
 }) {
   // The bot starts thinking after Start (the board is recreated every game, so the bot's memory resets every game)
   const bot = useMemo(() => (started && !view && !online ? new VanguardBot(db, settings.bot ?? DEFAULT_BOT, decks) : undefined), [started, view, settings.bot]);   // a G zone reorder doesn't need a new bot (a real deck change restarts the board anyway)
-  const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log }, online && { seat: online.seat, actions: online.actions, send: online.send });
+  const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log }, online && { seat: online.seat, actions: online.actions, send: online.send, outOfSync: online.outOfSync });
   const t = useT();
   const [showSettings, setShowSettings] = useState(!!openSettings);
   const [showOnline, setShowOnline] = useState(false);
@@ -247,6 +247,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {online && (
           <div className="panel-foot">
             {!started && <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>}
+            {(board.desync || (online.problem && online.problem !== "online.otherOutOfSync")) && <button className="btn primary" onClick={() => location.reload()}>{t("btn.reload")}</button>}
             <button className="btn" onClick={() => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); }}>{t("btn.leave")}</button>
           </div>
         )}
@@ -270,7 +271,7 @@ function OnlineStatus({ online, desync, waiting, between }: { online: OnlineBoar
   const t = useT();
   const name = online.opponent;
   const mine = online.ready[online.seat], theirs = online.ready[other(online.seat)];
-  const text = online.problem ? t(online.problem) : desync ? t("online.desync") : online.abandoned ? t("online.left", { name })
+  const text = online.problem ? t(online.problem, { name }) : desync ? t("online.desync") : online.abandoned ? t("online.left", { name })
     : between ? (mine && !theirs ? t("online.waitingFor", { name }) : theirs && !mine ? t("online.isReady", { name }) : undefined)
     : waiting ? t("online.waiting", { name }) : undefined;
   return text ? <span className="thinking">{text}</span> : null;
