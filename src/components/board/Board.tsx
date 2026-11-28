@@ -232,7 +232,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
             {board.reveal.cards.map((c) => <CardView key={c.uid} inst={c} plain noRotate />)}
           </div>
         )}
-        {deckOpen && <CardHover.Provider value={setDeckCard}>{(online ? [bottom] : (["bot", "me"] as const)).map((p) => <DeckPanel key={p} p={pos(p)} current={decks[p]} decks={library.decks} editable={signedIn && !online} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
+        {deckOpen && <CardHover.Provider value={setDeckCard}>{(online ? [bottom] : (["bot", "me"] as const)).map((p) => <DeckPanel key={p} p={pos(p)} current={decks[p]} decks={library.decks} editable={signedIn && !online} sleeves={library.sleeves} onAddSleeve={library.addSleeve} onDeleteSleeve={deleteSleeve} onSaveDeck={saveDeck} onSaveCard={library.saveCard} onDeleteCard={library.deleteCard} onDeleteDeck={library.deleteDeck} onPick={(d) => onPickDeck(p, d)}
           otherEditing={editing[p === "me" ? "bot" : "me"]} onEditingChange={(on) => setEditing((e) => ({ ...e, [p]: on }))} />)}</CardHover.Provider>}
         <div className="mid">
           {/* Far left: undo/redo | middle: attacker (power + drive check) | question or step text, plus Start/mulligan/swap | defender (power + guard cards) | far right: answer and phase buttons */}

@@ -27,6 +27,12 @@ export function putCard(card: Card) {
   cardByKey[c.key] = c;
 }
 
+export function dropCard(key: string) {
+  const i = cards.findIndex((x) => x.key === key);
+  if (i >= 0) cards.splice(i, 1);
+  delete cardByKey[key];
+}
+
 // Clans to pick from in the card editor: every clan in content/nations.yaml and in the library
 export function clanNames(): string[] {
   const all = new Set([...Object.values(NATIONS).flat(), ...cards.map((c) => c.clan)]);

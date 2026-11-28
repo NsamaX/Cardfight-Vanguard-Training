@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { cards, putCard, setCards } from "../data/cards";
+import { cards, dropCard, putCard, setCards } from "../data/cards";
 import { presetDecks } from "../data/decks";
 import type { Sleeve } from "../data/sleeves";
 import type { Card, Deck } from "../engine/types";
@@ -15,6 +15,7 @@ export interface LibraryHandle extends Library {
   saveDeck(d: Deck): void;
   deleteDeck(id: string): void;
   saveCard(c: Card): Promise<MsgKey | null>;
+  deleteCard(key: string): Promise<MsgKey | null>;
   addSleeve(name: string, image: string): Promise<void>;
   deleteSleeve(path: string): Promise<Deck[]>;   // returns the decks that fell back to the default sleeve
 }
@@ -24,6 +25,7 @@ export const offlineLibrary: LibraryHandle = {
   cards, decks: presetDecks, sleeves: [],
   saveDeck() {}, deleteDeck() {}, addSleeve: async () => {}, deleteSleeve: async () => [],
   saveCard: async () => "cardEd.writeFailed",
+  deleteCard: async () => "cardEd.deleteFailed",
 };
 
 const upsert = (decks: Deck[], d: Deck) => (decks.some((x) => x.id === d.id) ? decks.map((x) => (x.id === d.id ? d : x)) : [...decks, d]);
@@ -74,6 +76,17 @@ export function useLibrary(ready: boolean, userId: string | undefined, onLoaded:
         return null;
       } catch {
         return "cardEd.writeFailed";
+      }
+    },
+    async deleteCard(key) {
+      if (!userId) return "cardEd.deleteFailed";
+      try {
+        await cloud.deleteCard(userId, key);
+        dropCard(key);
+        update((l) => ({ ...l, cards: [...cards] }));
+        return null;
+      } catch {
+        return "cardEd.deleteFailed";
       }
     },
     async addSleeve(name, image) {

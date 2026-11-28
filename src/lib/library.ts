@@ -71,6 +71,13 @@ export async function saveCard(userId: string, card: Card): Promise<Card> {
   return { ...card, image: publicUrl(image_path) };
 }
 
+// The image goes too when it is the player's own upload (not shared with the default set)
+export async function deleteCard(userId: string, key: string) {
+  const { data: row } = await supabase!.from("cards").select("image_path").eq("owner", userId).eq("key", key).maybeSingle();
+  must(await supabase!.from("cards").delete().eq("owner", userId).eq("key", key));
+  if (row?.image_path?.startsWith(`${userId}/`)) await supabase!.storage.from(BUCKET).remove([row.image_path]);
+}
+
 // image: data URL from shrinkImage
 export async function addSleeve(userId: string, name: string, image: string): Promise<Sleeve> {
   const blob = await (await fetch(image)).blob();

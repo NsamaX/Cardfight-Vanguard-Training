@@ -11,7 +11,7 @@ import { DeckView } from "./DeckView";
 
 // Replaces each side's half of the board when Decks is open: deck list, deck view, or the deck create/edit screen
 // Guests (editable = false) can only view and use decks
-export function DeckPanel({ p, current, decks, editable, sleeves, onAddSleeve, onDeleteSleeve, onSaveDeck, onSaveCard, onDeleteDeck, onPick, otherEditing, onEditingChange }: {
+export function DeckPanel({ p, current, decks, editable, sleeves, onAddSleeve, onDeleteSleeve, onSaveDeck, onSaveCard, onDeleteCard, onDeleteDeck, onPick, otherEditing, onEditingChange }: {
   p: PlayerId;
   current: Deck;
   decks: Deck[];                     // shared by both sides
@@ -21,6 +21,7 @@ export function DeckPanel({ p, current, decks, editable, sleeves, onAddSleeve, o
   onDeleteSleeve: (path: string) => Promise<void>;
   onSaveDeck: (d: Deck) => void;
   onSaveCard: (c: Card) => Promise<MsgKey | null>;
+  onDeleteCard: (key: string) => Promise<MsgKey | null>;
   onDeleteDeck: (id: string) => void;
   onPick: (d: Deck) => void;
   otherEditing: boolean;             // the other side is editing a deck, can't expand to the full board
@@ -86,7 +87,7 @@ export function DeckPanel({ p, current, decks, editable, sleeves, onAddSleeve, o
     <section ref={ref} className={`deck-panel ${p} ${editing && expanded ? "expanded" : ""}`}>
       {editing
         ? <DeckBuilder p={p} initial={editing} onDone={save} onCancel={() => setEditing(null)}
-            onDelete={decks.length > 1 && decks.some((d) => d.id === editing.id) ? () => { onDeleteDeck(editing.id); setEditing(null); setViewing(null); } : undefined} onSaveCard={onSaveCard} sleeves={sleeves} onAddSleeve={onAddSleeve} onDeleteSleeve={onDeleteSleeve}
+            onDelete={decks.length > 1 && decks.some((d) => d.id === editing.id) ? () => { onDeleteDeck(editing.id); setEditing(null); setViewing(null); } : undefined} onSaveCard={onSaveCard} onDeleteCard={onDeleteCard} decks={decks} sleeves={sleeves} onAddSleeve={onAddSleeve} onDeleteSleeve={onDeleteSleeve}
             expanded={expanded} canExpand={!otherEditing} onToggleExpand={toggleExpand} />
         : viewing
           ? <DeckView deck={viewing} current={viewing.id === current.id} onBack={() => setViewing(null)}

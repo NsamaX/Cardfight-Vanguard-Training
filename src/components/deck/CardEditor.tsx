@@ -129,13 +129,34 @@ function GrantPick({ value, onChange }: { value: string; onChange: (v: string) =
   );
 }
 
-export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSave: (c: Card) => Promise<MsgKey | null>; onCancel: () => void }) {
+function buildCard(card: Card, powerText: string, text: string, drafts: Draft[]): Card {
+  const power = powerText.trim();
+  return {
+    ...card,
+    name: card.name.trim(),
+    grade: card.type.startsWith("g-") ? 4 : card.grade,
+    power: power ? parseInt(power, 10) : undefined,
+    powerPlus: power.endsWith("+") || undefined,
+    trigger: card.type === "trigger" ? card.trigger ?? "critical" : undefined,
+    triggerPower: card.type === "trigger" ? card.triggerPower : undefined,
+    text: fromPlainText(text.trim()),
+    abilities: drafts.map(toAbility),
+  };
+}
+
+export function CardEditor({ initial, onSave, onCancel, onDelete, usedIn = [] }: {
+  initial: Card; onSave: (c: Card) => Promise<MsgKey | null>; onCancel: () => void;
+  onDelete?: () => Promise<MsgKey | null>;   // unset = a new card not saved yet
+  usedIn?: string[];                         // names of the decks holding the card: it can't be deleted until they drop it
+}) {
   const [card, setCard] = useState(initial);
   const [powerText, setPowerText] = useState(initial.power != null ? `${initial.power}${initial.powerPlus ? "+" : ""}` : "");
   const [text, setText] = useState(() => toPlainText(initial.text));   // edited as plain text, saved back in the markdown layout
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.abilities.map(toDraft));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [baseline] = useState(() => JSON.stringify(buildCard(card, powerText, text, drafts)));
+  const dirty = JSON.stringify(buildCard(card, powerText, text, drafts)) !== baseline;
   const t = useT();
   const [codes] = useState<Codes>(() => ({ timing: codeTemplates("timing"), cond: codeTemplates("cond"), cost: codeTemplates("cost"), effect: codeTemplates("effect"), filter: filterTemplates() }));
   // Codes the engine wouldn't run as written (unknown codes, conditions, filters, targets): shown under the abilities
@@ -161,20 +182,19 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
 
   async function save() {
     if (!card.name.trim()) return setError(t("cardEd.needName"));
-    const power = powerText.trim();
-    const out: Card = {
-      ...card,
-      name: card.name.trim(),
-      grade: isG ? 4 : card.grade,
-      power: power ? parseInt(power, 10) : undefined,
-      powerPlus: power.endsWith("+") || undefined,
-      trigger: card.type === "trigger" ? card.trigger ?? "critical" : undefined,
-      triggerPower: card.type === "trigger" ? card.triggerPower : undefined,
-      text: fromPlainText(text.trim()),
-      abilities: drafts.map(toAbility),
-    };
+    const out = buildCard(card, powerText, text, drafts);
     setSaving(true);
     const err = await onSave(out);
+    setSaving(false);
+    if (err) setError(t(err));
+  }
+
+  async function remove() {
+    if (!onDelete) return;
+    if (usedIn.length) return setError(t("cardEd.inDecks", { decks: usedIn.join(", ") }));
+    if (!confirm(t("cardEd.confirmDelete", { name: initial.name }))) return;
+    setSaving(true);
+    const err = await onDelete();
     setSaving(false);
     if (err) setError(t(err));
   }
@@ -265,9 +285,10 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
         </div>
 
         <div className="card-ed-foot">
-          {error && <span className="err">{error}</span>}
+          {onDelete && <button className="btn" disabled={saving} onClick={remove}>{t("cardEd.delete")}</button>}
+          <span className="err">{error}</span>
           <button className="btn" onClick={onCancel}>{t("deck.cancel")}</button>
-          <button className="btn primary" disabled={saving} onClick={save}>{t("cardEd.save")}</button>
+          <button className="btn primary" disabled={saving || !dirty} onClick={save}>{t("cardEd.save")}</button>
         </div>
       </div>
     </div>

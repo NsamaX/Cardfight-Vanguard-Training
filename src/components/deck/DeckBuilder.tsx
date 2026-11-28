@@ -30,18 +30,24 @@ function ExpandIcon({ collapse }: { collapse: boolean }) {
   );
 }
 
+// Key order ignored: removing a card's last copy and adding it back is no change
+const snapshot = (d: Deck) => JSON.stringify(d, (_, v) =>
+  v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v);
+
 // Create/edit a deck. Left: the card library (click to add) or the sleeve list. Right: the Deck/Main/G slots and the deck list
 // (click to remove, ★ sets the starting vanguard). The first grade 0 added is the starting vanguard, the first card added is the cover.
 // Sleeves: click a Main/G slot to empty it, then click a sleeve in the list to fill the empty slot (Main first).
 // A slot still empty on Done saves as unset = this side's default sleeve.
-export function DeckBuilder({ p, initial, onDone, onCancel, onDelete, onSaveCard, sleeves, onAddSleeve, onDeleteSleeve, expanded, canExpand, onToggleExpand }: {
+export function DeckBuilder({ p, initial, decks, onDone, onCancel, onDelete, onSaveCard, onDeleteCard, sleeves, onAddSleeve, onDeleteSleeve, expanded, canExpand, onToggleExpand }: {
   p: PlayerId;
-  initial: Deck; onDone: (d: Deck) => void; onCancel: () => void; onSaveCard: (c: Card) => Promise<MsgKey | null>;
+  initial: Deck; decks: Deck[]; onDone: (d: Deck) => void; onCancel: () => void;
+  onSaveCard: (c: Card) => Promise<MsgKey | null>; onDeleteCard: (key: string) => Promise<MsgKey | null>;
   onDelete?: () => void;   // unset = no Delete button (a new deck not saved yet, or the last deck)
   sleeves: Sleeve[]; onAddSleeve: (name: string, image: string) => Promise<void>; onDeleteSleeve: (path: string) => Promise<void>;
   expanded: boolean; canExpand: boolean; onToggleExpand: () => void;
 }) {
   const [deck, setDeck] = useState<Deck>(() => ({ ...initial, cover: initial.cover ?? coverCard(initial) ?? "" }));   // older decks: pin the automatic cover so adding a card doesn't replace it
+  const [baseline] = useState(() => snapshot(deck));
   const [tab, setTab] = useState<"cards" | "sleeves">("cards");
   const [uploading, setUploading] = useState(false);
   const [emptied, setEmptied] = useState<SleeveSlot[]>([]);
@@ -58,6 +64,13 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onDelete, onSaveCard
     if (!err) setCardEdit(null);
     return err;
   }
+  async function deleteCard(key: string): Promise<MsgKey | null> {
+    const err = await onDeleteCard(key);
+    if (!err) setCardEdit(null);
+    return err;
+  }
+  // Decks holding the card, this deck as currently edited (saved or not) in place of its saved copy
+  const decksWith = (key: string) => [deck, ...decks.filter((d) => d.id !== deck.id)].filter((d) => d.main[key] || d.g_zone[key]).map((d) => d.name);
 
   // A deck without its own sleeve uses this side's default, so the slot and the sleeve list show that one
   const sleeveOf = (slot: SleeveSlot) => (emptied.includes(slot) ? undefined : deck[slot] ?? DEFAULT_SLEEVES[p][slot]);
@@ -194,17 +207,18 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onDelete, onSaveCard
           {rows(deck.g_zone)}
         </div>
         <div className="deck-foot">
-          <span className="mono">{t("deck.builderCount", { main: countCards(deck.main), mainMax: MAIN_SIZE, trig: triggers, g: countCards(deck.g_zone), gMax: G_ZONE_SIZE })}</span>
+          <span className="mono count">{t("deck.builderCount", { main: countCards(deck.main), mainMax: MAIN_SIZE, trig: triggers, g: countCards(deck.g_zone), gMax: G_ZONE_SIZE })}</span>
           {errors[0] && <span className="err">{t(errors[0])}</span>}
           <div className="deck-actions">
+            {onDelete && <button className="btn delete" onClick={() => setConfirmDelete(true)}>{t("deck.delete")}</button>}
             <button className="btn" onClick={onCancel}>{t("deck.cancel")}</button>
-            {onDelete && <button className="btn" onClick={() => setConfirmDelete(true)}>{t("deck.delete")}</button>}
-            <button className="btn primary" disabled={countCards(deck.main) !== MAIN_SIZE} onClick={() => onDone(deck)}>{t("deck.done")}</button>
+            <button className="btn primary" disabled={countCards(deck.main) !== MAIN_SIZE || snapshot(deck) === baseline} onClick={() => onDone(deck)}>{t("deck.done")}</button>
           </div>
         </div>
       </div>
       {confirmDelete && onDelete && <DeleteDeckDialog name={initial.name} onDelete={onDelete} onClose={() => setConfirmDelete(false)} />}
-      {cardEdit && <CardEditor initial={cardEdit} onSave={saveCard} onCancel={() => setCardEdit(null)} />}
+      {cardEdit && <CardEditor initial={cardEdit} onSave={saveCard} onCancel={() => setCardEdit(null)}
+        onDelete={db[cardEdit.key] ? () => deleteCard(cardEdit.key) : undefined} usedIn={decksWith(cardEdit.key)} />}
     </div>
   );
 }
