@@ -19,6 +19,13 @@ process.env.NEXT_PUBLIC_BUILD_ID ??= execSync("git rev-parse --short=12 HEAD", {
 
 const STATE_FILE = join(ROOT, ".temp/seat.json");
 
+// supabase-js keeps the session in localStorage; Node has none, so without this every request after sign-in is anonymous
+const memory = new Map<string, string>();
+(globalThis as { localStorage?: unknown }).localStorage = {   // Node 24 has a localStorage that needs a flag to work: replace it
+  getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => { memory.set(k, v); },
+  removeItem: (k: string) => { memory.delete(k); },
+};
+
 async function main() {
   const { supabase } = await import("../src/lib/supabase");
   const online = await import("../src/lib/online");

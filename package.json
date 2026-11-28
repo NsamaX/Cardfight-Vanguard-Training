@@ -23,7 +23,7 @@
     "prechains": "npm run content",
     "chains": "vite-node scripts/chains.ts --",
     "preseat": "npm run content",
-    "seat": "vite-node scripts/seat.ts --",
+    "seat": "node scripts/vite-node.mjs scripts/seat.ts",
     "sync-defaults": "node --env-file=.env scripts/sync-defaults.mjs"
   },
   "dependencies": {
