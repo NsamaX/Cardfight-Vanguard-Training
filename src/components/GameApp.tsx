@@ -55,6 +55,18 @@ export function GameApp() {
   const start = (s: GameSettings, d: Record<PlayerId, Deck>, fixed?: { seed: number; firstPlayer: PlayerId }) => setGame(newGame(s, d, game.n + 1, fixed));
   const inUse = (d: Deck) => decks.me.id === d.id || decks.bot.id === d.id;
 
+  // An online replay carries the match's cards (the opponent's aren't in our library): they go into the card registry while it's open
+  function view(src: ReplaySource, n: number) {
+    const cards = "kind" in src ? undefined : src.cards;
+    const keys = new Set(cards?.map((c) => c.key));
+    setCards(cards ? [...cards, ...library!.cards.filter((c) => !keys.has(c.key))] : library!.cards);
+    setViewing({ src, tl: timelineOf(db, src), n });
+  }
+  function closeView() {
+    setCards(library!.cards);
+    setViewing(null);
+  }
+
   // Continue from the step being viewed: the new game's replay includes the earlier steps (states files start from that board instead)
   function continueFrom(step: number) {
     if (!viewing || !game) return;
@@ -98,7 +110,7 @@ export function GameApp() {
   }
   if (viewing) {
     return <ReplayViewer key={viewing.n} tl={viewing.tl} decks={viewing.src.decks} settings={settings} library={library} onContinue={continueFrom}
-      onOpen={(src) => setViewing({ src, tl: timelineOf(db, src), n: viewing.n + 1 })} onClose={() => setViewing(null)} />;
+      onOpen={(src) => view(src, viewing.n + 1)} onClose={closeView} />;
   }
   return (
     <Board
@@ -106,7 +118,7 @@ export function GameApp() {
       openSettings={game.n === 1}
       library={library}
       base={game.base}
-      onOpenReplay={(src) => setViewing({ src, tl: timelineOf(db, src), n: 0 })}
+      onOpenReplay={(src) => view(src, 0)}
       initial={game.state}
       started={game.started}
       onStart={() => setGame({ ...game, started: true })}

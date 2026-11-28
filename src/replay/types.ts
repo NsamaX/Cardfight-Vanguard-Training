@@ -1,13 +1,13 @@
 import type { BotLevel } from "../bot";
-import type { Action, Deck, GameState, PlayerId } from "../engine/types";
+import type { Action, Card, Deck, GameState, PlayerId } from "../engine/types";
 import type { LogEntry } from "../lib/board";
 
 export interface RecordedAction { player: PlayerId; action: Action }
 
 // A replay doesn't store board images, only seed + decks + every action in order
 // Replaying = start a game with the same seed (or the start board if present), then feed the actions into the engine one by one
-// NOTE: card data isn't stored, so replays run against the current card library. Editing a card can make an old replay
-// diverge (play.ts stops at brokenAt), and an online replay would need the opponent's cards. Snapshot the cards here to fix both.
+// Bot games don't store card data, so they run against the current card library; editing a card can make an old replay
+// diverge (play.ts stops at brokenAt). Online games store the match's cards (the opponent's aren't in our library).
 export interface Replay {
   version: 1;
   id: string;
@@ -21,6 +21,8 @@ export interface Replay {
   actions: RecordedAction[];
   winner?: PlayerId;
   turn: number;
+  cards?: Card[];         // online: the cards both decks use, as they were in the match (installed while viewing)
+  seat?: PlayerId;        // online: the side that saved it (default "me"), for Won/Lost
 }
 
 // A file that stores the board at every step (games played before action recording existed)

@@ -218,6 +218,7 @@ export const en = {
   "replay.pos": "Step {i}/{n} · Turn {turn}",
   "replay.broken": "The app's rules changed after this game was recorded; it replays up to the last step shown",
   "replay.continue": "Resume",
+  "replay.saved": "Saved to Replays",
   "replay.close": "Close replay",
   "tip.power": "{v}",
   "tip.critical": "Critical {v}",

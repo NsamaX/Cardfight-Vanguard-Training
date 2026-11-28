@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { VanguardBot } from "../../bot";
-import { cardByKey as db } from "../../data/cards";
+import { cardByKey as db, cards as registry } from "../../data/cards";
 import { DEFAULT_SLEEVES } from "../../data/sleeves";
 import { generationBreak, other } from "../../engine/rules";
 import type { Deck, GameState, PlayerId } from "../../engine/types";
@@ -12,7 +12,7 @@ import { useT } from "../../i18n/react";
 import { nextLabel, stepText, undealt, type LogEntry, type Zone } from "../../lib/board";
 import { moveG } from "../../lib/deckEdit";
 import { publicUrl } from "../../lib/library";
-import type { OnlineStart } from "../../lib/online";
+import { snapshot, type OnlineStart } from "../../lib/online";
 import { DEFAULT_BOT, readView, saveView, type GameSettings, type ViewSettings } from "../../lib/settings";
 import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { DeckPanel } from "../deck/DeckPanel";
@@ -88,6 +88,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const menuItems: MenuItem[] = online ? [
     ...(!started ? [item(deckOpen ? "close" : "decks", deckOpen ? "btn.close" : "btn.decks", () => onDeckOpen(!deckOpen))] : []),
     ...(board.desync || (online.problem && online.problem !== "online.otherOutOfSync") ? [item("reload", "btn.reload", () => location.reload(), true)] : []),
+    ...(started && online.actions.length ? [item("replays", "btn.replays", () => setShowReplays(true))] : []),
     item("leave", "btn.leave", () => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); }),
     settingsItem,
   ] : view ? [
@@ -114,11 +115,15 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   // The decks as the game was dealt: reordering the G zone mid-game edits the deck, but the replay must rebuild the same starting board (same card uids)
   const [record] = useState(() => ({ id: newId(), createdAt: new Date().toISOString(), decks }));
 
-  // This game's replay as of now (saved only via the button in Replays; undone actions aren't in the replay)
+  // This game's replay as of now (saved only via the button in Replays; undone actions aren't in the replay).
+  // Online: every action of the match (the board's own list starts where a resumed match picked up) and the match's cards
   const replay = (): Replay => ({
     version: 1, ...record, title: `${decks.me.name} vs ${decks.bot.name}`,
-    seed: initial.seed, firstPlayer: initial.firstPlayer, start: base?.start, bot: settings.bot,
-    actions: [...(base?.actions ?? []), ...board.actions], winner: board.s.winner, turn: board.s.turn,
+    seed: initial.seed, firstPlayer: initial.firstPlayer, start: base?.start,
+    ...(online
+      ? { actions: online.actions, seat: online.seat, cards: [...snapshot(decks.me, registry), ...snapshot(decks.bot, registry)].filter((c, i, all) => all.findIndex((o) => o.key === c.key) === i) }
+      : { actions: [...(base?.actions ?? []), ...board.actions], bot: settings.bot }),
+    winner: board.s.winner, turn: board.s.turn,
   });
   const [editing, setEditing] = useState<Record<PlayerId, boolean>>({ bot: false, me: false });
   const signedIn = !!library.userId;
@@ -221,7 +226,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {stack(other(bottom))}
         {started && !deckOpen && board.botTurn && !online && <span className="thinking">{t("ui.botThinking")}</span>}
         {online && !deckOpen && <OnlineStatus online={online} desync={board.desync} waiting={board.botTurn} between={!started || !!winner} />}
-        {board.shownAbility && !board.reveal && (
+        {board.shownAbility && !board.reveal?.cards.length && (
           <div className={`ability-shown ${pos(other(bottom))}`} key={board.shownAbility.inst.uid + board.shownAbility.tag}>
             <CardView inst={board.shownAbility.inst} plain noRotate />
             <div className="ability-text">
@@ -281,7 +286,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         {hand(bottom)}
         <PileModal board={board} started={started} decks={decks} onMoveG={online ? undefined : onDeckUpdated && reorderG} opponent={online && other(online.seat)} />
         <ChoiceModal board={board} />
-        {showReplays && <ReplayModal signedIn={signedIn} current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
+        {showReplays && <ReplayModal signedIn={signedIn} saveOnly={!!online} current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
         {showOnline && onOnline && <OnlineDialog library={library} deck={decks.me} onReady={(m) => { setShowOnline(false); onOnline(m); }} onClose={() => setShowOnline(false)} />}
         {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={(next) => { setShowSettings(false); onApplySettings(next); }} onClose={() => setShowSettings(false)}
           view={viewSet} onView={changeView} viewOnly={!!(online || view)} />}

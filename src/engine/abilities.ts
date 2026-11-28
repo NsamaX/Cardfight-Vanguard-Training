@@ -129,15 +129,17 @@ export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandler
     const p = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.queue.some((e) => e.owner === q));
     if (p) {
       const mine = s.queue.filter((e) => e.owner === p);
-      // Only one left but it can't be used: skip it with a reason, so the player doesn't have to press it
-      // (With several, don't skip yet, since the chosen order may make it usable, e.g. hollow first, or CC before paying CB)
-      if (mine.length === 1 && blocked(db, s, mine[0])) { startResolving(db, s, mine[0], out); continue; }
+      // An ability that can't be used now isn't offered: it waits until the others are done, since they may make it usable
+      // (e.g. hollow first, or CC before paying CB). Once none can be used, the first is skipped with a reason
+      for (const e of mine) e.blocked = blocked(db, s, e) ? true : undefined;
+      const open = mine.filter((e) => !e.blocked);
+      if (!open.length) { startResolving(db, s, mine[0], out); continue; }
       if (s.passQueue === p) {
         const skip = mine.find((e) => e.optional);
         if (skip) { declineEntry(s, skip, out); continue; }
-      } else if (mine.length > 1 && !sameAbility(mine)) { s.ordering = p; return; }   // wait for the owner to choose which one / which order
-      else if (mine[0].optional) return;   // one forced ability left (also after the player ordered the others): it resolves by itself
-      startResolving(db, s, mine[0], out);
+      } else if (open.length > 1 && !sameAbility(open)) { s.ordering = p; return; }   // wait for the owner to choose which one / which order
+      else if (open[0].optional) return;   // one forced ability left (also after the player ordered the others): it resolves by itself
+      startResolving(db, s, open[0], out);
       continue;
     }
     s.passQueue = undefined;

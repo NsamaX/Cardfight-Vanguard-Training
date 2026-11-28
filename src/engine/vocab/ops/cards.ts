@@ -27,6 +27,9 @@ function intoSoul(ctx: Ctx, uids: string[]) {
   record(ctx, "souled", insts);
 }
 
+// How many: "n≤3" is positional, but "n=1" / "n=2..3" parse as a named argument (n)
+const howMany = (ctx: Ctx) => ctx.c.pos[1] ?? (ctx.c.named.n !== undefined ? `n=${ctx.c.named.n}` : "all");
+
 // Zones a code names as a source, e.g. "drop+soul"
 const zonesOf = (ctx: Ctx, spec: string) => spec.split("+").flatMap((z) => (z === "drop" || z === "soul" || z === "hand" ? me(ctx)[z] : []));
 
@@ -138,7 +141,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
         return true;
       }
       const pool = matching(ctx, zonesOf(ctx, ctx.c.pos[0]));
-      const amount = ctx.c.pos[1] ?? "all";
+      const amount = howMany(ctx);
       let uids: string[];
       if (amount === "all") uids = pool.map((i) => i.uid);
       else {
@@ -172,7 +175,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     run: (ctx) => {
       const ps = me(ctx);
       const pool = matching(ctx, zonesOf(ctx, ctx.c.pos[0]));
-      const amount = ctx.c.pos[1] ?? "all";
+      const amount = howMany(ctx);
       let uids: string[];
       if (amount === "all") uids = pool.map((i) => i.uid);
       else {

@@ -12,6 +12,9 @@ import { OnlineError, matchCards, problemOf } from "../../lib/online";
 import type { RecordedAction } from "../../replay/types";
 import { Board } from "./Board";
 
+const downloads = vi.hoisted(() => [] as unknown[]);
+vi.mock("../../replay/play", async (orig) => ({ ...(await orig<typeof import("../../replay/play")>()), download: (_name: string, data: unknown) => downloads.push(data) }));
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const deck = presetDecks.find((d) => d.id === "nightrose-sample")!;
@@ -67,6 +70,25 @@ describe("online match", () => {
     expect(client("bot").querySelector(".log")!.textContent).not.toContain("Bot");
     expect(client("me").querySelector(".mid-history button")).toBeTruthy();
     expect([...client("me").querySelectorAll(".mid-history button")].every((b) => (b as HTMLButtonElement).disabled)).toBe(true);   // no undo online
+  });
+});
+
+describe("online replay", () => {
+  it("the Replays button only saves or downloads this game, with every action, the saving side and the cards", () => {
+    const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    act(() => root.render(<Pair s={s} />));
+    act(() => button("me", "Confirm")!.click());
+    act(() => button("bot", "Confirm")!.click());
+    act(() => client("bot").querySelector<HTMLButtonElement>('[aria-label="Replays"]')!.click());
+    expect(button("bot", "Open replay file")).toBeUndefined();
+    expect(host.querySelector(".replay-list")).toBeNull();
+    downloads.length = 0;
+    act(() => button("bot", "Download this game")!.click());
+    const r = downloads[0] as import("../../replay/types").Replay;
+    expect(r.actions).toHaveLength(2);
+    expect(r.seat).toBe("bot");
+    expect(r.bot).toBeUndefined();
+    expect(new Set(r.cards!.map((c) => c.key))).toEqual(new Set([...Object.keys(deck.main), ...Object.keys(deck.g_zone)]));
   });
 });
 

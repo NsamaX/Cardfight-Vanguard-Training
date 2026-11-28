@@ -3,7 +3,7 @@ import { cardByKey as db } from "../data/cards";
 import { presetDecks } from "../data/decks";
 import { apply, createGame, refreshAwaiting } from "../engine/game";
 import type { CardInstance, GameState } from "../engine/types";
-import { abilitiesStarted } from "./board";
+import { abilitiesStarted, abilityResolving } from "./board";
 
 const regalia = presetDecks.find((d) => d.id === "regalia-minerva")!;
 const ANGELICA = "G-BT14/020TH", NORN = "EB12/012TH", GENIL = "G-BT14/067TH";
@@ -18,7 +18,7 @@ describe("abilitiesStarted", () => {
     Object.assign(s, { turn: 3, turnPlayer: "me", phase: "ride", step: "ride", queue: [] });
     s.players.me.circles = { vc: inst(GENIL) };
     s.players.me.hand.push(angelica);
-    s.players.me.drop = [inst(NORN)];
+    s.players.me.drop = [inst(NORN), inst(GENIL)];
     refreshAwaiting(s);
     s = apply(db, s, "me", { type: "ride", uid: angelica.uid }).state;
     const r = apply(db, s, "me", { type: "order-queue", index: 0 });
@@ -28,5 +28,11 @@ describe("abilitiesStarted", () => {
     expect(shown[0].tag).toBe("[AUTO 1]");
     expect(shown[0].text).toContain("When this unit is placed on (VC)");
     expect(abilitiesStarted(db, r.events, r.state, "bot")).toHaveLength(0);
+    // Waiting for the card choice, it is still resolving: it stays on show for the other side; once answered it is gone
+    expect(r.state.awaiting?.choice).toBeTruthy();
+    expect(abilityResolving(db, r.state, "me")?.tag).toBe("[AUTO 1]");
+    expect(abilityResolving(db, r.state, "bot")).toBeUndefined();
+    const done = apply(db, r.state, "me", { type: "select-target", uids: r.state.awaiting!.choice!.kind === "cards" ? r.state.awaiting!.choice!.options.slice(0, 1) : [] }).state;
+    expect(abilityResolving(db, done, "me")).toBeUndefined();
   });
 });

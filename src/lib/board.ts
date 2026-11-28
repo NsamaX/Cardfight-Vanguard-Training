@@ -212,15 +212,20 @@ export function groupByTurn(log: LogEntry[]): { turn: number; items: LogEntry[] 
 export interface ShownAbility { inst: CardInstance; tag: string; text?: string }
 
 export function abilitiesStarted(db: CardDB, events: GameEvent[], s: GameState, side: PlayerId): ShownAbility[] {
-  return events.filter((e) => e.code === "ability" && e.player === side && e.cardUid).flatMap((e) => {
-    const f = findCard(s, e.cardUid!);
-    if (!f) return [];
-    const label = String(e.text.params?.label ?? "");
-    const tag = abilityTag(label);
-    const card = db[f.inst.key];
-    const m = tag.match(/^\[(\w+)(?: (\d+))?(, granted)?\]$/);
-    const same = m && !m[3] ? card.abilities.filter((a) => a.kind === m[1]) : [];
-    const ab = m?.[2] ? same[Number(m[2]) - 1] : same.length === 1 ? same[0] : undefined;
-    return [{ inst: { ...f.inst, faceUp: true, rested: false }, tag, text: ab && abilitySummary(card.text, card.abilities, ab) }];
-  });
+  return events.filter((e) => e.code === "ability" && e.player === side && e.cardUid).flatMap((e) => shownAbility(db, s, e.cardUid!, String(e.text.params?.label ?? "")) ?? []);
+}
+
+// The ability the other side is resolving right now (it stays on show while they make its choices)
+export const abilityResolving = (db: CardDB, s: GameState, side: PlayerId): ShownAbility | undefined =>
+  s.resolving?.owner === side ? shownAbility(db, s, s.resolving.uid, s.resolving.label) : undefined;
+
+function shownAbility(db: CardDB, s: GameState, uid: string, label: string): ShownAbility | undefined {
+  const f = findCard(s, uid);
+  if (!f) return undefined;
+  const tag = abilityTag(label);
+  const card = db[f.inst.key];
+  const m = tag.match(/^\[(\w+)(?: (\d+))?(, granted)?\]$/);
+  const same = m && !m[3] ? card.abilities.filter((a) => a.kind === m[1]) : [];
+  const ab = m?.[2] ? same[Number(m[2]) - 1] : same.length === 1 ? same[0] : undefined;
+  return { inst: { ...f.inst, faceUp: true, rested: false }, tag, text: ab && abilitySummary(card.text, card.abilities, ab) };
 }

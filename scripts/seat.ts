@@ -101,10 +101,11 @@ async function main() {
       }
       if (ps.heart) out.push(`  heart        ${name(ps.heart.key)}`);
       const faceUpDmg = ps.damage.filter((d) => d.faceUp).length;
-      out.push(`  damage ${ps.damage.length} (face up ${faceUpDmg}): ${ps.damage.map((d) => name(d.key) + (d.faceUp ? "" : " (down)")).join(", ")}`);
+      out.push(`  damage ${ps.damage.length} (face up ${faceUpDmg}): ${ps.damage.map((d) => `${name(d.key)}${d.faceUp ? "" : " (down)"} [${d.uid}]`).join(", ")}`);
       out.push(`  soul ${ps.soul.length}: ${ps.soul.map((x) => name(x.key)).join(", ")}`);
       out.push(`  drop ${ps.drop.length}: ${ps.drop.map((x) => name(x.key)).join(", ")}`);
       out.push(`  G zone: ${ps.gZone.filter((g) => !g.faceUp).length} face down${mine ? ` (${ps.gZone.filter((g) => !g.faceUp).map((g) => `${name(g.key)} [${g.uid}]`).join(", ")})` : ""}; face up: ${ps.gZone.filter((g) => g.faceUp).map((g) => name(g.key)).join(", ") || "-"}`);
+      if (ps.guardian.length) out.push(`  guardians: ${ps.guardian.map((g) => `${name(g.key)} S${shieldOf(db, g)}`).join(", ")} (total ${ps.guardian.reduce((n, g) => n + shieldOf(db, g), 0)})`);
       if (ps.bind.length) out.push(`  bind: ${ps.bind.map((x) => name(x.key)).join(", ")}`);
       out.push(`  deck ${ps.deck.length}`);
       if (mine) out.push(`  hand ${ps.hand.length}: ${ps.hand.map((h) => `${name(h.key)} (G${db[h.key].grade}${db[h.key].trigger ? " " + db[h.key].trigger : ""}, S${shieldOf(db, h)}) [${h.uid}]`).join("; ")}`);
@@ -135,7 +136,14 @@ async function main() {
     if (a.kind === "next-phase" && s.phase === "battle") out.push(`  attack: {"type":"attack","attacker":"vc|front_left|front_right","target":"vc|front_left|front_right","booster":"back_center|back_left|back_right"}; end battle: {"type":"next-phase"}`);
     if (a.kind === "next-phase" && s.phase === "ride") out.push(`  ${s.step === "stride" ? `stride: {"type":"stride","gUid":"...","discardUids":[...]}` : `ride: {"type":"ride","uid":"..."}`}; skip: {"type":"next-phase"}`);
     if (a.kind === "guard") out.push(`  guard: {"type":"guard","uids":[...],"intercept":["front_left"]}; G guardian${gGuardianBlocked(db, s, seat) ? " (not now)" : ""}: {"type":"call-g-guardian","gUid":"...","discardUid":"..."}; done: {"type":"end-guard"}`);
-    if (a.kind === "trigger-target") out.push(`  {"type":"trigger-target","powerTo":"vc","extraTo":"vc"} (${s.battle?.pendingTrigger?.kind}${s.battle?.pendingTrigger?.kind === "heal" ? ', optional "healUid"' : ""})`);
+    if (a.kind === "trigger-target") {
+      const kind = s.battle?.pendingTrigger?.kind, ps = s.players[seat];
+      const units = (["vc", ...RC] as const).filter((c) => ps.circles[c]);
+      const extra = kind === "critical" ? `, "extraTo": one of ${units.join("|")}`
+        : kind === "stand" ? `, "extraTo": a rested rear-guard (${RC.filter((c) => ps.circles[c]?.rested).join("|") || "none: leave it out"})`
+        : kind === "heal" ? `, optional "healUid": a damage card [uid] (default: the last one)` : "";
+      out.push(`  {"type":"trigger-target","powerTo":${units.join("|")}${extra}} (${kind})`);
+    }
     if (a.kind === "mulligan") out.push(`  {"type":"mulligan","returnUids":[...]}`);
     return out.join("\n");
   }

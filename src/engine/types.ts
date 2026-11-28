@@ -124,6 +124,7 @@ export interface QueueEntry {
   event?: TriggerEvent;
   label: string;
   optional: boolean;    // can be declined (has a cost, or a "may" effect)
+  blocked?: boolean;    // can't be used right now (marked while it waits): not offered while others can go first
   carry?: { done: Record<string, Done[]>; at: "battle-end" | "turn-end" };   // the rest of an ability delayed by at= (see Delayed): what its earlier steps did
 }
 

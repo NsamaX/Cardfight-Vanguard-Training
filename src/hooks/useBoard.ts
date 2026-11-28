@@ -13,11 +13,12 @@ import { cardMatches } from "../engine/vocab/filters";
 import type { Action, CardInstance, Circle, GameState, PlayerId, QueueEntry } from "../engine/types";
 import type { RecordedAction } from "../replay/types";
 import { DEAL_GAP_MS, MOVE_MS } from "./useCardFlight";
-import { abilitiesStarted, canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealSteps, revealedBy, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type ShownAbility, type Zone } from "../lib/board";
+import { abilitiesStarted, abilityResolving, canBoost, canIntercept, columnOf, findCard, isTarget, returningToDeck, revealSteps, revealedBy, sourcePiles, type Light, type LogEntry, type Mode, type Sel, type ShownAbility, type Zone } from "../lib/board";
 
 const BOT_DELAY_MS = 450;   // pause between bot actions so you can follow along
 const REVEAL_MS = 800;      // how long revealed cards stay on show before going on
-const ABILITY_MS = 1600;    // how long an ability the other side started stays on show
+const ABILITY_MS = 1600;    // how long an ability the other side started stays on show (at least: one still resolving stays until it's done)
+const TICK_MS = 100;
 const SHUFFLE_MS = 900;     // the deck's shuffle animation
 
 // A button in the middle bar; title = what it does, shown on hover
@@ -62,6 +63,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [desync, setDesync] = useState(false);
   const [shownAbility, setShownAbility] = useState<ShownAbility>();   // the other side's ability on show in the middle (one at a time)
   const abilityQueue = useRef<ShownAbility[]>([]);
+  const revealing = useRef(false);   // revealed cards are covering the middle of the board
   const [shuffling, setShuffling] = useState<Partial<Record<PlayerId, boolean>>>({});   // decks being shuffled (animation)
   const applied = useRef(online?.actions.length ?? 0);   // online: how many of the match's actions this board has played
 
@@ -78,13 +80,14 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const striding = s.phase === "ride" && s.step === "stride" && s.awaiting?.kind === "next-phase" && !s.strodeThisTurn;
   // Abilities waiting for the player: yellow-bordered cards (sources), clicking turns them orange (active) and asks whether to use it
   // While an ability resolves and waits for an answer, the source card has an orange border
-  const queued = ordering ? s.queue.filter((e) => e.owner === actor) : [];
+  const queued = ordering ? s.queue.filter((e) => e.owner === actor) : [];   // indexes match the order-queue action
+  const offered = queued.filter((e) => !e.blocked);   // the ones that can be used now (the others wait their turn)
   // Every pending ability is optional: the player may do something else (call, move, use ACT), treated as declining
   const skippable = queued.length > 0 && queued.every((e) => e.optional);
   const acts = usableActs(db, s);                                                       // ACT usable in the main phase
   const focusedAct = acts.find((a) => a.uid === focus);
   const active = focusedAct ? [focus!] : choice && s.resolving ? [s.resolving.uid] : [];
-  const sources = [...queued, ...acts].map((e) => e.uid).filter((u) => !active.includes(u));
+  const sources = [...offered, ...acts].map((e) => e.uid).filter((u) => !active.includes(u));
   const waitingPiles = sourcePiles(s, sources), activePiles = sourcePiles(s, active);
   // Piles a card choice picks from (deck, drop...): yellow for both players, so the opponent sees where a card is being chosen even without the dialog
   const choicePiles = sourcePiles(s, choice?.kind === "cards" ? choice.options : []);
@@ -109,9 +112,9 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   function setInspect(uid: string) {
     const f = findCard(s, uid);
     if (f) setInspectUids((i) => ({ ...i, [f.player]: uid }));
-    const i = queued.findIndex((e) => e.uid === uid);
+    const i = queued.findIndex((e) => e.uid === uid && !e.blocked);
     if (i >= 0 && !botTurn && !readOnly) {
-      if (queued.filter((e) => e.uid === uid).length > 1) { setQueuePick(uid); return; }
+      if (offered.filter((e) => e.uid === uid).length > 1) { setQueuePick(uid); return; }
       openQueued(i);
       return;
     }
@@ -172,7 +175,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   }
 
   // Show the new board after actions were played: the mulligan's cards go back to the deck first, revealed cards stay on show for a moment
-  // The other side's abilities, one after another (doesn't hold up the game)
+  // The other side's abilities, one after another, each for at least ABILITY_MS of time on screen (doesn't hold up the game).
+  // Revealed cards cover the middle of the board, so the clock waits while they are shown
   function showAbilities(list: ShownAbility[]) {
     const idle = !abilityQueue.current.length;
     abilityQueue.current.push(...list);
@@ -181,7 +185,11 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       const a = abilityQueue.current[0];
       setShownAbility(a);
       if (!a) return;
-      setTimeout(() => { abilityQueue.current.shift(); step(); }, ABILITY_MS);
+      const tick = (left: number) => setTimeout(() => {
+        const more = revealing.current ? left : left - TICK_MS;
+        if (more > 0) tick(more); else { abilityQueue.current.shift(); step(); }
+      }, TICK_MS);
+      tick(ABILITY_MS);
     };
     step();
   }
@@ -209,9 +217,10 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       const steps = revealSteps(s, shown);
       setStaged(true);
       const play = (i: number) => {
-        if (i === steps.length) { setS(st); setReveal(undefined); setStaged(false); return; }
+        if (i === steps.length) { setS(st); setReveal(undefined); revealing.current = false; setStaged(false); return; }
         setS(steps[i].s);
         setReveal({ player: shown.player, cards: steps[i].cards, drive: steps[i].drive });
+        revealing.current = steps[i].cards.length > 0;
         setTimeout(() => play(i + 1), MOVE_MS + REVEAL_MS);
       };
       play(0);
@@ -302,7 +311,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     setInspect(inst.uid);
     if (botTurn) return;
     if (actor && p !== actor) { setError(msg("err.turnOf", { player: playerMsg(actor) })); return; }
-    if (choice || (ordering && !skippable) || queued.some((e) => e.uid === inst.uid)) return;
+    if (choice || (ordering && !skippable) || offered.some((e) => e.uid === inst.uid)) return;
     if (guarding && mode?.kind !== "gguard") {
       const picks = mode?.kind === "guard" ? mode.picks : [];
       const next = picks.includes(inst.uid) ? picks.filter((u) => u !== inst.uid) : picks.concat(inst.uid);
@@ -331,7 +340,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       return;
     }
     if (fieldChoice) { if (unit && fieldChoice.options.includes(unit.uid)) toggleChoicePick(unit.uid); return; }
-    if (choice || (ordering && !skippable) || (unit && queued.some((e) => e.uid === unit.uid))) return;
+    if (choice || (ordering && !skippable) || (unit && offered.some((e) => e.uid === unit.uid))) return;
     const mine = p === actor;
     // Trigger: click the trigger card first, then choose the unit to receive the effect
     if (mine && mode?.kind === "trigger" && trig) {
@@ -378,7 +387,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   function clickPileCard(p: PlayerId, zone: Zone, inst: CardInstance) {
     setInspect(inst.uid);
     if (healing && mode?.kind === "trigger" && mode.powerTo && zone === "damage" && p === actor) { act({ type: "trigger-target", powerTo: mode.powerTo, healUid: inst.uid }); setPile(null); return; }
-    if (queued.some((e) => e.uid === inst.uid)) { setPile(null); return; }
+    if (offered.some((e) => e.uid === inst.uid)) { setPile(null); return; }
     if (zone !== "gZone" || p !== actor || inst.faceUp) return;
     const type = db[inst.key].type;
     if (s.phase === "ride" && s.step === "stride" && type === "g-unit") { setMode({ kind: "stride", gUid: inst.uid, picks: mode?.kind === "stride" ? mode.picks : [] }); setPile(null); }
@@ -464,7 +473,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     const yes = msg("btn.yes"), no = msg("btn.no");
     if (botTurn || readOnly) return undefined;
     if (queuePick && ordering) {
-      const here = queued.map((e, i) => ({ e, i })).filter(({ e }) => e.uid === queuePick);
+      const here = queued.map((e, i) => ({ e, i })).filter(({ e }) => e.uid === queuePick && !e.blocked);
       // The same ability triggered by several events (e.g. each unit placed from the drop): name the card each one is about
       const about = (e: QueueEntry) => {
         const u = e.event && "uid" in e.event ? e.event.uid : undefined;
@@ -588,7 +597,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     redo: future.length && !readOnly && !staged && !online ? () => travel(false) : undefined,
     act, unguard, clickHand, clickCircle, clickPileCard, toggleChoicePick, question, next,
     canNext: !botTurn && !readOnly && (s.awaiting?.kind === "next-phase" || s.awaiting?.kind === "guard" || ordering),
-    botTurn, hiddenHand: remote, reveal, desync, shownAbility, shuffling,
+    botTurn, hiddenHand: remote, reveal, desync, shuffling,
+    shownAbility: shownAbility ?? (remote && !readOnly && !staged ? abilityResolving(db, s, remote) : undefined),
     actions, readOnly,
     setInspect, setPile,
     setState: setS,   // replace the whole board, used when dealing after Start

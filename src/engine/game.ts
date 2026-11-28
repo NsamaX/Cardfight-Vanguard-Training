@@ -87,7 +87,7 @@ const HANDLERS: { [T in Action["type"]]: Handler<T> } = {
   activate, "order-queue": orderQueue, "decline-queue": declineQueue, "pass-queue": passQueue, "select-target": selectTarget, choose,
 };
 
-const RESUME: ResumeHandlers = { "battle-continue": continueBattle, close: closeBattle, "close-finish": finishClose, "end-finish": finishEnd, "ride-finish": finishRide, "draw-finish": finishDraw };
+const RESUME: ResumeHandlers = { "battle-continue": continueBattle, close: closeBattle, "close-finish": finishClose, "end-finish": finishEnd, "ride-finish": finishRide, "stride-finish": finishStride, "draw-finish": finishDraw };
 
 function requirePhase(s: GameState, p: PlayerId, phase: GameState["phase"], step?: string) {
   if (s.turnPlayer !== p) throw new RuleError("err.notYourTurn");
@@ -240,6 +240,11 @@ function finishRide(db: CardDB, s: GameState) {
   if (s.phase === "ride" && s.step === "ride") enterStrideStep(db, s);
 }
 
+// Striding happens once a turn, so the stride step ends with it (once abilities triggered by the stride are done)
+function finishStride(_db: CardDB, s: GameState) {
+  if (s.phase === "ride" && s.step === "stride") { s.phase = "main"; s.step = undefined; }
+}
+
 function nextPhase(db: CardDB, s: GameState, p: PlayerId, _a: Action, out: Out) {
   if (s.turnPlayer !== p || s.battle) throw new RuleError("err.cannotSkipPhase");
   if (s.phase === "ride" && s.step === "ride") enterStrideStep(db, s);
@@ -347,6 +352,7 @@ function stride(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
   if (isUltimate(db[g.key])) ps.ultimateStrode = true;
   s.strodeThisTurn = true;
   strideOnto(db, s, p, g.uid, out);
+  s.resume = "stride-finish";
 }
 
 // ---------- Main phase ----------
@@ -627,7 +633,8 @@ export function refreshAwaiting(s: GameState) {
   }
   const qp = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.queue.some((e) => e.owner === q));
   if (qp) {
-    const mine = s.queue.filter((e) => e.owner === qp);
+    const all = s.queue.filter((e) => e.owner === qp);
+    const mine = all.some((e) => !e.blocked) ? all.filter((e) => !e.blocked) : all;
     const prompt = mine.length > 1 ? msg("prompt.order") : msg(mine[0].optional ? "prompt.oneOptional" : "prompt.oneForced", { label: mine[0].label });
     s.awaiting = { player: qp, kind: "order-queue", prompt };
     return;

@@ -11,15 +11,16 @@ const fileName = (r: Replay) => `vanguard-${r.createdAt.slice(0, 10)}-turn${r.tu
 const cloud = { load: loadCloudReplays, save: saveCloudReplay, remove: deleteCloudReplay };
 const local = { load: async () => loadReplays(), save: async (r: Replay) => saveReplay(r), remove: async (id: string) => deleteReplay(id) };
 
-// List of saved replays + save/download this game + open a replay file
-export function ReplayModal({ signedIn = false, current, onOpen, onClose }: { signedIn?: boolean; current?: () => Replay; onOpen: (src: ReplaySource) => void; onClose: () => void }) {
+// List of saved replays + save/download this game + open a replay file. saveOnly (online match): only save/download this game
+export function ReplayModal({ signedIn = false, current, saveOnly = false, onOpen, onClose }: { signedIn?: boolean; current?: () => Replay; saveOnly?: boolean; onOpen: (src: ReplaySource) => void; onClose: () => void }) {
   const t = useT();
   const store = signedIn ? cloud : local;
   const [list, setList] = useState<Replay[]>(() => (signedIn ? [] : loadReplays()));
   const [failed, setFailed] = useState(false);
   const refresh = () => store.load().then(setList, () => setFailed(true));
   const run = (op: Promise<void>) => op.then(refresh, () => setFailed(true));
-  useEffect(() => { if (signedIn) void refresh(); }, []);
+  useEffect(() => { if (signedIn && !saveOnly) void refresh(); }, []);
+  const [saved, setSaved] = useState(false);
   const [bad, setBad] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -28,22 +29,25 @@ export function ReplayModal({ signedIn = false, current, onOpen, onClose }: { si
     if (src) onOpen(src); else setBad(true);
   }
 
-  const result = (r: Replay) => t(r.winner ? (r.winner === "me" ? "replay.win" : "replay.lose") : "replay.ongoing");
+  const result = (r: Replay) => t(r.winner ? (r.winner === (r.seat ?? "me") ? "replay.win" : "replay.lose") : "replay.ongoing");
   return (
     <div className="veil" onClick={onClose}>
       <div className="dialog replays" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-head"><span>{t("replay.title")}</span><button type="button" className="btn" onClick={onClose}>×</button></div>
         <div className="replay-actions">
           {current && <>
-            <button className="btn" onClick={() => run(store.save(current()))}>{t("replay.saveCurrent")}</button>
+            <button className="btn" onClick={() => saveOnly ? store.save(current()).then(() => setSaved(true), () => setFailed(true)) : run(store.save(current()))}>{t("replay.saveCurrent")}</button>
             <button className="btn" onClick={() => { const r = current(); download(fileName(r), r); }}>{t("replay.downloadCurrent")}</button>
           </>}
-          <button className="btn" onClick={() => fileRef.current?.click()}>{t("replay.openFile")}</button>
-          <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void openFile(f); }} />
+          {!saveOnly && <>
+            <button className="btn" onClick={() => fileRef.current?.click()}>{t("replay.openFile")}</button>
+            <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void openFile(f); }} />
+          </>}
         </div>
+        {saved && <span className="mute">{t("replay.saved")}</span>}
         {bad && <span className="mute">{t("replay.badFile")}</span>}
         {failed && <span className="bad">{t("library.offline")}</span>}
-        <div className="replay-list">
+        {!saveOnly && <div className="replay-list">
           {list.length === 0 && <span className="mute replay-empty">{t("replay.empty")}</span>}
           {list.map((r) => (
             <div key={r.id} className="replay-row">
@@ -55,7 +59,7 @@ export function ReplayModal({ signedIn = false, current, onOpen, onClose }: { si
               <button className="btn ghost" onClick={() => run(store.remove(r.id))} title={t("replay.delete")} aria-label={t("replay.delete")}>×</button>
             </div>
           ))}
-        </div>
+        </div>}
       </div>
     </div>
   );

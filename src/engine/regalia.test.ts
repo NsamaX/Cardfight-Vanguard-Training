@@ -97,6 +97,24 @@ describe("an optional AUTO with nothing to choose", () => {
     expect(r.events.some((e) => e.text.key === "log.blocked" && (e.text.params?.why as { key: string }).key === "reason.nothingToDo")).toBe(true);
   });
 
+  it("with two in the drop zone, only the chosen one goes into the soul", () => {
+    mainPhase(K.genil);
+    Object.assign(s, { phase: "ride", step: "ride" });
+    const me = s.players.me;
+    const norn = inst(K.norn), hemera = inst(K.hemera);
+    me.drop = [norn, hemera];
+    const angelica = inst(K.angelica);
+    me.hand.push(angelica);
+    refreshAwaiting(s);
+    act("me", { type: "ride", uid: angelica.uid });
+    act("me", { type: "order-queue", index: 0 });
+    const c = s.awaiting?.choice;
+    expect(c?.kind === "cards" && [c.min, c.max]).toEqual([1, 1]);
+    pick("me", hemera.uid);
+    expect(keys(s.players.me.drop)).toEqual([K.norn]);
+    expect(s.players.me.soul.map((x) => x.uid)).toContain(hemera.uid);
+  });
+
   it("with one in the drop zone it is still offered", () => {
     mainPhase(K.genil);
     Object.assign(s, { phase: "ride", step: "ride" });
@@ -415,8 +433,7 @@ describe("Verthandi", () => {
     strideOver(K.minerva);
     const me = s.players.me;
     expect(me.circles.vc!.grants?.length).toBe(1);
-    act("me", { type: "next-phase" });   // to the main phase
-    answerAll();
+    expect(s.phase).toBe("main");   // striding ends the stride step
     act("me", { type: "activate", cardUid: s.players.me.circles.back_left!.uid, abilityIndex: 0 });
     answerAll();
     const after = s.players.me;
@@ -427,8 +444,6 @@ describe("Verthandi", () => {
 
   it("the granted ability triggers once per card: Hemera putting three cards into the soul gives Power+3000", () => {
     strideOver(K.minerva);
-    act("me", { type: "next-phase" });
-    answerAll();
     s.players.me.drop = [inst(K.norn), inst(K.achlis), inst(K.clear)];
     const hemera = inst(K.hemera);
     s.players.me.hand.push(hemera);
@@ -499,7 +514,6 @@ describe("Urth", () => {
     expect(keys(me.drop)).toContain(K.dreaming);
     expect(me.circles.vc!.grants?.map((g) => g.kind)).toEqual(["ACT"]);
     const soulBefore = me.soul.length;
-    act("me", { type: "next-phase" });   // to the main phase
     const vc = s.players.me.circles.vc!;
     act("me", { type: "activate", cardUid: vc.uid, abilityIndex: db[urth].abilities.length });
     answerAll();
@@ -534,6 +548,75 @@ describe("Laurier", () => {
     const g = s.players.me.guardian.find((c) => c.key === laurier)!;
     expect(g.mods.filter((m) => m.stat === "shield").reduce((n, m) => n + m.value, 0)).toBe(15000);
     expect(s.players.me.drop.filter((c) => c.key === K.hemera)).toHaveLength(0);
+  });
+});
+
+describe("Laurier with more cards than it may return", () => {
+  it("asks for two or three of the same grade; the rest stay", () => {
+    mainPhase(K.angelica);
+    const me = s.players.me, bot = s.players.bot;
+    const laurier = "G-FC04/030TH", eir = "G-BT14/022TH";
+    me.gZone = [inst(laurier, false), inst("G-FC03/030TH", false), inst(K.minerva, true)];
+    me.drop = [inst(K.hemera), inst(K.hemera), inst(K.hemera), inst(K.hemera)];
+    me.hand = [inst(eir)];
+    bot.circles = { vc: inst(K.angelica) };
+    Object.assign(s, { turnPlayer: "bot", phase: "battle", step: "attack" });
+    refreshAwaiting(s);
+    act("bot", { type: "attack", attacker: "vc", target: "vc" });
+    for (let i = 0; i < 5 && s.awaiting?.player === "bot"; i++) act("bot", { type: "pass-queue" });
+    act("me", { type: "call-g-guardian", gUid: me.gZone[0].uid, discardUid: me.hand[0].uid });
+    for (let i = 0; i < 10 && s.awaiting?.player === "me"; i++) {
+      const a = s.awaiting;
+      if (a.kind === "order-queue") act("me", { type: "order-queue", index: 0 });
+      else if (a.choice?.kind === "yesno") act("me", { type: "choose", option: "yes" });
+      else if (a.choice?.kind === "cards" && a.choice.options.some((u) => s.players.me.drop.some((d) => d.uid === u && d.key === K.hemera))) {
+        expect([a.choice.min, a.choice.max]).toEqual([2, 3]);
+        pick("me", ...a.choice.options.slice(0, 2));
+      } else if (a.choice?.kind === "cards") pick("me", a.choice.options[0]);
+      else break;
+    }
+    expect(s.players.me.drop.filter((c) => c.key === K.hemera)).toHaveLength(2);
+    const g = s.players.me.guardian.find((c) => c.key === laurier)!;
+    expect(g.mods.filter((m) => m.stat === "shield").reduce((n, m) => n + m.value, 0)).toBe(10000);
+  });
+});
+
+describe("an ability that can't be used yet waits behind the others", () => {
+  // Our G guardian Iris called by discarding Eir with no other heal card in the drop zone: Eir's AUTO (bind it and another heal) can't pay
+  function irisWithEir(otherHeal: boolean) {
+    mainPhase(K.angelica);
+    const me = s.players.me, bot = s.players.bot;
+    const iris = "G-FC03/030TH", eir = "G-BT14/022TH";
+    me.gZone = [inst(iris, false), inst(K.minerva, true)];
+    me.drop = otherHeal ? [inst(eir), inst(K.hemera)] : [inst(K.hemera), inst(K.achlis)];
+    me.hand = [inst(eir)];
+    bot.circles = { vc: inst(K.angelica) };
+    Object.assign(s, { turnPlayer: "bot", phase: "battle", step: "attack" });
+    refreshAwaiting(s);
+    act("bot", { type: "attack", attacker: "vc", target: "vc" });
+    for (let i = 0; i < 5 && s.awaiting?.player === "bot"; i++) act("bot", { type: "pass-queue" });
+    return apply(db, s, "me", { type: "call-g-guardian", gUid: me.gZone[0].uid, discardUid: me.hand[0].uid });
+  }
+
+  it("Eir's AUTO isn't offered next to Iris's; after Iris it is skipped with the reason", () => {
+    const r = irisWithEir(false);
+    s = r.state;
+    expect(s.awaiting?.kind).not.toBe("order-queue");      // Iris (forced) resolves by itself: no order to choose
+    const all = [...r.events];
+    for (let i = 0; i < 10 && s.awaiting?.player === "me" && s.awaiting.choice?.kind === "cards"; i++) {
+      const res = apply(db, s, "me", { type: "select-target", uids: s.awaiting.choice.options.slice(0, s.awaiting.choice.max) });
+      s = res.state;
+      all.push(...res.events);
+    }
+    expect(s.queue.filter((e) => e.owner === "me")).toHaveLength(0);
+    expect(all.some((e) => e.text.key === "log.blocked" && (e.text.params?.why as { key: string }).key === "reason.cannotPay")).toBe(true);
+    expect(s.players.me.bind).toHaveLength(0);
+  });
+
+  it("with another heal card in the drop zone, both are offered", () => {
+    s = irisWithEir(true).state;
+    expect(s.awaiting?.kind).toBe("order-queue");
+    expect(s.queue.filter((e) => e.owner === "me" && !e.blocked)).toHaveLength(2);
   });
 });
 
