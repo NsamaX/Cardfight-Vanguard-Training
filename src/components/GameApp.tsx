@@ -38,7 +38,7 @@ export function GameApp() {
   const auth = useAuth();
   const [game, setGame] = useState<Running | null>(null);
   const [deckOpen, setDeckOpen] = useState(false);
-  const [viewing, setViewing] = useState<{ src: ReplaySource; tl: Timeline } | null>(null);
+  const [viewing, setViewing] = useState<{ src: ReplaySource; tl: Timeline; n: number } | null>(null);   // n: a new replay opened while viewing one starts over at step 0
   const [online, setOnline] = useState<OnlineStart | null>(null);
   const t = useT();
   const { library, failed, retry } = useLibrary(auth.ready, auth.user?.id, (lib) => {
@@ -97,7 +97,8 @@ export function GameApp() {
     );
   }
   if (viewing) {
-    return <ReplayViewer tl={viewing.tl} decks={viewing.src.decks} settings={settings} onContinue={continueFrom} onClose={() => setViewing(null)} />;
+    return <ReplayViewer key={viewing.n} tl={viewing.tl} decks={viewing.src.decks} settings={settings} library={library} onContinue={continueFrom}
+      onOpen={(src) => setViewing({ src, tl: timelineOf(db, src), n: viewing.n + 1 })} onClose={() => setViewing(null)} />;
   }
   return (
     <Board
@@ -105,7 +106,7 @@ export function GameApp() {
       openSettings={game.n === 1}
       library={library}
       base={game.base}
-      onOpenReplay={(src) => setViewing({ src, tl: timelineOf(db, src) })}
+      onOpenReplay={(src) => setViewing({ src, tl: timelineOf(db, src), n: 0 })}
       initial={game.state}
       started={game.started}
       onStart={() => setGame({ ...game, started: true })}

@@ -74,13 +74,13 @@ export function OnlineDialog({ library, deck, onReady, onClose }: {
         ) : room ? (
           <>
             <span className="room-code">{room.code}</span>
-            <span className="mute">{t("online.waitingJoin")}</span>
-            <button className="btn" onClick={() => { closeRoom(room.id).catch(() => {}); setRoom(undefined); }}>{t("btn.cancel")}</button>
+            <span className="mute room-hint">{t("online.waitingJoin")}</span>
+            <button className="btn ghost" onClick={() => { closeRoom(room.id).catch(() => {}); setRoom(undefined); }}>{t("btn.cancel")}</button>
           </>
         ) : (
           <>
             {active && <button className="btn primary" disabled={busy} onClick={() => onReady(active)}>{t("online.resume", { name: active.match.opponent })}</button>}
-            <label>{t("online.deck")}
+            <label className="set-row"><span>{t("online.deck")}</span>
               <select value={deckId} onChange={(e) => setDeckId(e.target.value)}>
                 {library.decks.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
@@ -93,7 +93,7 @@ export function OnlineDialog({ library, deck, onReady, onClose }: {
               if (!code) run(async () => setRoom(await createRoom(userId, picked, library.cards)));
               else if (codeOk) run(async () => onReady({ match: await joinRoom(userId, code, picked, library.cards), actions: [] }));
             }}>
-              <label>{t("online.codeLabel")}
+              <label className="set-row"><span>{t("online.codeLabel")}</span>
                 <input inputMode="numeric" autoComplete="off" maxLength={CODE_LENGTH} placeholder={t("online.codeHint")} value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))} />
               </label>

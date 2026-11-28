@@ -339,7 +339,7 @@ describe("board", () => {
     expect(menu().classList.contains("open")).toBe(false);                          // closes after a choice
     const app = host.querySelector(".app")!;
     expect(app.classList.contains("vertical")).toBe(true);
-    act(() => { host.querySelector<HTMLInputElement>(".dialog label.check input")!.click(); });
+    act(() => { host.querySelector<HTMLInputElement>(".dialog input[type=\"checkbox\"]")!.click(); });
     expect(app.classList.contains("wide")).toBe(true);
     const layout = host.querySelector<HTMLSelectElement>(".dialog select option[value=horizontal]")!.parentElement as HTMLSelectElement;
     act(() => { layout.value = "horizontal"; layout.dispatchEvent(new Event("change", { bubbles: true })); });

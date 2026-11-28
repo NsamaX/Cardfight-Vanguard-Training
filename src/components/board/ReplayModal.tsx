@@ -33,25 +33,26 @@ export function ReplayModal({ signedIn = false, current, onOpen, onClose }: { si
     <div className="veil" onClick={onClose}>
       <div className="dialog replays" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-head"><span>{t("replay.title")}</span><button type="button" className="btn" onClick={onClose}>×</button></div>
-        <div className="field-row">
-          <button className="btn" disabled={!current} onClick={() => run(store.save(current!()))}>{t("replay.saveCurrent")}</button>
-          <button className="btn" disabled={!current} onClick={() => { const r = current!(); download(fileName(r), r); }}>{t("replay.downloadCurrent")}</button>
+        <div className="replay-actions">
+          {current && <>
+            <button className="btn" onClick={() => run(store.save(current()))}>{t("replay.saveCurrent")}</button>
+            <button className="btn" onClick={() => { const r = current(); download(fileName(r), r); }}>{t("replay.downloadCurrent")}</button>
+          </>}
           <button className="btn" onClick={() => fileRef.current?.click()}>{t("replay.openFile")}</button>
           <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void openFile(f); }} />
         </div>
         {bad && <span className="mute">{t("replay.badFile")}</span>}
-        {failed && <span className="err">{t("library.offline")}</span>}
+        {failed && <span className="bad">{t("library.offline")}</span>}
         <div className="replay-list">
-          {list.length === 0 && <span className="mute">{t("replay.empty")}</span>}
+          {list.length === 0 && <span className="mute replay-empty">{t("replay.empty")}</span>}
           {list.map((r) => (
             <div key={r.id} className="replay-row">
-              <span className="replay-info">
+              <button type="button" className="replay-info" onClick={() => onOpen(r)} title={t("replay.view")}>
                 <b>{result(r)} · {t("replay.turn", { n: r.turn })}</b>
                 <span className="mute">{new Date(r.createdAt).toLocaleString()}{r.bot && r.bot !== "off" && ` · ${t(`bot.${r.bot}`)}`}</span>
-              </span>
-              <button className="btn" onClick={() => onOpen(r)}>{t("replay.view")}</button>
-              <button className="btn" onClick={() => download(fileName(r), r)} title={t("replay.download")} aria-label={t("replay.download")}>↓</button>
-              <button className="btn" onClick={() => run(store.remove(r.id))} title={t("replay.delete")} aria-label={t("replay.delete")}>×</button>
+              </button>
+              <button className="btn ghost" onClick={() => download(fileName(r), r)} title={t("replay.download")} aria-label={t("replay.download")}>↓</button>
+              <button className="btn ghost" onClick={() => run(store.remove(r.id))} title={t("replay.delete")} aria-label={t("replay.delete")}>×</button>
             </div>
           ))}
         </div>

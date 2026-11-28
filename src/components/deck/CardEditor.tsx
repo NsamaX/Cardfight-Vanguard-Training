@@ -144,7 +144,8 @@ function buildCard(card: Card, powerText: string, text: string, drafts: Draft[])
   };
 }
 
-export function CardEditor({ initial, onSave, onCancel, onDelete, usedIn = [] }: {
+export function CardEditor({ initial, onSave, onCancel, onDelete, usedIn = [], readOnly }: {
+  readOnly?: boolean;                        // view only: every field and Delete are off
   initial: Card; onSave: (c: Card) => Promise<MsgKey | null>; onCancel: () => void;
   onDelete?: () => Promise<MsgKey | null>;   // unset = a new card not saved yet
   usedIn?: string[];                         // names of the decks holding the card: it can't be deleted until they drop it
@@ -203,6 +204,7 @@ export function CardEditor({ initial, onSave, onCancel, onDelete, usedIn = [] }:
     <CodesContext.Provider value={codes}>
     <div className="veil card-ed-veil" onClick={onCancel}>
       <div className="card-ed" onClick={(e) => e.stopPropagation()}>
+        <fieldset className="card-ed-body" disabled={readOnly}>
         <div className="card-ed-info">
           <label className="card-ed-img" title={t("cardEd.image")}>
             {card.image ? <img src={card.image} alt="" /> : <span className="mute">{t("cardEd.image")}</span>}
@@ -238,7 +240,9 @@ export function CardEditor({ initial, onSave, onCancel, onDelete, usedIn = [] }:
             {clanNames().map((c) => <option key={c} value={c}>{c}</option>)}
           </select></label>
           <label className="fld wide"><span>{t("cardEd.text")}</span>
-            <textarea rows={10} value={text} placeholder={t("cardEd.textHint")} onChange={(e) => setText(e.target.value)} />
+            {readOnly   // a disabled textarea can't be scrolled in every browser
+              ? <div className="card-ed-text">{text}</div>
+              : <textarea rows={10} value={text} placeholder={t("cardEd.textHint")} onChange={(e) => setText(e.target.value)} />}
           </label>
           <span className="mute mono code">{card.key}</span>
         </div>
@@ -283,9 +287,10 @@ export function CardEditor({ initial, onSave, onCancel, onDelete, usedIn = [] }:
             </div>
           )}
         </div>
+        </fieldset>
 
         <div className="card-ed-foot">
-          {onDelete && <button className="btn" disabled={saving} onClick={remove}>{t("cardEd.delete")}</button>}
+          {onDelete && <button className="btn" disabled={saving || readOnly} onClick={remove}>{t("cardEd.delete")}</button>}
           <span className="err">{error}</span>
           <button className="btn" onClick={onCancel}>{t("deck.cancel")}</button>
           <button className="btn primary" disabled={saving || !dirty} onClick={save}>{t("cardEd.save")}</button>

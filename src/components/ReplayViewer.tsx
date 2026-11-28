@@ -4,17 +4,21 @@ import { useT } from "../i18n/react";
 import type { Timeline } from "../replay/play";
 import { Board } from "./board/Board";
 import type { GameSettings } from "../lib/settings";
+import type { LibraryHandle } from "../hooks/useLibrary";
+import type { ReplaySource } from "../replay/types";
 
 const PLAY_MS = 700;
 const SPEEDS = [0.5, 1, 2, 4];
 const noop = () => {};
 
-// Step through a past game, see both hands, and continue playing from the step being viewed
-export function ReplayViewer({ tl, decks, settings, onContinue, onClose }: {
+// Step through a past game, see both hands, and continue playing from the step being viewed; another replay can be opened from the menu
+export function ReplayViewer({ tl, decks, settings, library, onContinue, onOpen, onClose }: {
   tl: Timeline;
   decks: Record<PlayerId, Deck>;
   settings: GameSettings;
+  library?: LibraryHandle;
   onContinue: (step: number) => void;
+  onOpen?: (src: ReplaySource) => void;
   onClose: () => void;
 }) {
   const t = useT();
@@ -38,7 +42,6 @@ export function ReplayViewer({ tl, decks, settings, onContinue, onClose }: {
       <span className="pos" title={tl.brokenAt !== undefined ? t("replay.broken") : undefined}>
         {t("replay.pos", { i: step, n: last, turn: s.turn })}{tl.brokenAt !== undefined ? " ⚠" : ""}
       </span>
-      <button className="btn" onClick={onClose} title={t("replay.close")} aria-label={t("replay.close")}>×</button>
     </div>
     <div className="replay-bar">
       <button className="btn" onClick={() => go(0)} title={t("replay.first")} aria-label={t("replay.first")}>⏮</button>
@@ -55,9 +58,9 @@ export function ReplayViewer({ tl, decks, settings, onContinue, onClose }: {
 
   return (
     <Board
-      initial={s} started settings={settings} decks={decks} deckOpen={false} onDeckOpen={noop}
+      initial={s} started settings={settings} library={library} onOpenReplay={onOpen} decks={decks} deckOpen={false} onDeckOpen={noop}
       onStart={noop} onNewGame={noop} onApplySettings={noop} onSwapDecks={noop} onPickDeck={noop} onDeckChanged={noop}
-      view={{ log: tl.log.slice(0, tl.logAt[step]), action, foot }}
+      view={{ log: tl.log.slice(0, tl.logAt[step]), action, foot, onClose }}
     />
   );
 }

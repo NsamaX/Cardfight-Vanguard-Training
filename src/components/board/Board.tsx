@@ -69,7 +69,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   onDeckChanged: (d: Deck) => void;      // the deck's cards changed: the side using it restarts with the new version
   onDeckUpdated?: (d: Deck) => void;     // only the G zone order or sleeves changed: update the deck without restarting
   base?: { start?: GameState; actions: RecordedAction[] };   // a game continued from a replay: earlier steps to include in this game's replay
-  view?: { log: LogEntry[]; action: ReactNode; foot: ReactNode };   // replay viewer: board only; action = right slot of the middle bar, foot = bottom of the right panel
+  view?: { log: LogEntry[]; action: ReactNode; foot: ReactNode; onClose: () => void };   // replay viewer: board only; action = right slot of the middle bar, foot = bottom of the left panel; onClose leaves the replay
   onOpenReplay?: (src: ReplaySource) => void;
   library?: LibraryHandle;
   openSettings?: boolean;   // start with the settings dialog open (first board after entering the site)
@@ -90,7 +90,11 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     ...(board.desync || (online.problem && online.problem !== "online.otherOutOfSync") ? [item("reload", "btn.reload", () => location.reload(), true)] : []),
     item("leave", "btn.leave", () => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); }),
     settingsItem,
-  ] : view ? [settingsItem] : [
+  ] : view ? [
+    ...(onOpenReplay ? [item("replays", "btn.replays", () => setShowReplays(true))] : []),
+    item("close", "replay.close", view.onClose),
+    settingsItem,
+  ] : [
     item("reset", "btn.reset", onNewGame),
     item(deckOpen ? "close" : "decks", deckOpen ? "btn.close" : "btn.decks", () => onDeckOpen(!deckOpen)),
     item("replays", "btn.replays", () => setShowReplays(true)),

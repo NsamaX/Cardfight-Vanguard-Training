@@ -20,6 +20,8 @@ const SLOTS = ["starter", "sleeve", "g_sleeve"] as const;
 type Slot = (typeof SLOTS)[number];
 type SleeveSlot = Exclude<Slot, "starter">;
 const SLEEVE_W = 440, SLEEVE_H = 640;
+// Creating, editing and deleting cards is switched off for now: + Create is off and the editor only shows the card
+const CARD_EDITING = false;
 
 function ExpandIcon({ collapse }: { collapse: boolean }) {
   return (
@@ -169,7 +171,9 @@ export function DeckBuilder({ p, initial, decks, onDone, onCancel, onDelete, onS
           </div>
         )}
         {tab === "cards" && <div className="collection">
-          <button className="new-card" onClick={() => setCardEdit(emptyCard())}>{t("deck.create")}</button>
+          <button className="new-card" disabled={!CARD_EDITING} onClick={() => setCardEdit(emptyCard())}>
+            {t("deck.create")}{!CARD_EDITING && <span className="soon">{t("deck.notYet")}</span>}
+          </button>
           {pool.map((c) => {
             const n = copiesIn(deck, c.key);
             return (
@@ -217,7 +221,7 @@ export function DeckBuilder({ p, initial, decks, onDone, onCancel, onDelete, onS
         </div>
       </div>
       {confirmDelete && onDelete && <DeleteDeckDialog name={initial.name} onDelete={onDelete} onClose={() => setConfirmDelete(false)} />}
-      {cardEdit && <CardEditor initial={cardEdit} onSave={saveCard} onCancel={() => setCardEdit(null)}
+      {cardEdit && <CardEditor initial={cardEdit} onSave={saveCard} onCancel={() => setCardEdit(null)} readOnly={!CARD_EDITING}
         onDelete={db[cardEdit.key] ? () => deleteCard(cardEdit.key) : undefined} usedIn={decksWith(cardEdit.key)} />}
     </div>
   );
