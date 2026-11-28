@@ -134,3 +134,19 @@ describe("ultimate stride: nation", () => {
     expect(db[ANGELICA].nation).toBeUndefined();
   });
 });
+
+describe("a boost lasts only while the booster stays on its circle", () => {
+  it("Rampage Shade boosts the Nightrose vanguard, then puts itself into the soul: the vanguard keeps only the +5000", () => {
+    game("battle", "attack");
+    const rampage = inst("G-BT08/S32TH");
+    s.players.me.circles = { vc: inst(NIGHT_FOG), back_center: rampage };
+    refreshAwaiting(s);
+    act("me", { type: "attack", attacker: "vc", target: "vc", booster: "back_center" });
+    const power = () => s.players.me.circles.vc!.mods.filter((m) => m.stat === "power").reduce((n, m) => n + m.value, 0);
+    expect(power()).toBe(4000);   // boosted
+    act("me", { type: "order-queue", index: 0 });
+    for (let i = 0; i < 5 && s.awaiting?.player === "me" && s.awaiting.choice?.kind === "yesno"; i++) act("me", { type: "choose", option: "yes" });
+    expect(s.players.me.soul.map((c) => c.uid)).toContain(rampage.uid);
+    expect(power()).toBe(5000);   // the boost is gone, Rampage Shade's +5000 stays
+  });
+});

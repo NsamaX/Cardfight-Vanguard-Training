@@ -183,6 +183,7 @@ export interface GameState {
 export interface Battle {
   attacker: Circle;
   booster?: Circle;
+  boosterUid?: string;              // the boosting unit: its Power counts only while it stays on its circle
   target: Circle;
   drivesLeft: number;
   damageLeft: number;

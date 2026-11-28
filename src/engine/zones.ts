@@ -33,6 +33,12 @@ export function moveCard(db: CardDB, s: GameState, uid: string, to: Pile, opts: 
   const from = zoneOf(at), grants = at.inst.grants ?? [];
   // A rear-guard leaving the field: the cards under it go to the drop zone first
   if (at.zone === "circle" && at.inst.soul?.length) for (const c of [...at.inst.soul]) moveCard(db, s, c.uid, "drop");
+  // The booster leaving the field stops boosting (10.4.1.12.1): the attacker loses the boost
+  if (at.zone === "circle" && s.battle?.boosterUid === uid) {
+    const atk = s.players[at.player].circles[s.battle.attacker];
+    if (atk) atk.mods = atk.mods.filter((m) => m.source !== "boost");
+    s.battle.boosterUid = undefined;
+  }
   pull(s, uid);
   const inst = reset(at.inst, to !== "deck");
   const list = s.players[at.player][PILE[to]];

@@ -405,7 +405,7 @@ function attack(db: CardDB, s: GameState, p: PlayerId, a: Extract<Action, { type
     booster.rested = true;
     atk.mods.push({ stat: "power", value: powerOf(db, ps, a.booster!), source: "boost", until: "battle-end" });
   }
-  s.battle = { attacker: a.attacker, booster: a.booster, target: a.target, drivesLeft: 0, damageLeft: 0 };
+  s.battle = { attacker: a.attacker, booster: a.booster, boosterUid: booster?.uid, target: a.target, drivesLeft: 0, damageLeft: 0 };
   s.step = "guard";
   ev(out, "attack", p, msg("log.attack", { card: name(db, atk), target: name(db, opp.circles[a.target]!), power: powerOf(db, ps, a.attacker) }), atk.uid);
   emit(db, s, { kind: "attack", player: p, uid: atk.uid, circle: a.attacker, target: a.target });
