@@ -118,7 +118,7 @@ Codes that can be paid as a cost (the engine checks whether they can be paid bef
 | `to-soul(drop, n≤#, filter=…)`<br>`to-soul(drop, n=#, filter=…)`<br>`to-soul(drop, all, filter=…)`<br>`to-soul(self)` | Put cards from the drop zone (or this unit) into the soul (filter different-grades = all chosen differ in grade) | Iris, Urth, Eir, Hemera, Freyja, Genil, Bragi, Angelica |
 | `to-deck(drop, all)`<br>`to-deck(drop+soul, n=#..#, filter=…)` | Return cards to the deck (filter same-grade = all chosen share a grade) | Laurier, Dreaming Dragon |
 | `to-deck-top(self)` | Put this unit on the top of the deck | Dreaming Dragon |
-| `return-to-deck(self)` | Shuffle this card into the deck | Mick the Ghostie and Family |
+| `return-to-deck(self)` | Shuffle this card from the drop zone into the deck | Mick the Ghostie and Family |
 | `to-hand(drop, n≤#, filter=…)` | Return cards from the drop zone to hand | Jotun |
 | `shuffle(deck)` | Shuffle the deck | Laurier, Dreaming Dragon |
 | `call(drop→RC, n≤#, filter=…)`<br>`call(hand+drop→RC, n≤#, filter=…, to=empty)`<br>`call(drop→RC, n=#, filter=that-card)`<br>`call(drop→GC, n≤#, filter=different-grades)`<br>`call(self→RC)`<br>`call(G→GC, self)` | Call cards to rear-guard circles (to= empty / different / not-self / same-column) or to the guardian circle | Agleam, Iris, Eir, Laurier, Daylight Angel, Negronora, Deep Corpse Dragon, Obadiah, Negrolily, Nightrose, Immortal Galleon, Nightstorm, Grenache, Negrolazy, Negrobone, Megiddo |

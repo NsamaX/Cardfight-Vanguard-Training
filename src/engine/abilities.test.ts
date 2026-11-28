@@ -359,4 +359,26 @@ describe("order of simultaneous abilities", () => {
     expect(s.players.me.drop.some((c) => c.uid === gun)).toBe(true);
     expect(s.players.me.circles.front_left?.key).toBe(K.lazy);
   });
+
+  it("Mick retired by Negrobone and called back by the same effect: its \"return to the deck\" leaves the new Mick on the circle", () => {
+    newGame();
+    const me = s.players.me;
+    const mick = inst("PR/0564TH");
+    mick.grants = [{ kind: "AUTO", timing: "retired(self, from=RC)", effect: ["return-to-deck(self)"] }];
+    me.circles = { vc: inst(K.mist), front_left: mick, back_left: inst(K.bone) };
+    me.damage = [inst(K.star)];
+    me.gZone = [inst(K.gunit)];
+    s.players.bot.circles = { vc: inst(K.mist) };
+    Object.assign(s, { turn: 3, turnPlayer: "me", phase: "battle", step: "attack" });
+    refreshAwaiting(s);
+    act("me", { type: "attack", attacker: "front_left", target: "vc", booster: "back_left" });
+    act("bot", { type: "end-guard" });
+    while (s.awaiting?.kind === "trigger-target") act(s.awaiting.player, { type: "trigger-target", powerTo: "vc", extraTo: "vc" });
+    use("me", "Negrobone");
+    pick("me", mick.uid);                                         // the Mick it just retired, back from the drop
+    to("me", "front_left");
+    use("me", "Mick", s.queue.find((e) => e.ability.effect[0] === "return-to-deck(self)")!.key);
+    expect(s.players.me.circles.front_left?.uid).toBe(mick.uid);
+    expect(s.players.me.deck.some((c) => c.uid === mick.uid)).toBe(false);
+  });
 });

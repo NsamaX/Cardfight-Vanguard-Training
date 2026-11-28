@@ -198,10 +198,11 @@ export const CARD_OPS: Record<string, OpSpec> = {
     },
   },
   "return-to-deck": {
-    forms: ["return-to-deck(self)"], text: "Shuffle this card into the deck",
+    forms: ["return-to-deck(self)"], text: "Shuffle this card from the drop zone into the deck",
     run: (ctx) => {
+      // Only while it is still in the drop zone: a card called back to a circle meanwhile is a new card the ability no longer follows
       const at = sourceAt(ctx);
-      if (at) { moveCard(ctx.db, ctx.s, ctx.r.uid, "deck"); shuffleDeck(ctx, false); say(ctx, "log.returnToDeck", { card: cardName(ctx, at.inst) }, ctx.r.uid); }
+      if (at?.zone === "drop") { moveCard(ctx.db, ctx.s, ctx.r.uid, "deck"); shuffleDeck(ctx, false); say(ctx, "log.returnToDeck", { card: cardName(ctx, at.inst) }, ctx.r.uid); }
       return true;
     },
   },
