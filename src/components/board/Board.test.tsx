@@ -273,6 +273,17 @@ describe("board", () => {
     expect(host.querySelector(".prompt")!.textContent).toContain("[AUTO 1]: Put Mick the Ghostie and Family into hollow?");   // that ability's own question, not the granted one's
   });
 
+  it("a trigger unit on the field shows its trigger mark in the corner, like in the deck editor", () => {
+    const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    const DEWEY = "PR/0740TH";
+    Object.assign(s, { mulliganDone: ["me", "bot"], turn: 3, turnPlayer: "me", phase: "main", step: "main" });
+    s.players.me.circles = { vc: inst(s, TOMMY), back_left: inst(s, DEWEY) };
+    refreshAwaiting(s);
+    render(s);
+    const dewey = [...slots(1)].find((el) => el.querySelector(".card")?.getAttribute("title") === db[DEWEY].name)!;
+    expect(dewey.querySelector(".mark")!.textContent).toBe("HEAL");
+  });
+
   it("one ability triggered by two events: each button names the card it is about, with unique keys", () => {
     const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
     const MICK = "PR/0564TH", name = db[MICK].name;

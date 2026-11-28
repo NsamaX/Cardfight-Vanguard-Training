@@ -47,7 +47,7 @@ export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atk
               {unit && (() => {
                 const power = powerOf(db, ps, c) + (bonus[c] ?? 0);
                 const base = powerOf(db, ps, c) - unit.mods.reduce((n, m) => n + (m.stat === "power" ? m.value : 0), 0);
-                return <CardView inst={unit} power={power} noName powerUp={power > base} critUp={criticalOf(db, unit) - (db[unit.key].critical ?? 0)}
+                return <CardView inst={unit} power={power} noName mark powerUp={power > base} critUp={criticalOf(db, unit) - (db[unit.key].critical ?? 0)}
                   selected={unit.uid === selUid} picked={pickedCircle === c} />;
               })()}
               {unit?.hollowed && <span className="tag">{t("card.hollow")}</span>}
