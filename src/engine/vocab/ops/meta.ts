@@ -58,6 +58,7 @@ export const META_OPS: Record<string, OpSpec> = {
         if (!r.answer?.uids) {
           say(ctx, "log.revealHand", { player: playerMsg(ctx.owner), cards: ps.hand.map((h) => ctx.db[h.key].name).join(", ") });
           if (pool.length) return askCards(ctx, msg("choice.gAssistPick", { grade }), pool, 0, 1);
+          say(ctx, "log.gAssistNone", { grade });
         }
         const picked = r.answer?.uids ?? [];
         for (const u of picked) { const inst = moveCard(ctx.db, ctx.s, u, "hand"); say(ctx, "log.searchHand", { card: ctx.db[inst.key].name }, u); }

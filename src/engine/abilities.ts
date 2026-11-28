@@ -5,7 +5,7 @@ import { parseCode } from "./code";
 import { RC, other, type CardDB } from "./rules";
 import { ev, locate, playerMsg, win, type Out } from "./state";
 import type { Ability, CardInstance, Circle, GameState, PlayerId, QueueEntry, Resolving, TriggerEvent } from "./types";
-import { canPayCode, delayOf, isPassive, runCode, withoutDelay } from "./vocab";
+import { canDoCode, canPayCode, delayOf, isPassive, runCode, withoutDelay } from "./vocab";
 import { condsHold } from "./vocab/conditions";
 import { willLeave } from "./vocab/ops/units";
 import { TIMINGS } from "./vocab/timings";
@@ -168,6 +168,9 @@ export function blocked(db: CardDB, s: GameState, entry: QueueEntry): Msg | unde
   if (!at || (!self && !abilityZoneOk(entry.ability.zone, where)) || !condOk(db, s, entry.owner, at.inst, entry.key, entry.ability, "resolve")) return msg("reason.condUnmet");
   const ctx = stepCtx(db, s, toResolving(entry, false), []);
   if (!(entry.ability.cost ?? []).every((code) => canPayCode(ctx, code))) return msg("reason.cannotPay");
+  // A "you may" with no cost whose first step has nothing to work on (e.g. no card to choose): nothing to decide
+  const first = entry.ability.effect[0];
+  if (entry.optional && !entry.ability.cost?.length && first && !canDoCode(ctx, first)) return msg("reason.nothingToDo");
 }
 
 export function startResolving(db: CardDB, s: GameState, entry: QueueEntry, out: Out, activated = false) {

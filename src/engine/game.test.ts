@@ -359,7 +359,9 @@ describe("G assist", () => {
   it("the wanted grade isn't found: shuffle the deck, no cards removed from the game", () => {
     let s = noGrade1([]);
     const hand = s.players.me.hand.length;
-    s = apply(db, s, "me", { type: "order-queue", index: 0 }).state;
+    const r = apply(db, s, "me", { type: "order-queue", index: 0 });
+    s = r.state;
+    expect(r.events.map((e) => e.text.key)).toContain("log.gAssistNone");
     expect(s.players.me.hand).toHaveLength(hand);
     expect(s.players.me.removed).toHaveLength(0);
     expect(s.phase).toBe("ride");

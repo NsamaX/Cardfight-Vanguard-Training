@@ -130,6 +130,7 @@ export const CARD_OPS: Record<string, OpSpec> = {
     causes: (c) => [c.pos[0] === "self" ? { move: { from: "RC", to: "soul" }, who: "self" } : { move: { from: "drop", to: "soul" }, who: "chosen", filter: c.named.filter }],
     forms: ["to-soul(drop, n≤#, filter={filter})", "to-soul(drop, n=#, filter={filter})", "to-soul(drop, all, filter={filter})", "to-soul(self)"],
     text: "Put cards from the drop zone (or this unit) into the soul (filter different-grades = all chosen differ in grade)",
+    canDo: (ctx) => ctx.c.pos[0] === "self" || matching(ctx, zonesOf(ctx, ctx.c.pos[0])).length > 0,
     run: (ctx) => {
       if (ctx.c.pos[0] === "self") {
         const at = sourceAt(ctx);

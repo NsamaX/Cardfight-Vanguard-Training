@@ -80,6 +80,36 @@ describe("to-soul", () => {
   });
 });
 
+describe("an optional AUTO with nothing to choose", () => {
+  it("Angelica placed on VC with no normal Regalia unit in the drop zone: skipped with the reason, nobody is asked", () => {
+    mainPhase(K.genil);
+    Object.assign(s, { phase: "ride", step: "ride" });
+    const me = s.players.me;
+    me.drop = [inst(K.clear), inst(K.dreaming)];
+    const angelica = inst(K.angelica);
+    me.hand.push(angelica);
+    refreshAwaiting(s);
+    const r = apply(db, s, "me", { type: "ride", uid: angelica.uid });
+    s = r.state;
+    expect(s.players.me.circles.vc?.uid).toBe(angelica.uid);
+    expect(s.queue.some((e) => e.uid === angelica.uid)).toBe(false);
+    expect(s.awaiting?.choice).toBeUndefined();
+    expect(r.events.some((e) => e.text.key === "log.blocked" && (e.text.params?.why as { key: string }).key === "reason.nothingToDo")).toBe(true);
+  });
+
+  it("with one in the drop zone it is still offered", () => {
+    mainPhase(K.genil);
+    Object.assign(s, { phase: "ride", step: "ride" });
+    const me = s.players.me;
+    me.drop = [inst(K.clear), inst(K.norn)];
+    const angelica = inst(K.angelica);
+    me.hand.push(angelica);
+    refreshAwaiting(s);
+    act("me", { type: "ride", uid: angelica.uid });
+    expect(s.queue.some((e) => e.uid === angelica.uid && e.optional)).toBe(true);
+  });
+});
+
 describe("look", () => {
   it("Daylight Angel: reveals three, one Regalia goes into the soul and draws a card, the rest go to the drop zone", () => {
     mainPhase(K.angelica);

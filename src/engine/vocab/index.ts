@@ -47,6 +47,11 @@ export function canPayCode(ctx: Omit<Ctx, "c">, code: string): boolean {
   return OPS[c.name]?.canPay?.({ ...ctx, c }) ?? true;
 }
 
+export function canDoCode(ctx: Omit<Ctx, "c">, code: string): boolean {
+  const c = parseCode(code);
+  return OPS[c.name]?.canDo?.({ ...ctx, c }) ?? true;
+}
+
 // ---------- Validation ----------
 
 // Which argument of an op is a selector (the units it acts on)

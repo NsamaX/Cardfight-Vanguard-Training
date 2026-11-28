@@ -36,6 +36,8 @@ export interface OpSpec extends Doc {
   run(ctx: Ctx): boolean;
   // Only for codes used as costs: whether the cost can be paid now
   canPay?(ctx: Ctx): boolean;
+  // For the first step of an optional ability: whether it can do anything now (false = the player isn't asked about it)
+  canDo?(ctx: Ctx): boolean;
   // For codes a CONT ability may use: apply the effect as a "cont" modifier (computed again after every change, see cont.ts)
   cont?(ctx: Ctx): void;
   // For chain search without a board (vocab/chains.ts): the moves and strides this code causes
