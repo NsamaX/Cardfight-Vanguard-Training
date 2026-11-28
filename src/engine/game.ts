@@ -627,7 +627,9 @@ export function refreshAwaiting(s: GameState) {
   }
   const qp = [s.turnPlayer, other(s.turnPlayer)].find((q) => s.queue.some((e) => e.owner === q));
   if (qp) {
-    s.awaiting = { player: qp, kind: "order-queue", prompt: msg("prompt.order") };
+    const mine = s.queue.filter((e) => e.owner === qp);
+    const prompt = mine.length > 1 ? msg("prompt.order") : msg(mine[0].optional ? "prompt.oneOptional" : "prompt.oneForced", { label: mine[0].label });
+    s.awaiting = { player: qp, kind: "order-queue", prompt };
     return;
   }
   const t = s.battle?.pendingTrigger;

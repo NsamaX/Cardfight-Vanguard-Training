@@ -205,6 +205,7 @@ export const ja: Dict = {
   "tip.critical": "クリティカル {v}",
   "tip.shield": "シールド {v}",
   "tip.stand": "スタンド",
+  "tip.heal": "回復するダメージを選ぶ",
 
   "deck.all": "すべて",
   "deck.search": "検索",
@@ -248,6 +249,7 @@ export const ja: Dict = {
   "deck.err.notGInGZone": "{card}はGユニットではないためGゾーンに入れられません",
 
   "q.use": "{label}を使いますか？",
+  "q.whichAbility": "このカードには待機中の能力が複数あります。どれを使いますか？",
   "q.useCost": "{label}を使いますか？ コスト: {cost}",
   "q.stride": "{g}・捨てたグレード合計 {n}/3",
   "q.pickGUnit": "GゾーンからGユニットを選ぶ",
@@ -260,6 +262,8 @@ export const ja: Dict = {
   "prompt.mulligan": "引き直すカードを選ぶ（1回のみ）",
   "prompt.ability": "{label}: {prompt}",
   "prompt.order": "複数の能力が同時に誘発しました。先に解決するものを選んでください",
+  "prompt.oneOptional": "{label}が誘発しました。使うか、スキップしてください",
+  "prompt.oneForced": "{label}が誘発しました。解決してください",
   "prompt.trigger": "{trigger}の効果を受けるユニットを選ぶ",
   "prompt.guard": "ガード / インターセプト / Gガーディアン、またはパス",
   "prompt.ride": "ライド、またはストライドステップへ",

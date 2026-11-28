@@ -13,7 +13,14 @@ import type { Ctx } from "./vocab/types";
 
 export type ResumeHandlers = Record<string, (db: CardDB, s: GameState, out: Out) => void>;
 
-const label = (db: CardDB, inst: CardInstance, ab: Ability) => `${db[inst.key].name} [${ab.kind}]`;
+// "Name [AUTO]"; a card with several abilities of that kind numbers them in card text order ("[AUTO 2]"), a granted one says so,
+// so two of one card's abilities waiting at once can be told apart
+function label(db: CardDB, inst: CardInstance, ab: Ability, key: string) {
+  const name = db[inst.key].name;
+  if (key.startsWith("g")) return `${name} [${ab.kind}, granted]`;
+  const same = db[inst.key].abilities.filter((a) => a.kind === ab.kind);
+  return same.length > 1 ? `${name} [${ab.kind} ${same.indexOf(ab) + 1}]` : `${name} [${ab.kind}]`;
+}
 
 // An ACT by index: printed abilities first, then granted ones (key "g<n>", same as granted AUTO)
 export function actAt(db: CardDB, inst: CardInstance, index: number): { key: string; ab?: Ability } {
@@ -74,7 +81,7 @@ function collectTriggers(db: CardDB, s: GameState) {
           if (!triggers(db, ab, e, inst.uid, p)) continue;
           if (inst.uid !== selfUid && !abilityZoneOk(ab.zone, where)) continue;
           if (!condOk(db, s, p, inst, key, ab, "trigger")) continue;
-          s.queue.push({ owner: p, uid: inst.uid, key, ability: ab, event: e, label: label(db, inst, ab), optional: isOptional(ab) });
+          s.queue.push({ owner: p, uid: inst.uid, key, ability: ab, event: e, label: label(db, inst, ab, key), optional: isOptional(ab) });
         }
       }
     }
@@ -128,7 +135,7 @@ export function settle(db: CardDB, s: GameState, out: Out, resume: ResumeHandler
         const skip = mine.find((e) => e.optional);
         if (skip) { declineEntry(s, skip, out); continue; }
       } else if (mine.length > 1 && !sameAbility(mine)) { s.ordering = p; return; }   // wait for the owner to choose which one / which order
-      else if (mine[0].optional || s.ordering === p) return;
+      else if (mine[0].optional) return;   // one forced ability left (also after the player ordered the others): it resolves by itself
       startResolving(db, s, mine[0], out);
       continue;
     }
@@ -209,7 +216,12 @@ function runResolving(db: CardDB, s: GameState, out: Out): boolean {
   }
   while (r.i < r.ops.length) {
     if (delayOf(r.ops[r.i])) { delay(db, s, r, out); break; }
-    if (!runCode(stepCtx(db, s, r, out), r.ops[r.i])) return false;
+    if (!runCode(stepCtx(db, s, r, out), r.ops[r.i])) {
+      // A card choice with only one possible answer (every option must be taken) answers itself
+      const c = r.choice;
+      if (c?.kind === "cards" && c.options.length > 0 && c.min === c.options.length) { r.answer = { uids: c.options }; r.choice = undefined; continue; }
+      return false;
+    }
     r.i++;
     r.local = {};
     r.answer = undefined;

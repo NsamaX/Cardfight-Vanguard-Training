@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cardByKey as db } from "../../data/cards";
 import { countCards, presetDecks } from "../../data/decks";
-import { createGame, refreshAwaiting } from "../../engine/game";
+import { apply, createGame, refreshAwaiting } from "../../engine/game";
 import type { CardInstance, GameState } from "../../engine/types";
 import { replayTimeline } from "../../replay/play";
 import { loadReplays } from "../../replay/store";
@@ -247,6 +247,53 @@ describe("board", () => {
     expect(slots(1)[2].querySelector(".card")!.getAttribute("title")).toBe(db[BONE].name);
     expect(host.querySelector(".ph.on")!.textContent).toBe("MAIN");
     expect(slots(1)[0].classList.contains("source")).toBe(false);   // hollow was skipped
+  });
+
+  it("a card with two abilities waiting: clicking it asks which one, naming them by number or as granted", () => {
+    const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    const MICK = "PR/0564TH", name = db[MICK].name;
+    Object.assign(s, { mulliganDone: ["me", "bot"], turn: 3, turnPlayer: "me", phase: "main", step: "main" });
+    const mick = inst(s, MICK);
+    s.players.me.circles = { vc: inst(s, TOMMY), front_left: mick };
+    const granted = { kind: "AUTO" as const, timing: "retired(self, from=RC)", effect: ["return-to-deck(self)"] };
+    s.queue = [
+      { owner: "me", uid: mick.uid, key: "g0", ability: granted, label: `${name} [AUTO, granted]`, optional: false },
+      { owner: "me", uid: mick.uid, key: "0", ability: db[MICK].abilities[0], label: `${name} [AUTO 1]`, optional: true },
+    ];
+    refreshAwaiting(s);
+    render(s);
+    const mickSlot = [...slots(1)].find((el) => el.querySelector(".card")?.getAttribute("title") === name)!;
+    rawClick(mickSlot);
+    expect(host.textContent).toContain("This card has several abilities waiting");
+    expect(button("[AUTO, granted]")).toBeTruthy();
+    rawClick(button("[AUTO 1]"));
+    expect(host.textContent).not.toContain("This card has several abilities waiting");
+    expect(host.querySelector(".prompt")!.textContent).toContain("[AUTO 1]: Put Mick the Ghostie and Family into hollow?");   // that ability's own question, not the granted one's
+  });
+
+  it("a heal trigger with face-up and face-down damage: after the Power target, the damage zone opens to pick the card to heal", () => {
+    let s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    const DEWEY = "PR/0740TH";
+    Object.assign(s, { mulliganDone: ["me", "bot"], turn: 4, turnPlayer: "bot", phase: "battle", step: "attack", queue: [] });
+    const me = s.players.me, bot = s.players.bot;
+    me.circles = { vc: inst(s, TOMMY) };
+    const up = inst(s, GUN), down = { ...inst(s, BONE), faceUp: false };
+    me.damage = [down, up];
+    me.deck.unshift(inst(s, DEWEY));
+    bot.circles = { vc: inst(s, TOMMY) };
+    bot.damage = [inst(s, GUN)];
+    bot.deck.unshift(inst(s, BONE));
+    refreshAwaiting(s);
+    s = apply(db, s, "bot", { type: "attack", attacker: "vc", target: "vc" }).state;
+    s = apply(db, s, "me", { type: "end-guard" }).state;
+    expect(s.awaiting).toMatchObject({ player: "me", kind: "trigger-target" });
+    render(s);
+    rawClick(host.querySelector(".bside.me .card"));                 // pick up the heal trigger
+    const vc = [...slots(1)].find((el) => el.querySelector(".card")?.getAttribute("title") === db[TOMMY].name)!;
+    rawClick(vc);
+    expect(host.querySelectorAll(".modal .card")).toHaveLength(2);    // the damage zone opened
+    rawClick([...host.querySelectorAll(".modal .card")].find((c) => c.getAttribute("title") === db[BONE].name));
+    expect(host.querySelector(".log")!.textContent).toContain(`Healed 1 damage (${db[BONE].name})`);   // the face-down one, not the last
   });
 
   it("opening the G zone shows face-down cards as card images, and the right panel shows the ability text", () => {

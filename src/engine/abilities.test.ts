@@ -70,19 +70,17 @@ describe("off-turn shot combo (content/combos/off-turn-shot.yaml)", () => {
 
     act("me", { type: "call-g-guardian", gUid: lily, discardUid: s.players.me.hand[0].uid });
     expect(s.awaiting?.kind).toBe("order-queue");                 // Dewey + Negrolily trigger together
-    use("me", "Dewey");                                           // pay the bind cost
-    pick("me", otherDewey);                                       // bind another Heal from the drop
+    use("me", "Dewey");                                           // pay the bind cost: the only other Heal in the drop is bound by itself
+    expect(s.players.me.bind.map((c) => c.uid)).toContain(otherDewey);
     act("me", { type: "choose", option: "CC(1)" });
     expect(s.players.me.damage.filter((d) => d.faceUp)).toHaveLength(4);
 
     use("me", "Negrolily");                                     // CB1 + retire your own rear-guard
-    pick("me", gun);
-    pick("me", tommy);                                            // call a ghostie from the drop
+    pick("me", gun);                                              // Tommy, the only ghostie in the drop, is picked by itself
     to("me", "back_center");
     expect(shieldOf(db, s.players.me.guardian[0])).toBe(25000);
 
-    use("me", "Night Fog");                                   // Nightrose triggers because a rear-guard went to the drop: mill 3
-    pick("me", gun);
+    use("me", "Night Fog");                                   // Nightrose triggers because a rear-guard went to the drop: mill 3, the retired unit is the only choice
     to("me", "front_left");
 
     use("me", "Skeleton Cannoneer", "0");                                  // hollow first, to get the draw
@@ -107,8 +105,7 @@ describe("off-turn shot combo (content/combos/off-turn-shot.yaml)", () => {
     setup();
     for (const d of s.players.me.damage) d.faceUp = false;
     act("me", { type: "call-g-guardian", gUid: s.players.me.gZone[2].uid, discardUid: s.players.me.hand[0].uid });
-    use("me", "Dewey");
-    pick("me", s.players.me.drop.find((d) => d.key === K.dewey)!.uid);
+    use("me", "Dewey");                                           // the only other Heal in the drop is bound by itself
     act("me", { type: "choose", option: "CC(1)" });
     expect(s.awaiting?.choice?.kind).toBe("cards");
     const chosen = s.players.me.damage[2].uid;
@@ -154,8 +151,7 @@ describe("hollow in the end phase", () => {
     const gun = s.players.me.circles.front_left!.uid;
     act("me", { type: "next-phase" });
     expect(s.players.me.circles.vc?.key).toBe(K.mist);            // the heart is the vanguard again
-    use("me", "Night Fog");
-    pick("me", gun);
+    use("me", "Night Fog");                                       // the retired unit is the only choice: picked by itself
     to("me", "front_left");
     skip("me", "Skeleton Cannoneer", "0");                                 // don't become hollowed
     // The shoot ability (CB1) is skipped automatically because there's no face-up damage to pay
@@ -167,7 +163,6 @@ describe("hollow in the end phase", () => {
     setup();
     act("me", { type: "next-phase" });
     use("me", "Night Fog");
-    pick("me", s.players.me.drop.find((c) => c.key === K.gun)!.uid);
     to("me", "front_left");
     use("me", "Skeleton Cannoneer", "0");                                  // hollow again
     expect(s.turnPlayer).toBe("bot");
@@ -260,7 +255,6 @@ describe("other abilities", () => {
     const soul = me.soul.length;
     act("me", { type: "next-phase" });   // end phase: Serpent (hollow) is retired, Nightrose calls it back
     use("me", "Night Fog");
-    pick("me", s.players.me.drop.find((c) => c.key === K.serp)!.uid);
     to("me", "front_left");
     expect(s.players.me.soul).toHaveLength(soul + 1);
     expect(s.players.me.damage[0].faceUp).toBe(true);
@@ -291,7 +285,7 @@ describe("1/turn abilities triggered by several cards at once", () => {
 });
 
 describe("order of simultaneous abilities", () => {
-  it("striding Obadiah over Starlight Nightrose: after King Serpent (called by Nightrose) resolves, Obadiah still waits for a click", () => {
+  it("striding Obadiah over Starlight Nightrose: after King Serpent (called by Nightrose) resolves, Obadiah, the last forced one, starts by itself", () => {
     newGame();
     const me = s.players.me;
     me.circles = { vc: inst(K.star) };
@@ -311,8 +305,8 @@ describe("order of simultaneous abilities", () => {
     use("me", "King Serpent");
     pick("me", s.players.me.damage.find((c) => !c.faceUp)!.uid);  // CC1: choose which face-down damage card to turn up
     expect(s.players.me.soul).toHaveLength(soul + 1);             // SC1 + CC1 done
-    expect(s.awaiting?.kind).toBe("order-queue");
-    expect(s.queue.map((e) => e.label).join()).toContain("Obadiah");
+    expect(s.queue).toHaveLength(0);
+    expect(s.resolving?.label).toContain("Obadiah");
   });
 
   it("Negrolazy calls Mick the Ghostie and Family from the drop: hollow first, then the power effect resolves", () => {
@@ -331,10 +325,9 @@ describe("order of simultaneous abilities", () => {
     use("me", "Negrolazy");                                      // CB1 + SB1 call Mick from the drop
     pick("me", s.players.me.drop.find((c) => c.key === "PR/0564TH")!.uid);
     to("me", "back_right");
+    expect(s.queue.map((e) => e.label)).toEqual(["Mick the Ghostie and Family [AUTO 1]", "Mick the Ghostie and Family [AUTO 2]"]);   // told apart
     use("me", "Mick", "0");                                        // hollow first
-    expect(s.awaiting?.kind).toBe("order-queue");                 // the forced power effect left over waits for a click, not started by itself
-    use("me", "Mick");
-    expect(s.awaiting?.choice?.kind).toBe("cards");
+    expect(s.awaiting?.choice?.kind).toBe("cards");               // the forced power effect left over starts by itself
     pick("me", s.players.me.circles.front_left!.uid);
     expect(powerOf(db, s.players.me, "front_left")).toBe(db[K.gun].power! + 10000);
   });

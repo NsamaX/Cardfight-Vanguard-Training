@@ -208,6 +208,7 @@ export const en = {
   "tip.critical": "Critical {v}",
   "tip.shield": "Shield {v}",
   "tip.stand": "Stand",
+  "tip.heal": "Pick a damage card to heal",
 
   "deck.all": "All",
   "deck.search": "Search",
@@ -251,6 +252,7 @@ export const en = {
   "deck.err.notGInGZone": "{card} is not a G unit and can't go in the G zone",
 
   "q.use": "Use {label}?",
+  "q.whichAbility": "This card has several abilities waiting. Which one?",
   "q.useCost": "Use {label}? Cost: {cost}",
   "q.stride": "{g} · discarded grade total {n}/3",
   "q.pickGUnit": "Pick a G unit from the G zone",
@@ -263,6 +265,8 @@ export const en = {
   "prompt.mulligan": "Pick cards to redraw (once only)",
   "prompt.ability": "{label}: {prompt}",
   "prompt.order": "Several abilities triggered. Pick which one resolves first",
+  "prompt.oneOptional": "{label} triggered. Use it, or skip it",
+  "prompt.oneForced": "{label} triggered. Resolve it",
   "prompt.trigger": "Pick units to receive the {trigger} effect",
   "prompt.guard": "Guard / intercept / G guardian, or pass",
   "prompt.ride": "Ride, or go to the stride step",

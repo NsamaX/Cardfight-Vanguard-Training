@@ -46,6 +46,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [choicePicks, setChoicePicks] = useState<string[]>([]);
   const [error, setError] = useState<Msg>();
   const [focus, setFocus] = useState<string>();         // card clicked to use its ACT
+  const [queuePick, setQueuePick] = useState<string>();  // a card with several pending abilities was clicked: ask which one
   const [opened, setOpened] = useState(false);          // a pending ability was just opened by clicking: Cancel on its first question goes back
   const [trigArmed, setTrigArmed] = useState(false);    // the trigger card was clicked; the cursor shows what it will give
   const [staged, setStaged] = useState(false);          // showing cards returning to the deck before the redraw, or revealed cards: undo/redo disabled
@@ -61,6 +62,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const choice = s.awaiting?.choice;
   const ordering = s.awaiting?.kind === "order-queue";
   const trig = choice || ordering ? undefined : s.battle?.pendingTrigger;
+  const healing = mode?.kind === "trigger" && !!mode.powerTo && trig?.kind === "heal";   // the heal trigger's Power is placed: pick the damage card
   const guarding = s.step === "guard" && !!s.battle && actor !== s.turnPlayer;   // only the defender guards (the attacker may answer its own abilities during this step)
   // A card choice where every option is a unit on the board: choose on the board instead of in a dialog
   const fieldChoice = choice?.kind === "cards" && choice.options.every((u) => locate(s, u)?.zone === "circle") ? choice : undefined;
@@ -99,8 +101,17 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     const f = findCard(s, uid);
     if (f) setInspectUids((i) => ({ ...i, [f.player]: uid }));
     const i = queued.findIndex((e) => e.uid === uid);
-    if (i >= 0 && !botTurn && !readOnly) { act({ type: "order-queue", index: i, ask: true }); setOpened(!online); return; }
+    if (i >= 0 && !botTurn && !readOnly) {
+      if (queued.filter((e) => e.uid === uid).length > 1) { setQueuePick(uid); return; }
+      openQueued(i);
+      return;
+    }
     setFocus(acts.some((e) => e.uid === uid) ? uid : undefined);
+  }
+
+  function openQueued(i: number) {
+    act({ type: "order-queue", index: i, ask: true });
+    setOpened(!online);
   }
 
   function inspectedOf(p: PlayerId) {
@@ -238,8 +249,16 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     clearUi();
   }
 
+  // A heal trigger that will heal, with damage cards that differ (face up/down or card): the player picks which one, after the Power target
+  function healPick(p: PlayerId) {
+    const ps = s.players[p];
+    return trig?.kind === "heal" && ps.damage.length > 0 && ps.damage.length >= s.players[other(p)].damage.length
+      && new Set(ps.damage.map((d) => `${d.key}:${d.faceUp}`)).size > 1;
+  }
+
   function clearUi() {
     setFocus(undefined);
+    setQueuePick(undefined);
     setOpened(false);
     setSel(null);
     setMode(null);
@@ -296,7 +315,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
           return;
         }
         act({ type: "trigger-target", powerTo: mode.powerTo, extraTo: c });
-      } else act({ type: "trigger-target", powerTo: c });
+      } else if (healPick(p)) { setMode({ kind: "trigger", powerTo: c }); setPile({ player: p, zone: "damage" }); }   // then pick the damage card to heal
+      else act({ type: "trigger-target", powerTo: c });
       return;
     }
     if (mine && guarding && unit && canIntercept(c)) { act({ type: "guard", uids: [], intercept: [c] }); return; }
@@ -328,6 +348,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
 
   function clickPileCard(p: PlayerId, zone: Zone, inst: CardInstance) {
     setInspect(inst.uid);
+    if (healing && mode?.kind === "trigger" && mode.powerTo && zone === "damage" && p === actor) { act({ type: "trigger-target", powerTo: mode.powerTo, healUid: inst.uid }); setPile(null); return; }
     if (queued.some((e) => e.uid === inst.uid)) { setPile(null); return; }
     if (zone !== "gZone" || p !== actor || inst.faceUp) return;
     const type = db[inst.key].type;
@@ -413,6 +434,13 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     const useQ = (label: string, cost: string[]) => cost.length ? msg("q.useCost", { label: abilityTag(label), cost: cost.join(", ") }) : msg("q.use", { label: abilityTag(label) });
     const yes = msg("btn.yes"), no = msg("btn.no");
     if (botTurn || readOnly) return undefined;
+    if (queuePick && ordering) {
+      const here = queued.map((e, i) => ({ e, i })).filter(({ e }) => e.uid === queuePick);
+      return { prompt: msg("q.whichAbility"), buttons: [
+        ...here.map(({ e, i }) => ({ label: abilityTag(e.label), onClick: () => openQueued(i) })),
+        { label: msg("btn.cancel"), onClick: () => setQueuePick(undefined) },
+      ] };
+    }
     if (focusedAct) {
       return { prompt: useQ(focusedAct.label, focusedAct.cost), buttons: [
         { label: yes, onClick: () => act({ type: "activate", cardUid: focusedAct.uid, abilityIndex: focusedAct.index }) },
@@ -470,6 +498,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     s, log, error, actor,
     lightOf: (uid: string): Light =>
       trig && !botTurn && uid === s.battle?.checkCard?.uid ? (trigArmed ? "active" : "source")
+      : healing && s.players[actor!].damage.some((d) => d.uid === uid) ? "source"
       : fieldChoice?.options.includes(uid) ? (choicePicks.includes(uid) ? "active" : "source")
       : (striding || mode?.kind === "stride") && s.players[actor!]?.gZone.some((g) => g.uid === uid && !g.faceUp && db[g.key].type === "g-unit") ? (mode?.kind === "stride" && mode.gUid === uid ? "active" : "source")
       : active.includes(uid) ? "active" : sources.includes(uid) ? "source" : undefined,
@@ -477,7 +506,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
     // Only the trigger's owner arms it; the other player (or the side the bot plays) just inspects the card
     clickCheck: (uid: string) => { setInspect(uid); if (trig && !botTurn && uid === s.battle?.checkCard?.uid) setTrigArmed(true); },
     trigTip: trig && trigArmed
-      ? mode?.kind === "trigger" && mode.powerTo ? { text: trig.kind === "critical" ? msg("tip.critical", { v: "+1" }) : msg("tip.stand"), kind: "cri" } : { text: msg("tip.power", { v: `+${fmt(trig.power)}` }), kind: "pow" }
+      ? mode?.kind === "trigger" && mode.powerTo ? { text: trig.kind === "critical" ? msg("tip.critical", { v: "+1" }) : trig.kind === "heal" ? msg("tip.heal") : msg("tip.stand"), kind: "cri" } : { text: msg("tip.power", { v: `+${fmt(trig.power)}` }), kind: "pow" }
       : undefined,
     trigBonus: trig && mode?.kind === "trigger" && mode.powerTo ? { player: trig.owner, bonus: { [mode.powerTo]: trig.power } as Partial<Record<Circle, number>> }
       : fieldChoice?.bonus?.stat === "power" ? { player: actor!, bonus: Object.fromEntries(choicePicks.map((u) => [locate(s, u)!.circle!, fieldChoice.bonus!.value])) as Partial<Record<Circle, number>> }
@@ -488,7 +517,8 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
       : undefined,
     fieldChoice: !!fieldChoice, choiceMin, setChoiceMin,
     pileLight: (p: PlayerId, zone: string): Light =>
-      (striding || mode?.kind === "stride") && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "active" : "source")
+      healing && p === actor && zone === "damage" ? "source"
+      : (striding || mode?.kind === "stride") && p === actor && zone === "gZone" ? (mode?.kind === "stride" && mode.gUid ? "active" : "source")
       : activePiles[p].has(zone) ? "active" : waitingPiles[p].has(zone) || choicePiles[p].has(zone) ? "source" : undefined,
     choice, ordering, trig, guarding, mode, choicePicks, pile,
     selUid: sel?.kind === "hand" ? sel.uid : sel?.kind === "circle" ? s.players[sel.player].circles[sel.circle]?.uid : undefined,

@@ -68,8 +68,7 @@ describe("Sebreeze: ACT from the G zone strides it in the main phase", () => {
     setup(false);
     const g = s.players.me.gZone[0];
     expect(usableActs(db, s).map((a) => a.uid)).toContain(g.uid);
-    act("me", { type: "activate", cardUid: g.uid, abilityIndex: 1 });
-    act("me", { type: "select-target", uids: [s.players.me.hand[0].uid] });
+    act("me", { type: "activate", cardUid: g.uid, abilityIndex: 1 });   // the only hand card is discarded by itself
     expect(s.players.me.circles.vc!.key).toBe(SEBREEZE);
     expect(s.players.me.heart!.key).toBe(ANGELICA);
     expect(s.players.me.damage.filter((d) => d.faceUp)).toHaveLength(0);
