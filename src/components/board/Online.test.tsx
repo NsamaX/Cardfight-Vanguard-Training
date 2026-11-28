@@ -118,7 +118,7 @@ describe("online room between games", () => {
     const s = createGame(db, { seed: 1, firstPlayer: "me", decks: { me: deck, bot: deck } });
     let pressed = 0;
     renderBoard(s, false, {}, () => pressed++);
-    expect(footer()).toEqual(["Decks", "Leave", "Board only"]);
+    expect(footer()).toEqual(["Decks", "Leave", "Settings"]);
     act(() => find("Start")!.click());
     expect(pressed).toBe(1);
     renderBoard(s, false, { ready: { me: false, bot: true } });
@@ -134,7 +134,7 @@ describe("online room between games", () => {
     s.awaiting = undefined;
     let ready = 0;
     renderBoard(s, true, { onReady: () => ready++ });
-    expect(footer()).toEqual(["Leave", "Board only"]);
+    expect(footer()).toEqual(["Leave", "Settings"]);
     act(() => host.querySelector<HTMLButtonElement>(".mid-actions button")!.click());
     expect(ready).toBe(1);
     expect(host.querySelector(".mid-actions")!.textContent).toBe("Ready");

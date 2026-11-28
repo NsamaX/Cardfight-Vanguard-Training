@@ -1,11 +1,14 @@
 // The game's buttons folded into one round button: hover or click opens a column of icons, and hovering an icon slides out its name.
-// It starts beside our deck, stays on screen over the deck editor, and can be dragged anywhere on the board (the spot is remembered)
+// Only the round button itself opens it on hover, so a pointer passing over the folded column doesn't open it.
+// It sits right of our deck on the battle bar and stays on screen over the deck editor.
+// Dragging it anywhere on the board (the spot remembered) is built but switched off with DRAGGABLE
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ICONS } from "./Icons";
 
 export interface MenuItem { icon: keyof typeof ICONS; label: string; onClick: () => void; alert?: boolean }
 
 const ORB = 34, ITEM_GAP = 8, DRAG_PX = 4;
+const DRAGGABLE = false;
 const STORE = "game-menu-pos";   // where the player dragged it, as fractions of the board's size
 
 type Pos = { x: number; y: number };
@@ -17,10 +20,11 @@ const save = (p: Pos | undefined) => {
   try { if (p) localStorage.setItem(STORE, JSON.stringify(p)); else localStorage.removeItem(STORE); } catch { /* private window: not remembered */ }
 };
 
-// board: the element the menu is placed in; home: where it sits by default (left of our deck slot, level with it), in board pixels
-export function GameMenu({ items, label, board, home }: { items: MenuItem[]; label: string; board: RefObject<HTMLElement | null>; home: () => Pos | undefined }) {
+// board: the element the menu is placed in; home: where it sits by default (right of our deck slot, on the battle bar), in board pixels;
+// layout: the board's arrangement, measured again when it changes even if the board's size doesn't
+export function GameMenu({ items, label, board, home, layout }: { items: MenuItem[]; label: string; board: RefObject<HTMLElement | null>; home: () => Pos | undefined; layout?: string }) {
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState<Pos | undefined>(readSaved);
+  const [saved, setSaved] = useState<Pos | undefined>(() => (DRAGGABLE ? readSaved() : undefined));
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [homePos, setHomePos] = useState<Pos>();
   const [drag, setDrag] = useState<Pos>();   // while dragging, in board pixels
@@ -38,7 +42,7 @@ export function GameMenu({ items, label, board, home }: { items: MenuItem[]; lab
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [board]);
+  }, [board, layout]);
 
   // A click elsewhere closes it (opened by a click on a touch screen, where there is no hover to leave)
   useEffect(() => {
@@ -49,7 +53,7 @@ export function GameMenu({ items, label, board, home }: { items: MenuItem[]; lab
   }, [open]);
 
   const clamp = (p: Pos): Pos => ({ x: Math.min(Math.max(p.x, 4), Math.max(4, size.w - ORB - 4)), y: Math.min(Math.max(p.y, 4), Math.max(4, size.h - ORB - 4)) });
-  const at = drag ?? (saved && size.w ? clamp({ x: saved.x * size.w, y: saved.y * size.h }) : homePos);
+  const at = drag ?? (saved && size.w ? clamp({ x: saved.x * size.w, y: saved.y * size.h }) : homePos && clamp(homePos));
 
   function down(e: React.PointerEvent) {
     if (!at) return;
@@ -76,19 +80,18 @@ export function GameMenu({ items, label, board, home }: { items: MenuItem[]; lab
   // Double-click the button: back to its place beside the deck
   function reset() { setSaved(undefined); save(undefined); }
 
-  if (!at) return null;
   // Open toward where there is room: down unless too close to the bottom, names on the left unless too close to the left edge
   const listH = items.length * (ORB + ITEM_GAP);
-  const up_ = at.y + ORB + listH > size.h && at.y > listH;
-  const right = at.x < 160;
+  const up_ = !!at && at.y + ORB + listH > size.h && at.y > listH;
+  const right = !!at && at.x < 160;
   const alert = items.some((i) => i.alert);
   return (
     <div ref={box} className={`game-menu ${open ? "open" : ""} ${up_ ? "up" : ""} ${right ? "names-right" : ""} ${drag ? "dragging" : ""}`}
-      style={{ left: at.x, top: up_ ? at.y - listH : at.y }} onMouseEnter={() => { if (!press.current) setOpen(true); }} onMouseLeave={() => { if (!press.current) setOpen(false); }}>
+      style={at ? { left: at.x, top: up_ ? at.y - listH : at.y } : { visibility: "hidden" }} onMouseLeave={() => { if (!press.current) setOpen(false); }}>
       <button className={`menu-orb ${alert ? "alert" : ""}`} aria-label={label} aria-expanded={open} title={label}
-        onPointerDown={down} onPointerMove={move} onPointerUp={up} onDoubleClick={reset}
+        onMouseEnter={() => { if (!press.current) setOpen(true); }} {...(DRAGGABLE ? { onPointerDown: down, onPointerMove: move, onPointerUp: up, onDoubleClick: reset } : {})}
         onClick={() => { if (dragged.current) dragged.current = false; else setOpen((o) => !o); }}>
-        <span className="orb-ring" />
+        {ICONS.scroll}
       </button>
       <div className="menu-items" role="menu">
         {items.map((it, i) => (

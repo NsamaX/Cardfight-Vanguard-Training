@@ -4,7 +4,7 @@ import type { PlayerId } from "../../engine/types";
 import { useAuth } from "../../hooks/useAuth";
 import { LOCALES, type Locale } from "../../i18n";
 import { useI18n } from "../../i18n/react";
-import { DEFAULT_BOT, type GameSettings } from "../../lib/settings";
+import { DEFAULT_BOT, type GameSettings, type ViewSettings } from "../../lib/settings";
 
 function DiceIcon() {
   return (
@@ -22,12 +22,16 @@ const DiceToggle = ({ on, onToggle, title }: { on: boolean; onToggle: () => void
 
 // Game settings: bot, who goes first and the seed; Apply is enabled only when one of them changed; close with X or by clicking outside
 // Apply: the bot level takes effect at once; who goes first and the seed take effect next game (at once if the game hasn't started)
-// The language changes as soon as it's chosen, no new game needed
-export function SettingsDialog({ settings, current, onApply, onClose }: {
+// The language and the board view change as soon as they're chosen, no new game needed
+// viewOnly (online match, replay): only the language and the board view
+export function SettingsDialog({ settings, current, onApply, onClose, view, onView, viewOnly }: {
   settings: GameSettings;
   current: { seed: number; firstPlayer: PlayerId };   // this game's values, used as defaults when randomization is turned off
   onApply: (s: GameSettings) => void;
   onClose: () => void;
+  view: ViewSettings;
+  onView: (v: ViewSettings) => void;
+  viewOnly?: boolean;
 }) {
   const [first, setFirst] = useState(settings.firstPlayer === "random" ? current.firstPlayer : settings.firstPlayer);
   const [firstRandom, setFirstRandom] = useState(settings.firstPlayer === "random");
@@ -45,7 +49,7 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
       <form className="dialog" onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => { e.preventDefault(); if (changed) onApply(next); }}>
         <div className="dialog-head"><span>{t("settings.title")}</span><button type="button" className="btn" onClick={onClose}>×</button></div>
-        {auth.available && (
+        {auth.available && !viewOnly && (
           <label>{t("settings.account")}
             <span className="field-row">
               <input readOnly value={auth.user ? userName : t("account.signedOut")} />
@@ -60,30 +64,41 @@ export function SettingsDialog({ settings, current, onApply, onClose }: {
             {Object.entries(LOCALES).map(([l, label]) => <option key={l} value={l}>{label}</option>)}
           </select>
         </label>
-        <label>{t("settings.bot")}
-          <select value={bot} onChange={(e) => setBot(e.target.value as BotLevel)}>
-            {BOT_LEVELS.map((l) => {
-              const locked = !SELECTABLE_BOT_LEVELS.includes(l);
-              return <option key={l} value={l} disabled={locked} className={locked ? "locked" : undefined}>{t(`bot.${l}`)}</option>;
-            })}
+        <label>{t("settings.layout")}
+          <select value={view.layout} onChange={(e) => onView({ ...view, layout: e.target.value as ViewSettings["layout"] })}>
+            <option value="vertical">{t("settings.vertical")}</option>
+            <option value="horizontal">{t("settings.horizontal")}</option>
           </select>
         </label>
-        <label>{t("settings.first")}
-          <span className="field-row">
-            <select value={firstRandom ? "" : first} disabled={firstRandom} onChange={(e) => setFirst(e.target.value as PlayerId)}>
-              <option value="" hidden />
-              <option value="me">{t("player.me")}</option><option value="bot">{t("player.bot")}</option>
+        <label className="check">
+          <input type="checkbox" checked={view.boardOnly} onChange={(e) => onView({ ...view, boardOnly: e.target.checked })} />{t("settings.boardOnly")}
+        </label>
+        {!viewOnly && <>
+          <label>{t("settings.bot")}
+            <select value={bot} onChange={(e) => setBot(e.target.value as BotLevel)}>
+              {BOT_LEVELS.map((l) => {
+                const locked = !SELECTABLE_BOT_LEVELS.includes(l);
+                return <option key={l} value={l} disabled={locked} className={locked ? "locked" : undefined}>{t(`bot.${l}`)}</option>;
+              })}
             </select>
-            <DiceToggle on={firstRandom} onToggle={() => setFirstRandom(!firstRandom)} title={t("settings.firstRandom")} />
-          </span>
-        </label>
-        <label>{t("settings.seed")}
-          <span className="field-row">
-            <input type="number" value={seedRandom ? "" : seed} disabled={seedRandom} onChange={(e) => setSeed(Number(e.target.value))} />
-            <DiceToggle on={seedRandom} onToggle={() => setSeedRandom(!seedRandom)} title={t("settings.seedRandom")} />
-          </span>
-        </label>
-        <button className="btn primary" type="submit" disabled={!changed}>{t("btn.apply")}</button>
+          </label>
+          <label>{t("settings.first")}
+            <span className="field-row">
+              <select value={firstRandom ? "" : first} disabled={firstRandom} onChange={(e) => setFirst(e.target.value as PlayerId)}>
+                <option value="" hidden />
+                <option value="me">{t("player.me")}</option><option value="bot">{t("player.bot")}</option>
+              </select>
+              <DiceToggle on={firstRandom} onToggle={() => setFirstRandom(!firstRandom)} title={t("settings.firstRandom")} />
+            </span>
+          </label>
+          <label>{t("settings.seed")}
+            <span className="field-row">
+              <input type="number" value={seedRandom ? "" : seed} disabled={seedRandom} onChange={(e) => setSeed(Number(e.target.value))} />
+              <DiceToggle on={seedRandom} onToggle={() => setSeedRandom(!seedRandom)} title={t("settings.seedRandom")} />
+            </span>
+          </label>
+          <button className="btn primary" type="submit" disabled={!changed}>{t("btn.apply")}</button>
+        </>}
       </form>
     </div>
   );

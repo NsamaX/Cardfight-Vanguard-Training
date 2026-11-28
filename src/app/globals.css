@@ -15,17 +15,30 @@ button { font: inherit; color: inherit; }
   --dmg-step: calc(var(--card-h) * .273);  /* visible part of each covered damage card */
   --lane: 24px;                          /* gap between the battle bar and the VC / G zone / bind row (holds the SB, GB labels) */
   --gap: 8px;                            /* gap between card circles */
+  --field-w: calc(2 * 170px + 2 * 10px + 3 * (var(--card-h) + 10px) + 2 * var(--gap));   /* widest the field gets */
+  --board-edge: 50px;                    /* board padding left and right: room for the game menu (34px) beside the piles */
+  --board-w: calc(var(--field-w) + 2 * (var(--card-h) + 4px) + 2 * 8px + 2 * var(--board-edge));   /* plus the piles and padding */
   height: 100vh; min-width: 1200px; display: grid;
-  grid-template-columns: 250px minmax(0, 1fr) 300px; background: var(--bg); color: var(--ink);
+  /* the board stops at its widest, then the side panels share what is left (in their 250:300 ratio) */
+  grid-template-columns: minmax(250px, 5fr) minmax(0, var(--board-w)) minmax(300px, 6fr); background: var(--bg); color: var(--ink);
   font-family: "IBM Plex Sans Thai", sans-serif; font-size: 13px; overflow: hidden;
 }
 .mono { font-family: "IBM Plex Mono", monospace; }
 .mute { color: var(--mute); }
 
 /* Phases (bottom of the left panel, full width, ordered bottom to top) */
-.phases { flex: none; display: flex; flex-direction: column-reverse; border-top: 1px solid var(--line); }
+.phases { position: relative; flex: none; display: flex; flex-direction: column-reverse; border-top: 1px solid var(--line); }
+/* Fold tab: a strip over the top line, showing a small tab with a chevron only while hovered */
+.ph-fold { position: absolute; z-index: 1; left: 0; right: 0; top: -6px; height: 11px; padding: 0; border: none; background: transparent; color: var(--ink); cursor: pointer; }
+.ph-fold svg { position: absolute; left: 50%; top: 50%; width: 28px; height: 14px; padding: 4px 9px; box-sizing: border-box; transform: translate(-50%, -50%); border: 1px solid var(--line); border-radius: 7px; background: var(--panel); opacity: 0; transition: opacity .12s; }
+.ph-fold:hover svg, .ph-fold:focus-visible svg { opacity: 1; }
+.phases:has(.ph-fold:hover) { border-top-color: var(--mute); }
+.ph { max-height: 30px; transition: max-height .25s cubic-bezier(.2, 0, 0, 1), padding .25s cubic-bezier(.2, 0, 0, 1), border-width .25s cubic-bezier(.2, 0, 0, 1); }
+/* Folded: the other steps shrink away around the current one, with the same slide as the deck editor's expand */
+.phases.folded .ph:not(.on) { max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; overflow: hidden; }
+.phases.folded .ph.on { border-bottom-width: 0; }
 .ph { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; padding: 5px 16px; border-bottom: 1px solid var(--line); }
-.ph:first-child { border-bottom: none; }
+.ph:first-of-type { border-bottom: none; }
 /* Slowly blinking triangle before the current phase (sits in the left gap, so the phase name doesn't move) */
 .ph { position: relative; }
 .ph-cursor { position: absolute; left: 5px; top: 10px; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid #fff; animation: ph-blink 1.6s ease-in-out infinite; }
@@ -55,22 +68,22 @@ aside.right { border-left: 1px solid var(--line); }
 .dot.me { background: var(--ink); }
 .dot.bot { border: 1px solid var(--ink); }
 .panel-foot { flex: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 10px 16px 12px; }
-/* Board only: the side panels fold away; the button to bring them back sits in the board's top-left corner */
+/* Board only (Settings): the side panels fold away */
 .app.wide { grid-template-columns: 0 minmax(0, 1fr) 0; }
 .app.wide > aside { visibility: hidden; overflow: hidden; border: none; }
 
-/* Game menu: one round button, by default between the RCs and the deck, level with the deck slot (can be dragged anywhere);
+/* Game menu: one round button, by default right of our deck, centered on the battle bar;
    its icons drop down below it (or up near the bottom), and a hovered icon's name slides out beside it with a pointer */
-.game-menu { position: absolute; z-index: 8; display: flex; flex-direction: column; align-items: center; gap: 8px; }   /* over the deck editor too */
+.game-menu { position: absolute; z-index: 8; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }   /* over the deck editor too */
+.game-menu.open, .menu-orb { pointer-events: auto; }   /* folded, only the button catches the pointer */
 .game-menu.up { flex-direction: column-reverse; }
 .game-menu.up .menu-items { flex-direction: column-reverse; }
 .game-menu.dragging .menu-orb { cursor: grabbing; transform: scale(1.08); }
 .menu-orb, .menu-item { position: relative; width: 34px; height: 34px; padding: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
-.menu-orb { border: 1px solid var(--mute); background: var(--panel); transition: border-color .15s, transform .15s; }
-.menu-orb .orb-ring { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--mute); transition: border-color .15s, background .15s; }
-.game-menu.open .menu-orb, .menu-orb:hover { border-color: var(--ink); }
-.game-menu.open .orb-ring, .menu-orb:hover .orb-ring { border-color: var(--ink); background: var(--ink); }
-.menu-orb.alert .orb-ring { border-color: var(--bad); background: var(--bad); animation: ph-blink 1.6s ease-in-out infinite; }
+.menu-orb { border: 1px solid var(--mute); background: var(--panel); color: var(--mute); transition: border-color .15s, color .15s, transform .15s; }
+.game-menu.open .menu-orb, .menu-orb:hover { border-color: var(--ink); color: var(--ink); }
+.menu-orb.alert { border-color: var(--bad); color: var(--bad); }
+.menu-orb.alert svg { animation: ph-blink 1.6s ease-in-out infinite; }
 .menu-items { display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .menu-item { border: 1px solid var(--line); background: var(--panel); color: var(--ink); opacity: 0; transform: translateY(-8px) scale(.8); transition: opacity .15s, transform .15s, border-color .15s, background .15s; }
 .game-menu.open .menu-items { pointer-events: auto; }
@@ -85,9 +98,10 @@ aside.right { border-left: 1px solid var(--line); }
 
 /* Board: top half is the bot (upside down), bottom half is us, the battle bar sits exactly at the screen center */
 main {
-  position: relative; min-height: 0; display: grid; gap: 4px 8px; padding: 0 16px; overflow: hidden;
+  position: relative; min-height: 0; display: grid; gap: 4px 8px; padding: 0 var(--board-edge); overflow: hidden;
   grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
-  grid-template-columns: calc(var(--card-h) + 4px) minmax(0, 1fr) calc(var(--card-h) + 4px);
+  grid-template-columns: calc(var(--card-h) + 4px) minmax(0, var(--field-w)) calc(var(--card-h) + 4px);
+  justify-content: center;
   grid-template-areas:
     "bstack bhand btray"
     "bstack bside btray"
@@ -416,6 +430,78 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .hand.bot:has(.hand-more .card:hover) > .hand-row,
 .hand.bot .hand-more .hand-row:has(~ .hand-row .card:hover) { transform: translateY(calc(var(--card-h) * (var(--peek) - 1))); }
 
+/* Horizontal board (Settings): the bot's half on the left, ours on the right, the battle bar standing between them; cards stay upright.
+   Each half is the vertical one turned a quarter turn: front row (VC) toward the bar, the piles above and below the field,
+   the bot's half the same turned half around (its hand at the top, ours at the bottom) */
+.app.horizontal {
+  --panels: 550px;   /* the side panels at their narrowest */
+  /* Height: 2 hands + 2 rows of G zone/damage (about 2 cards each) + the 3-row field; width: 2 halves + the bar */
+  --card-h: clamp(48px, min(calc((100vh - 220px) / 9.1), calc((100vw - var(--panels) - 250px) / 8.2)), 128px);
+  --half-w: calc(var(--card-h) * 3.6 + 40px);
+  --mid-w: calc(var(--card-h) + 48px);
+  --board-w: calc(2 * var(--half-w) + var(--mid-w) + 2 * 8px + 2 * var(--board-edge));
+}
+.app.horizontal.wide { --panels: 0px; }
+.horizontal main {
+  grid-template-columns: minmax(0, var(--half-w)) var(--mid-w) minmax(0, var(--half-w));
+  grid-template-rows: minmax(min-content, 1fr) auto auto auto minmax(min-content, 1fr);   /* the fields sit at the screen's center height */
+  grid-template-areas:
+    "bhand  mid mstack"
+    "btray  mid mstack"
+    "bside  mid mside"
+    "bstack mid mtray"
+    "bstack mid mhand";
+}
+.horizontal main::before, .horizontal main::after { top: 0; bottom: 0; height: auto; width: 380px; }
+.horizontal main::before { left: 0; right: auto; --edge: to right; }
+.horizontal main::after { left: auto; right: 0; --edge: to left; }
+.horizontal .deck-panel.bot { grid-row: 1 / -1; grid-column: 1; }
+.horizontal .deck-panel.me { grid-row: 1 / -1; grid-column: 3; }
+.horizontal .deck-panel.expanded { grid-column: 1 / -1; }
+
+/* Field: 2 columns x 3 rows, the front row (with VC) the column next to the bar */
+.horizontal .side { grid-template-columns: auto; padding: var(--lane) 0; align-items: center; }
+.horizontal .side.me { justify-content: start; }
+.horizontal .side.bot { justify-content: end; }
+.horizontal .side > .col { display: none; }
+.horizontal .grid { grid-template-columns: repeat(2, calc(var(--card-h) + 10px)); grid-template-rows: repeat(3, calc(var(--card-h) + 4px)); }
+/* LAYOUT lists the circles row by row as on the vertical board: row -> column, left-to-right -> bottom-to-top */
+.horizontal .grid > .slot:nth-child(1) { grid-area: 3 / 1; }
+.horizontal .grid > .slot:nth-child(2) { grid-area: 2 / 1; }
+.horizontal .grid > .slot:nth-child(3) { grid-area: 1 / 1; }
+.horizontal .grid > .slot:nth-child(4) { grid-area: 3 / 2; }
+.horizontal .grid > .slot:nth-child(5) { grid-area: 2 / 2; }
+.horizontal .grid > .slot:nth-child(6) { grid-area: 1 / 2; }
+
+/* G zone + damage side by side next to the field; the G units fan away from the damage */
+.horizontal .tray { display: grid; grid-template-columns: auto auto; column-gap: 16px; row-gap: calc(var(--lane) - 18px); padding: 0; }
+.horizontal .tray.me { grid-template-areas: "dmg gb" "dmg gz"; justify-content: start; align-content: start; }
+.horizontal .tray.bot { grid-template-areas: "gz dmg" "gb dmg"; justify-content: end; align-content: end; }
+.horizontal .tray > .badge { grid-area: gb; justify-self: center; }
+.horizontal .tray > .gZone { grid-area: gz; }
+.horizontal .tray > .dmg-group { grid-area: dmg; margin: 0; }
+
+/* Deck, drop, bind in a row on the far side of the field, the deck nearest the bar */
+.horizontal .stack { flex-direction: row; padding: 0; }
+.horizontal .stack.me { align-items: flex-end; justify-content: flex-start; }
+.horizontal .stack.bot { flex-direction: row-reverse; align-items: flex-start; justify-content: flex-start; }
+.horizontal .stack .drop, .horizontal .stack .bind { margin: 0; }
+.horizontal .hand.me { align-self: end; }
+.horizontal .hand.bot { align-self: start; }
+
+/* Battle bar standing up: undo/redo on top, the attacker's cards, the numbers and question, the defender's cards, the buttons at the bottom */
+.horizontal .mid { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; row-gap: 8px; padding: 8px 0;
+  border-top: none; border-bottom: none; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.horizontal .mid-main { flex-direction: column; align-items: center; height: 100%; min-height: 0; }
+.horizontal .mid-center { grid-template-columns: minmax(0, 1fr); padding: 0 4px; }
+.horizontal .mid-center > .num { grid-row: auto; }
+.horizontal .num { grid-column: 1; justify-self: center; }
+.horizontal .mid-center .prompt { -webkit-line-clamp: 8; }
+.horizontal .mid-center .steps { flex-direction: column; align-items: center; }
+.horizontal .bside { flex-direction: column; width: 100%; height: auto; min-height: 0; align-items: center; }
+.horizontal .bside.right { flex-direction: column-reverse; }
+.horizontal .bside > span, .horizontal .bside.right > span:last-child { flex-basis: calc(var(--card-h) + 6px); min-width: auto; min-height: 0; }
+
 /* Right panel */
 /* Right panel split in half: bot on top, us at the bottom */
 .insp-pane { position: relative; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
@@ -465,6 +551,7 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .dialog { width: 420px; max-width: 100%; display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .dialog-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
 .dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.dialog label.check { flex-direction: row; align-items: center; gap: 8px; cursor: pointer; }
 .field-row { display: flex; gap: 8px; }
 .field-row > select, .field-row > input { flex: 1; min-width: 0; }
 .icon-btn { width: 34px; height: 34px; padding: 0; flex: none; display: grid; place-items: center; }

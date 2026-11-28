@@ -13,7 +13,7 @@ import { nextLabel, stepText, undealt, type LogEntry, type Zone } from "../../li
 import { moveG } from "../../lib/deckEdit";
 import { publicUrl } from "../../lib/library";
 import type { OnlineStart } from "../../lib/online";
-import { DEFAULT_BOT, type GameSettings } from "../../lib/settings";
+import { DEFAULT_BOT, readView, saveView, type GameSettings, type ViewSettings } from "../../lib/settings";
 import type { RecordedAction, Replay, ReplaySource } from "../../replay/types";
 import { DeckPanel } from "../deck/DeckPanel";
 import { CardHover, CardView } from "../CardView";
@@ -81,21 +81,21 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log }, online && { seat: online.seat, actions: online.actions, send: online.send, outOfSync: online.outOfSync });
   const t = useT();
   const [showSettings, setShowSettings] = useState(!!openSettings);
-  const [wide, setWide] = useState(false);   // only the board: the left and right panels folded away
+  const [viewSet, setViewSet] = useState<ViewSettings>(readView);   // board only / vertical or horizontal, remembered in this browser
+  const changeView = (v: ViewSettings) => { setViewSet(v); saveView(v); };
   const item = (icon: MenuItem["icon"], label: MsgKey, onClick: () => void, alert = false): MenuItem => ({ icon, label: t(label), onClick, alert });
-  const wideItem = wide ? item("shrink", "btn.unwide", () => setWide(false)) : item("expand", "btn.wide", () => setWide(true));
+  const settingsItem = item("settings", "btn.settings", () => setShowSettings(true));
   const menuItems: MenuItem[] = online ? [
     ...(!started ? [item(deckOpen ? "close" : "decks", deckOpen ? "btn.close" : "btn.decks", () => onDeckOpen(!deckOpen))] : []),
     ...(board.desync || (online.problem && online.problem !== "online.otherOutOfSync") ? [item("reload", "btn.reload", () => location.reload(), true)] : []),
     item("leave", "btn.leave", () => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); }),
-    wideItem,
-  ] : view ? [wideItem] : [
+    settingsItem,
+  ] : view ? [settingsItem] : [
     item("reset", "btn.reset", onNewGame),
     item(deckOpen ? "close" : "decks", deckOpen ? "btn.close" : "btn.decks", () => onDeckOpen(!deckOpen)),
     item("replays", "btn.replays", () => setShowReplays(true)),
     ...(onOnline ? [item("online", "btn.online", () => setShowOnline(true))] : []),
-    item("settings", "btn.settings", () => setShowSettings(true)),
-    wideItem,
+    settingsItem,
   ];
   const [showOnline, setShowOnline] = useState(false);
   // Our side is always at the bottom: the CSS classes "me"/"bot" name the bottom/top position, so online the guest's sides swap places
@@ -186,17 +186,23 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
     </div>
   );
 
-  // The menu's place by default: left of our deck slot, level with it
+  // The menu's place by default: right of our deck slot, centered on the battle bar, far enough that the widest icon name
+  // (shown on the menu's left) stops just short of the deck; when the board is too narrow for that, centered in the board's right padding.
+  // Horizontal board: the deck sits near the bar and our field is at the center height, so it goes in the board's right padding at the center height
   const menuHome = () => {
-    const main = mainRef.current, slot = main?.querySelector(".stack.me .pile-group.deck .zone-slot");
-    if (!main || !slot) return undefined;
-    const m = main.getBoundingClientRect(), r = slot.getBoundingClientRect();
-    return { x: r.left - m.left - 12 - 34, y: r.top - m.top };
+    const main = mainRef.current, slot = main?.querySelector(".stack.me .pile-group.deck .zone-slot"), bar = main?.querySelector(".mid");
+    if (!main || !slot || !bar) return undefined;
+    const m = main.getBoundingClientRect(), r = slot.getBoundingClientRect(), b = bar.getBoundingClientRect();
+    const nameW = Math.max(0, ...[...main.querySelectorAll<HTMLElement>(".game-menu .menu-label")].map((l) => l.offsetWidth));
+    const pad = parseFloat(getComputedStyle(main).paddingRight) || 0;
+    const gutter = m.width - (pad + 34) / 2;
+    if (main.closest(".horizontal")) return { x: gutter, y: (m.height - 34) / 2 };
+    return { x: Math.min(r.right - m.left + 12 + 5 + nameW + 10, gutter), y: b.top - m.top + (b.height - 34) / 2 };
   };
 
   const defender: PlayerId = s.turnPlayer === "me" ? "bot" : "me";
   return (
-    <div className={`app ${wide ? "wide" : ""}`}>
+    <div className={`app ${viewSet.boardOnly ? "wide" : ""} ${viewSet.layout}`}>
       {/* Left: history, the phase track, and the game's buttons under it */}
       <LogPanel log={board.log} onInspect={board.setInspect}>
         <PhaseTrack s={s} />
@@ -204,7 +210,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
       </LogPanel>
       <CardHover.Provider value={board.setHover}>
       <main ref={mainRef} style={sleeveVars} className={started ? `turn-${pos(s.turnPlayer)}` : undefined}>
-        <GameMenu items={menuItems} label={t("btn.menu")} board={mainRef} home={menuHome} />
+        <GameMenu items={menuItems} label={t("btn.menu")} board={mainRef} home={menuHome} layout={`${viewSet.layout} ${viewSet.boardOnly}`} />
         {hand(other(bottom))}
         {side(other(bottom))}
         {tray(other(bottom))}
@@ -273,7 +279,8 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
         <ChoiceModal board={board} />
         {showReplays && <ReplayModal signedIn={signedIn} current={started && board.actions.length ? replay : undefined} onOpen={(src) => { setShowReplays(false); onOpenReplay?.(src); }} onClose={() => setShowReplays(false)} />}
         {showOnline && onOnline && <OnlineDialog library={library} deck={decks.me} onReady={(m) => { setShowOnline(false); onOnline(m); }} onClose={() => setShowOnline(false)} />}
-        {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={(next) => { setShowSettings(false); onApplySettings(next); }} onClose={() => setShowSettings(false)} />}
+        {showSettings && <SettingsDialog settings={settings} current={{ seed: s.seed, firstPlayer: s.firstPlayer }} onApply={(next) => { setShowSettings(false); onApplySettings(next); }} onClose={() => setShowSettings(false)}
+          view={viewSet} onView={changeView} viewOnly={!!(online || view)} />}
         {board.error && <div className="toast">{t(board.error)}</div>}
         {(board.trigTip ?? board.choiceTip) && <CursorTip text={t((board.trigTip ?? board.choiceTip)!.text)} kind={(board.trigTip ?? board.choiceTip)!.kind} />}
       </main>

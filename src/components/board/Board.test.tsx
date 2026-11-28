@@ -322,7 +322,8 @@ describe("board", () => {
     expect([...host.querySelectorAll(".modal .card")].map((c) => c.getAttribute("title"))).toEqual([db[BONE].name, db[TOMMY].name]);
   });
 
-  it("the game's buttons sit in one round menu by the deck: it opens on click, each icon names itself, Board only folds the side panels away", () => {
+  it("the game's buttons sit in one round menu by the deck: it opens on click, each icon names itself; Settings folds the side panels away and turns the board", () => {
+    try { localStorage.removeItem("board-view"); } catch { /* none */ }
     const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
     render(s);
     expect(host.querySelector(".panel-foot")).toBeNull();
@@ -332,17 +333,22 @@ describe("board", () => {
     rawClick(menu().querySelector(".menu-orb"));
     expect(menu().classList.contains("open")).toBe(true);
     const items = [...menu().querySelectorAll(".menu-item")];
-    expect(items.map((b) => b.querySelector(".menu-label")!.textContent)).toEqual(["Reset", "Decks", "Replays", "Settings", "Board only"]);
+    expect(items.map((b) => b.querySelector(".menu-label")!.textContent)).toEqual(["Reset", "Decks", "Replays", "Settings"]);
     expect(items.every((b) => b.querySelector("svg"))).toBe(true);
-    rawClick(button("Board only"));
+    rawClick(button("Settings"));
     expect(menu().classList.contains("open")).toBe(false);                          // closes after a choice
-    expect(host.querySelector(".app")!.classList.contains("wide")).toBe(true);
-    rawClick(menu().querySelector(".menu-orb"));
-    rawClick(button("Show the side panels"));
-    expect(host.querySelector(".app")!.classList.contains("wide")).toBe(false);
+    const app = host.querySelector(".app")!;
+    expect(app.classList.contains("vertical")).toBe(true);
+    act(() => { host.querySelector<HTMLInputElement>(".dialog label.check input")!.click(); });
+    expect(app.classList.contains("wide")).toBe(true);
+    const layout = host.querySelector<HTMLSelectElement>(".dialog select option[value=horizontal]")!.parentElement as HTMLSelectElement;
+    act(() => { layout.value = "horizontal"; layout.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(app.classList.contains("horizontal")).toBe(true);
+    expect(JSON.parse(localStorage.getItem("board-view")!)).toEqual({ boardOnly: true, layout: "horizontal" });
+    try { localStorage.removeItem("board-view"); } catch { /* none */ }
   });
 
-  it("the menu stays over the deck screen (with Close), can be dragged anywhere and remembers the spot; a double click puts it back", () => {
+  it("the menu stays over the deck screen (with Close), and dragging it is switched off", () => {
     const size = { clientWidth: 1000, clientHeight: 800 };
     const saved = Object.fromEntries(Object.keys(size).map((k) => [k, Object.getOwnPropertyDescriptor(HTMLElement.prototype, k)]));
     for (const [k, v] of Object.entries(size)) Object.defineProperty(HTMLElement.prototype, k, { configurable: true, get: () => v });
@@ -359,12 +365,8 @@ describe("board", () => {
     fire("pointerdown", 100, 100);
     fire("pointermove", 400, 300);
     fire("pointerup", 400, 300);
-    act(() => { (orb as HTMLElement).click(); });                                  // the click that ends the drag doesn't open it
-    expect(menu().classList.contains("open")).toBe(false);
-    expect(parseFloat(menu().style.left)).toBe(Math.max(4, start.x + 300));
-    expect(parseFloat(menu().style.top)).toBe(Math.max(4, start.y + 200));
-    expect(JSON.parse(localStorage.getItem("game-menu-pos")!)).toEqual({ x: parseFloat(menu().style.left) / 1000, y: parseFloat(menu().style.top) / 800 });
-    act(() => { orb.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); });
+    expect(parseFloat(menu().style.left)).toBe(start.x);
+    expect(parseFloat(menu().style.top)).toBe(start.y);
     expect(localStorage.getItem("game-menu-pos")).toBeNull();
     for (const [k, d] of Object.entries(saved)) { if (d) Object.defineProperty(HTMLElement.prototype, k, d); else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[k]; }
   });
