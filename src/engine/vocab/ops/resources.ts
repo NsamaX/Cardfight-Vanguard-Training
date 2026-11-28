@@ -1,12 +1,14 @@
 // Counter Blast / Charge, Soul Blast / Charge, the G zone, and binding: the resources abilities pay with or refill
 import { msg } from "../../../i18n/msg";
-import { moveCard } from "../../zones";
+import { intoUnitSoul, moveCard } from "../../zones";
 import type { PlayerState } from "../../types";
 import { askCards, matching, record, say, sourceAt } from "../ctx";
 import type { Ctx, OpSpec } from "../types";
 
 export const num = (t?: string) => parseInt((t ?? "1").replace(/[^\d]/g, ""), 10) || 0;
 const me = (ctx: Ctx): PlayerState => ctx.s.players[ctx.owner];
+// This ability's card as a rear-guard (RC soul codes only work there)
+const rearGuard = (ctx: Ctx) => { const at = sourceAt(ctx); return at?.zone === "circle" && at.circle !== "vc" ? at.inst : undefined; };
 
 function flipDamage(ps: PlayerState, n: number, toFaceUp: boolean) {
   let done = 0;
@@ -55,6 +57,31 @@ export const RESOURCE_OPS: Record<string, OpSpec> = {
       const charged = me(ctx).deck.slice(0, num(ctx.c.pos[0])).map((i) => moveCard(ctx.db, ctx.s, i.uid, "soul"));
       record(ctx, "charged", charged);
       say(ctx, "log.sc", { n: num(ctx.c.pos[0]) });
+      return true;
+    },
+  },
+  // A rear-guard's own soul (cards under it)
+  "RC-SB": {
+    forms: ["RC-SB(#)"], text: "RC Soul Blast: put cards from the soul of this rear-guard into the drop zone",
+    canPay: (ctx) => (rearGuard(ctx)?.soul?.length ?? 0) >= num(ctx.c.pos[0]),
+    run: (ctx) => {
+      const unit = rearGuard(ctx), n = num(ctx.c.pos[0]);
+      const opts = unit?.soul ?? [];
+      if (opts.length > n && !ctx.r.answer?.uids) return askCards(ctx, msg("choice.rcSoulBlast", { n }), opts, n, n);
+      const picked = opts.length > n ? ctx.r.answer!.uids! : opts.slice(0, n).map((i) => i.uid);
+      say(ctx, "log.rcSb", { n: picked.length });
+      for (const u of picked) moveCard(ctx.db, ctx.s, u, "drop");
+      return true;
+    },
+  },
+  "RC-SC": {
+    forms: ["RC-SC(#)"], text: "RC Soul Charge: put cards from the top of the deck into the soul of this rear-guard",
+    run: (ctx) => {
+      const unit = rearGuard(ctx);
+      if (!unit) return true;
+      const charged = me(ctx).deck.slice(0, num(ctx.c.pos[0])).map((i) => intoUnitSoul(ctx.db, ctx.s, i.uid, unit.uid));
+      record(ctx, "charged", charged);
+      say(ctx, "log.rcSc", { n: charged.length }, unit.uid);
       return true;
     },
   },

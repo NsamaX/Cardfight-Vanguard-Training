@@ -304,6 +304,24 @@ describe("board", () => {
     vi.useRealTimers();
   });
 
+  it("a rear-guard with cards in its soul shows SB n next to it, and the label opens that soul", () => {
+    const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    Object.assign(s, { mulliganDone: ["me", "bot"], turn: 3, turnPlayer: "me", phase: "main", step: "main" });
+    const gun = inst(s, GUN);
+    gun.soul = [inst(s, BONE), inst(s, TOMMY)];
+    s.players.me.circles = { vc: inst(s, TOMMY), back_left: gun, front_left: inst(s, BONE) };
+    refreshAwaiting(s);
+    render(s);
+    const slotOf = (name: string, extra: (el: Element) => boolean) => [...slots(1)].find((el) => el.querySelector(":scope > .card")?.getAttribute("title") === name && extra(el))!;
+    const gunSlot = slotOf(db[GUN].name, () => true);
+    expect(gunSlot.querySelector(".soul-count")!.textContent).toBe("SB 2");
+    expect(gunSlot.querySelector(".rc-soul .card")!.getAttribute("title")).toBe(db[TOMMY].name);   // the top card peeks out
+    expect(slotOf(db[BONE].name, () => true).querySelector(".soul-count")).toBeNull();            // no soul, no label
+    rawClick(gunSlot.querySelector(".soul-count"));
+    expect(host.querySelector(".modal")!.textContent).toContain("Rear-guard soul");
+    expect([...host.querySelectorAll(".modal .card")].map((c) => c.getAttribute("title"))).toEqual([db[BONE].name, db[TOMMY].name]);
+  });
+
   it("one ability triggered by two events: each button names the card it is about, with unique keys", () => {
     const s = createGame(db, { seed: 13, firstPlayer: "me", decks: { me: deck, bot: deck } });
     const MICK = "PR/0564TH", name = db[MICK].name;

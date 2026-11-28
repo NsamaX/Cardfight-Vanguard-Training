@@ -48,7 +48,7 @@ export function useBoard(initial: GameState, bot?: Bot, view?: { log: LogEntry[]
   const [mode, setMode] = useState<Mode | null>(null);
   const [inspect, setInspectUids] = useState<Partial<Record<PlayerId, string>>>({});   // last inspected card, per owner
   const [hover, setHover] = useState<string>();         // hand card under the mouse (shown in the inspector temporarily)
-  const [pile, setPile] = useState<{ player: PlayerId; zone: Zone } | null>(null);
+  const [pile, setPile] = useState<{ player: PlayerId; zone: Zone; circle?: Circle } | null>(null);
   const [choicePicks, setChoicePicks] = useState<string[]>([]);
   const [error, setError] = useState<Msg>();
   const [focus, setFocus] = useState<string>();         // card clicked to use its ACT

@@ -10,7 +10,7 @@ body { background: var(--bg); }
 button { font: inherit; color: inherit; }
 .app {
   /* Every card on the board is the same size, scaled to the screen height: divide by 7 (not the 6 that would fit) to leave room for 4 rows of G zone without hitting damage */
-  --card-h: clamp(64px, calc((100vh - 260px) / 7), 128px);
+  --card-h: clamp(64px, calc((100vh - 292px) / 7), 128px);
   --card-w: calc(var(--card-h) * .6875);
   --dmg-step: calc(var(--card-h) * .273);  /* visible part of each covered damage card */
   --lane: 24px;                          /* gap between the battle bar and the VC / G zone / bind row (holds the SB, GB labels) */
@@ -269,7 +269,8 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .damage.me .dmg-card { top: -1px; }
 .damage.bot .dmg-card { bottom: -1px; }
 .dmg-card .card { transform: rotate(90deg); }
-.grid { display: grid; grid-template-columns: repeat(3, calc(var(--card-h) + 10px)); grid-auto-rows: calc(var(--card-h) + 4px); gap: var(--gap); }
+/* Rows are a lane apart, so a rear-guard's SB label fits between them like the VC's */
+.grid { display: grid; grid-template-columns: repeat(3, calc(var(--card-h) + 10px)); grid-auto-rows: calc(var(--card-h) + 4px); gap: var(--lane) var(--gap); }
 .slot { position: relative; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; }
 .slot.vc { border-style: solid; border-color: var(--mute); }
 .slot.target, .slot.source { border: 2px solid var(--hi); background: color-mix(in srgb, var(--hi) 10%, transparent); }
@@ -290,8 +291,11 @@ label.new-card { display: flex; align-items: center; justify-content: center; }
 .slot .lbl { position: absolute; top: 2px; left: 5px; font-family: "IBM Plex Mono", monospace; font-size: 9px; color: var(--mute); }
 .badge { flex: none; height: 18px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font: 600 11px/16px "IBM Plex Mono", monospace; white-space: nowrap; }
 .soul-count { position: absolute; left: 50%; transform: translateX(-50%); cursor: pointer; }
-.side.me .soul-count { bottom: calc(100% + 4px); }
-.side.bot .soul-count { top: calc(100% + 4px); }
+/* Same distance from the slot as GB / DECK from theirs (the slot's 1px border is inside the 100%) */
+.side.me .soul-count { bottom: calc(100% + var(--lane) - 18px + 1px); }
+.side.bot .soul-count { top: calc(100% + var(--lane) - 18px + 1px); }
+/* A rear-guard's soul: the top card peeks out from under the unit, like the heart under VC */
+.rc-soul { position: absolute; transform: translate(6px, -6px); opacity: .55; pointer-events: none; }
 .heart { position: absolute; transform: translate(6px, -6px); opacity: .55; pointer-events: none; }
 .soul-peek { position: absolute; transform: translateX(calc(var(--card-w) * -.45)); }
 .heart.lit { opacity: 1; pointer-events: auto; }

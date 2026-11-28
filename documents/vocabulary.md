@@ -97,6 +97,7 @@ Codes that can be paid as a cost (the engine checks whether they can be paid bef
 |---|---|---|
 | `CB(#)` | Counter Blast: turn face-up damage face down | Sebreeze, Inanna, Urth, Freyja, Daylight Angel, Angelica, Negrolily, Nightrose, Nightstorm, Skeleton Cannoneer, Negrolazy, Negrobone, Megiddo |
 | `SB(#)`<br>`SB(#, filter=name("…"))` | Soul Blast: put cards from the soul into the drop zone (filter= which ones) | Urth, Minerva, Verthandi, Negronora, Nightstorm, Nightrose, Negrolazy |
+| `RC-SB(#)` | RC Soul Blast: put cards from the soul of this rear-guard into the drop zone | - |
 | `flip-G-up(#, filter=same-name)`<br>`flip-G-up(#, filter=G-GUARDIAN)` | Turn a face-down card in our G zone face up | Inanna, Urth, Minerva, Laurier, Negronora, Nightrose |
 | `bind(self)`<br>`bind(self + 1 heal-trigger from drop)` | Bind cards face up (this card, and another Heal trigger from the drop zone) | Jotun, Eir, Dewey the Ghostie |
 | `mill(#)`<br>`mill(≤#)` | Put cards from the top of the deck into the drop zone (≤n: the player chooses up to n) | Deep Corpse Dragon, Nightrose |
@@ -112,6 +113,7 @@ Codes that can be paid as a cost (the engine checks whether they can be paid bef
 | `CC(#)` | Counter Charge: turn face-down damage face up (the player picks which when there are more) | Eir, King Serpent, Grenache, Waterspout Djinn, Dewey the Ghostie |
 | `damage-facedown(#)` | Turn face-up damage face down (not as a cost) | Honoly |
 | `SC(#)` | Soul Charge: put cards from the top of the deck into the soul | Inanna, Eir, King Serpent, Dewey the Ghostie |
+| `RC-SC(#)` | RC Soul Charge: put cards from the top of the deck into the soul of this rear-guard | - |
 | `draw(#)` | Draw cards | Agleam, Freyja, Daylight Angel, Angelica, Dreaming Dragon, Kukurihime, Skeleton Cannoneer, Rampage Shade, Rough Seas Banshee |
 | `search(deck→hand, n≤#, filter=…)`<br>`search(deck→drop, n≤#, filter=…)`<br>`search(deck→hand, n≤#, filter=…, look=top-5)` | Search the deck (or its top 5) for cards, put them into hand or the drop zone, then shuffle | Flap Angel, Obadiah, Chappie the Ghostie, Nightstorm, Tommy the Ghostie Brothers |
 | `look(#, hand=1, soul=1, rest=drop)`<br>`look(#, soul=n≤1, rest=drop)`<br>`look(#, hand=1, soul=1)`<br>`look(#, reveal, soul=n≤1, rest=drop)` | Look at (or reveal) the top cards of the deck: some to hand, some to the soul, the rest to the drop zone | Daylight Angel, Angelica, Verthandi |

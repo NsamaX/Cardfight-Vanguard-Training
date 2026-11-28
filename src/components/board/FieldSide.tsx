@@ -17,7 +17,7 @@ interface Props {
   bonus: Partial<Record<Circle, number>>; // Power from the selected boost (shown in advance)
   isTarget: (c: Circle) => boolean;
   onCircle: (c: Circle) => void;
-  onPile: (z: Zone) => void;
+  onPile: (z: Zone, circle?: Circle) => void;   // circle: a rear-guard's soul
   onCard: (uid: string) => void;          // click a soul card that sticks out (choose that card's ability)
 }
 
@@ -44,6 +44,10 @@ export function FieldSide({ p, ps, selUid, pickedCircle, lightOf, soulLight, atk
                 </span>
               )}
               {c === "vc" && <button className={`badge soul-count ${soulLight ?? ""}`} onClick={(e) => { e.stopPropagation(); onPile("soul"); }}>SB {ps.soul.length}</button>}
+              {c !== "vc" && !!unit?.soul?.length && <>
+                <span className="rc-soul"><CardView inst={unit.soul[unit.soul.length - 1]} noRotate plain /></span>
+                <button className="badge soul-count" onClick={(e) => { e.stopPropagation(); onPile("rcSoul", c); }}>SB {unit.soul.length}</button>
+              </>}
               {unit && (() => {
                 const power = powerOf(db, ps, c) + (bonus[c] ?? 0);
                 const base = powerOf(db, ps, c) - unit.mods.reduce((n, m) => n + (m.stat === "power" ? m.value : 0), 0);

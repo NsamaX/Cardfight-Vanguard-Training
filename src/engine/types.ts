@@ -69,6 +69,7 @@ export interface CardInstance {
   usedThisTurn: string[];   // 1/Turn abilities already used (ability key)
   grants?: Ability[];       // abilities granted by other cards (end at end of turn or on zone change)
   leaving?: boolean;    // a delayed effect will remove it from the field at the end of the turn (e.g. retire the called units)
+  soul?: CardInstance[];   // a rear-guard's own soul (cards under it): moves with the unit between circles, goes to the drop zone when it leaves the field
 }
 
 export interface PlayerState {
@@ -88,7 +89,7 @@ export interface PlayerState {
 }
 
 // Zones as move events name them (G = the G zone, GC = the guardian circle)
-export type Zone = "hand" | "deck" | "drop" | "soul" | "damage" | "bind" | "G" | "VC" | "RC" | "GC" | "removed";
+export type Zone = "hand" | "deck" | "drop" | "soul" | "RC-soul" | "damage" | "bind" | "G" | "VC" | "RC" | "GC" | "removed";
 
 // A card moved from one zone to another (every move sends one, see zones.ts)
 export interface MoveEvent {

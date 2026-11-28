@@ -64,7 +64,7 @@ export function revealSteps(state: GameState, shown: { player: PlayerId; uids: s
   });
 }
 
-export type Zone ="deck" | "drop" | "soul" | "damage" | "gZone" | "bind";
+export type Zone = "deck" | "drop" | "soul" | "rcSoul" | "damage" | "gZone" | "bind";   // rcSoul: the soul of the rear-guard on pile.circle
 export type Sel =
   | { kind: "hand"; player: PlayerId; uid: string }
   | { kind: "circle"; player: PlayerId; circle: Circle }

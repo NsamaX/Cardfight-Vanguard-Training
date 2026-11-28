@@ -145,7 +145,7 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
       bonus={board.attackPick?.player === p ? board.attackPick.bonus : board.trigBonus?.player === p ? board.trigBonus.bonus : {}}
       isTarget={(c) => board.isTarget(p, c)}
       onCircle={(c) => board.clickCircle(p, c)}
-      onPile={(zone) => board.setPile({ player: p, zone })}
+      onPile={(zone, circle) => board.setPile({ player: p, zone, circle })}
       onCard={board.setInspect}
     />
   );

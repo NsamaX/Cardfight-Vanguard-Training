@@ -13,6 +13,7 @@ export function zoneOf(at: NonNullable<ReturnType<typeof locate>>): Zone {
   if (at.zone === "heart") return "VC";
   if (at.zone === "gZone") return "G";
   if (at.zone === "guardian") return "GC";
+  if (at.zone === "rcSoul") return "RC-soul";
   return at.zone;
 }
 
@@ -20,7 +21,7 @@ export function moved(db: CardDB, s: GameState, e: Omit<MoveEvent, "kind" | "gra
   emit(db, s, { kind: "move", grants: [], ...e });
 }
 
-type Pile = Exclude<Zone, "VC" | "RC">;
+type Pile = Exclude<Zone, "VC" | "RC" | "RC-soul">;
 const PILE: Record<Pile, keyof Pick<GameState["players"]["me"], "hand" | "deck" | "drop" | "soul" | "damage" | "bind" | "gZone" | "guardian" | "removed">> = {
   hand: "hand", deck: "deck", drop: "drop", soul: "soul", damage: "damage", bind: "bind", G: "gZone", GC: "guardian", removed: "removed",
 };
@@ -30,11 +31,25 @@ export function moveCard(db: CardDB, s: GameState, uid: string, to: Pile, opts: 
   const at = locate(s, uid);
   if (!at) throw new Error("card not found");
   const from = zoneOf(at), grants = at.inst.grants ?? [];
+  // A rear-guard leaving the field: the cards under it go to the drop zone first
+  if (at.zone === "circle" && at.inst.soul?.length) for (const c of [...at.inst.soul]) moveCard(db, s, c.uid, "drop");
   pull(s, uid);
   const inst = reset(at.inst, to !== "deck");
   const list = s.players[at.player][PILE[to]];
   if (to === "deck" && opts.top) list.unshift(inst); else list.push(inst);
   moved(db, s, { player: at.player, uid, key: inst.key, from, to, by: opts.by, as: opts.as, grants });
+  return inst;
+}
+
+// Put a card into the soul of the rear-guard unitUid (under it)
+export function intoUnitSoul(db: CardDB, s: GameState, uid: string, unitUid: string): CardInstance {
+  const unitAt = locate(s, unitUid), at = locate(s, uid);
+  if (!unitAt || unitAt.zone !== "circle" || !at) throw new Error("card not found");
+  const from = zoneOf(at);
+  pull(s, uid);
+  const inst = reset(at.inst);
+  (unitAt.inst.soul ??= []).push(inst);
+  moved(db, s, { player: at.player, uid, key: inst.key, from, to: "RC-soul" });
   return inst;
 }
 

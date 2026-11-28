@@ -48,11 +48,16 @@ export const circleOf = (s: GameState, p: PlayerId, uid: string): Circle | undef
   (Object.entries(s.players[p].circles).find(([, i]) => i?.uid === uid)?.[0] as Circle | undefined);
 
 // Find a card by uid in every zone
-export function locate(s: GameState, uid: string): { player: PlayerId; inst: CardInstance; zone: PileZone | "circle" | "heart"; circle?: Circle } | undefined {
+// rcSoul = in the soul of the rear-guard on that circle
+export function locate(s: GameState, uid: string): { player: PlayerId; inst: CardInstance; zone: PileZone | "circle" | "heart" | "rcSoul"; circle?: Circle } | undefined {
   for (const p of PLAYERS) {
     const ps = s.players[p];
     const c = circleOf(s, p, uid);
     if (c) return { player: p, inst: ps.circles[c]!, zone: "circle", circle: c };
+    for (const [rc, unit] of Object.entries(ps.circles) as [Circle, CardInstance | undefined][]) {
+      const inst = unit?.soul?.find((i) => i.uid === uid);
+      if (inst) return { player: p, inst, zone: "rcSoul", circle: rc };
+    }
     if (ps.heart?.uid === uid) return { player: p, inst: ps.heart, zone: "heart" };
     for (const z of PILE_ZONES) {
       const inst = ps[z].find((i) => i.uid === uid);
@@ -69,6 +74,7 @@ export function pull(s: GameState, uid: string): { inst: CardInstance; zone: str
   const ps = s.players[at.player];
   if (at.zone === "circle") delete ps.circles[at.circle!];
   else if (at.zone === "heart") ps.heart = undefined;
+  else if (at.zone === "rcSoul") takeFrom(ps.circles[at.circle!]!.soul!, uid, "RC soul");
   else takeFrom(ps[at.zone], uid, at.zone);
   return at;
 }

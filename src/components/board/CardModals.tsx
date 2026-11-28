@@ -41,6 +41,7 @@ export function PileModal({ board, started, decks, onMoveG, opponent }: { board:
   const rank = (key: string) => { const i = gOrder.indexOf(key); return i < 0 ? gOrder.length : i; };
   const list = preview ? [...s.players[pile.player].deck].sort((a, b) => byGradeThenName(a.key, b.key))
     : pile.zone === "gZone" ? s.players[pile.player].gZone.filter((c) => !c.faceUp).sort((a, b) => rank(a.key) - rank(b.key))
+    : pile.zone === "rcSoul" ? s.players[pile.player].circles[pile.circle!]?.soul ?? []
     : s.players[pile.player][pile.zone];
   const p = pile.player;
   const drop = pile.zone === "gZone" && onMoveG && !board.readOnly

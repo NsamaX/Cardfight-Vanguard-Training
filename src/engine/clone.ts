@@ -11,6 +11,7 @@ export function cloneState(s: GameState): GameState {
     const c: CardInstance = { ...i, mods: i.mods.length ? i.mods.map((m) => ({ ...m })) : [], usedThisTurn: i.usedThisTurn.slice() };
     if (i.grants) c.grants = i.grants.slice();
     seen.set(i, c);
+    if (i.soul) c.soul = i.soul.map(card);
     return c;
   };
   const cards = (l: CardInstance[]) => { const out = new Array<CardInstance>(l.length); for (let k = 0; k < l.length; k++) out[k] = card(l[k]); return out; };
