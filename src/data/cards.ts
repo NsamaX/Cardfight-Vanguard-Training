@@ -27,6 +27,16 @@ export function putCard(card: Card) {
   cardByKey[c.key] = c;
 }
 
+// Clans to pick from in the card editor: every clan in content/nations.yaml and in the library
+export function clanNames(): string[] {
+  const all = new Set([...Object.values(NATIONS).flat(), ...cards.map((c) => c.clan)]);
+  all.delete("");
+  return [...all].sort();
+}
+
+// A card fits a clan's deck: same clan, Cray Elemental (all clans), or a card whose clan field is that clan's nation
+export const fitsClan = (c: Card, clan: string) => c.clan === clan || c.nation === "all" || (!!NATIONS[c.clan] && nationOfClan[clan] === c.clan);
+
 export function setCards(list: Card[]) {
   cards.length = 0;
   for (const k of Object.keys(cardByKey)) delete cardByKey[k];

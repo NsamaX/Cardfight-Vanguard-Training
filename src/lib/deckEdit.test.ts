@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { presetDecks } from "../data/decks";
-import { cardByKey as db } from "../data/cards";
+import { cardByKey as db, cards, fitsClan } from "../data/cards";
 import { isSentinel } from "../engine/rules";
-import { addCard, moveG, newDeck, removeCard } from "./deckEdit";
+import { addCard, deckClan, moveG, newDeck, removeCard } from "./deckEdit";
 
 const deck = presetDecks.find((d) => d.id === "nightrose-sample")!;
 
@@ -72,5 +72,16 @@ describe("addCard: trigger and Heal caps", () => {
     let d = newDeck("t");
     for (const k of [...others, ...heals]) for (let i = 0; i < 4; i++) d = addCard(d, k);
     expect(Object.values(d.main).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(16);
+  });
+});
+
+describe("deck clan", () => {
+  it("is the clan the deck is built from; Cray Elemental and the nation's Zeroth Dragon fit it, other clans don't", () => {
+    expect(deckClan(deck)).toBe("Granblue");
+    expect(deckClan(newDeck("x"))).toBeUndefined();
+    const fit = (clan: string) => cards.filter((c) => fitsClan(c, "Granblue")).some((c) => c.clan === clan);
+    expect(fit("Cray Elemental")).toBe(true);
+    expect(fit("Magallanica")).toBe(true);
+    expect(fit("Genesis")).toBe(false);
   });
 });

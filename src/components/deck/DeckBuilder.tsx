@@ -1,5 +1,5 @@
 import { useContext, useState, type ChangeEvent } from "react";
-import { cardByKey as db, cards } from "../../data/cards";
+import { cardByKey as db, cards, fitsClan } from "../../data/cards";
 import { countCards, validateDeck } from "../../data/decks";
 import { DEFAULT_SLEEVES, type Sleeve } from "../../data/sleeves";
 import type { Card, Deck, PlayerId } from "../../engine/types";
@@ -7,7 +7,7 @@ import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
 import { shrinkImage } from "../../lib/image";
 import { publicUrl } from "../../lib/library";
-import { G_ZONE_SIZE, MAIN_SIZE, addCard, byGradeThenName, canAdd, copiesIn, coverCard, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
+import { G_ZONE_SIZE, MAIN_SIZE, addCard, byGradeThenName, canAdd, copiesIn, coverCard, deckClan, displayInstance, removeCard, setStarter } from "../../lib/deckEdit";
 import { isSentinel } from "../../engine/rules";
 import { emptyCard } from "../../lib/abilityDraft";
 import { CardHover, CardView } from "../CardView";
@@ -47,6 +47,7 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onDelete, onSaveCard
   const [emptied, setEmptied] = useState<SleeveSlot[]>([]);
   const [filter, setFilter] = useState<Filter>("All");
   const [query, setQuery] = useState("");
+  const [clan, setClan] = useState("");
   const [cardEdit, setCardEdit] = useState<Card | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const hover = useContext(CardHover);
@@ -94,7 +95,12 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onDelete, onSaveCard
     }
   }
 
-  const pool = cards
+  // Once the deck has a clan, the library shows only cards that fit it; the clan filter narrows further
+  const own = deckClan(deck);
+  const allowed = cards.filter((c) => !own || fitsClan(c, own));
+  const clans = [...new Set(allowed.map((c) => c.clan).filter(Boolean))].sort();
+  const pool = allowed
+    .filter((c) => !clans.includes(clan) || c.clan === clan)
     .filter((c) => filter === "All" || (filter === "G" ? c.type.startsWith("g-") : !c.type.startsWith("g-") && c.grade === Number(filter)))
     .filter((c) => !query || c.name.includes(query))
     .sort((a, b) => byGradeThenName(a.key, b.key));
@@ -120,6 +126,10 @@ export function DeckBuilder({ p, initial, onDone, onCancel, onDelete, onSaveCard
         <div className="collection-bar">
           {tab === "cards" && <>
             {FILTERS.map((f) => <button key={f} className={`btn chip ${filter === f ? "on" : ""}`} onClick={() => setFilter(f)}>{f === "All" ? t("deck.all") : f}</button>)}
+            <select className="clan-filter" value={clans.includes(clan) ? clan : ""} onChange={(e) => setClan(e.target.value)} aria-label={t("cardEd.clan")}>
+              <option value="">{t("deck.allClans")}</option>
+              {clans.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
             <input className="search" placeholder={t("deck.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
           </>}
           <div className="tabs">

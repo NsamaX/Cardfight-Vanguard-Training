@@ -216,6 +216,7 @@ export const ja: Dict = {
 
   "deck.all": "すべて",
   "deck.search": "検索",
+  "deck.allClans": "すべてのクラン",
   "deck.expand": "拡大",
   "deck.collapse": "縮小",
   "deck.starter": "ファーストヴァンガード",

@@ -57,6 +57,16 @@ export function removeCard(deck: Deck, key: string): Deck {
   return next;
 }
 
+// The deck's clan: the clan with the most copies, counting only cards that belong to one clan (not Cray Elemental or a nation)
+export function deckClan(deck: Deck): string | undefined {
+  const n: Record<string, number> = {};
+  for (const [k, v] of [...Object.entries(deck.main), ...Object.entries(deck.g_zone)]) {
+    const c = cardByKey[k];
+    if (c && c.clan && c.nation !== "all" && c.clan !== c.nation) n[c.clan] = (n[c.clan] ?? 0) + v;
+  }
+  return Object.keys(n).sort((a, b) => n[b] - n[a])[0];
+}
+
 // Sort deck cards by grade (0 → 3), then by name
 export const byGradeThenName = (a: string, b: string) => cardByKey[a].grade - cardByKey[b].grade || cardByKey[a].name.localeCompare(cardByKey[b].name, "en");
 

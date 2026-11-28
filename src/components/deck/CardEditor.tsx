@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ChangeEvent } from "react";
 import type { Card, CardType } from "../../engine/types";
+import { clanNames } from "../../data/cards";
 import type { MsgKey } from "../../i18n/msg";
 import { useT } from "../../i18n/react";
 import {
@@ -212,7 +213,10 @@ export function CardEditor({ initial, onSave, onCancel }: { initial: Card; onSav
             </select>
           </label>
           <label className="fld"><span>{t("insp.race")}</span><input value={card.race} onChange={(e) => set("race", e.target.value)} /></label>
-          <label className="fld"><span>{t("cardEd.clan")}</span><input value={card.clan} onChange={(e) => set("clan", e.target.value)} /></label>
+          <label className="fld"><span>{t("cardEd.clan")}</span><select value={card.clan} onChange={(e) => set("clan", e.target.value)}>
+            <option value="">-</option>
+            {clanNames().map((c) => <option key={c} value={c}>{c}</option>)}
+          </select></label>
           <label className="fld wide"><span>{t("cardEd.text")}</span>
             <textarea rows={10} value={text} placeholder={t("cardEd.textHint")} onChange={(e) => setText(e.target.value)} />
           </label>

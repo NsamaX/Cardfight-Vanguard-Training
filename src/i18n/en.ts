@@ -219,6 +219,7 @@ export const en = {
 
   "deck.all": "All",
   "deck.search": "Search",
+  "deck.allClans": "All clans",
   "deck.expand": "Expand",
   "deck.collapse": "Collapse",
   "deck.starter": "Starting vanguard",
