@@ -55,6 +55,12 @@ aside.right { border-left: 1px solid var(--line); }
 .dot.me { background: var(--ink); }
 .dot.bot { border: 1px solid var(--ink); }
 .panel-foot { flex: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 10px 16px 12px; }
+.panel-foot.icons { display: flex; flex-wrap: wrap; }
+/* Board only: the side panels fold away; the button to bring them back sits in the board's top-left corner */
+.app.wide { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.app.wide > aside { visibility: hidden; overflow: hidden; border: none; }
+.wide-toggle { position: absolute; top: 8px; left: 8px; z-index: 6; }
+.app.wide .thinking { left: 52px; }
 
 /* Board: top half is the bot (upside down), bottom half is us, the battle bar sits exactly at the screen center */
 main {

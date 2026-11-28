@@ -153,6 +153,8 @@ export const ja: Dict = {
   "btn.replays": "リプレイ",
   "btn.online": "オンライン",
   "btn.leave": "退出",
+  "btn.wide": "盤面のみ表示",
+  "btn.unwide": "サイドパネルを表示",
   "btn.reload": "再読み込み",
   "online.title": "オンライン対戦",
   "online.signIn": "他のプレイヤーと対戦するにはログインしてください",

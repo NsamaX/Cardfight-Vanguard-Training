@@ -111,14 +111,14 @@ describe("online room between games", () => {
   const renderBoard = (s: GameState, started: boolean, on: object, onStart = noop) => act(() => root.render(
     <Board initial={s} started={started} onStart={onStart} settings={{ seed: s.seed, firstPlayer: s.firstPlayer }} decks={{ me: deck, bot: deck }} deckOpen={false} onDeckOpen={noop}
       onNewGame={noop} onApplySettings={noop} onSwapDecks={noop} onPickDeck={noop} onDeckChanged={noop} online={online(on)} />));
-  const footer = () => [...host.querySelectorAll(".panel-foot button")].map((b) => b.textContent);
+  const footer = () => [...host.querySelectorAll(".panel-foot button")].map((b) => b.getAttribute("aria-label"));
   const find = (text: string) => [...host.querySelectorAll("button")].find((b) => b.textContent === text) as HTMLButtonElement | undefined;
 
   it("before Start: Start in the middle, Decks next to Leave, and Start stays pressed until the other player presses it too", () => {
     const s = createGame(db, { seed: 1, firstPlayer: "me", decks: { me: deck, bot: deck } });
     let pressed = 0;
     renderBoard(s, false, {}, () => pressed++);
-    expect(footer()).toEqual(["Decks", "Leave"]);
+    expect(footer()).toEqual(["Decks", "Leave", "Board only"]);
     act(() => find("Start")!.click());
     expect(pressed).toBe(1);
     renderBoard(s, false, { ready: { me: false, bot: true } });
@@ -134,7 +134,7 @@ describe("online room between games", () => {
     s.awaiting = undefined;
     let ready = 0;
     renderBoard(s, true, { onReady: () => ready++ });
-    expect(footer()).toEqual(["Leave"]);
+    expect(footer()).toEqual(["Leave", "Board only"]);
     act(() => host.querySelector<HTMLButtonElement>(".mid-actions button")!.click());
     expect(ready).toBe(1);
     expect(host.querySelector(".mid-actions")!.textContent).toBe("Ready");

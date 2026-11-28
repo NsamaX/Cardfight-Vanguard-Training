@@ -49,7 +49,7 @@ function click(el: Element | undefined | null) {
   rawClick(el);
   if (autoDecline) declineAll();
 }
-const button = (text: string) => [...host.querySelectorAll("button")].find((b) => b.textContent?.includes(text));
+const button = (text: string) => [...host.querySelectorAll("button")].find((b) => b.textContent?.includes(text) || b.getAttribute("aria-label") === text);
 const modalCard = (name: string) => [...host.querySelectorAll(".modal .card")].find((c) => c.getAttribute("title") === name);
 const slots = (side: 0 | 1) => host.querySelectorAll(".side")[side].querySelectorAll(".slot");   // 0 = bot, 1 = you
 const handCard = (side: "me" | "bot", name: string) =>
@@ -320,6 +320,18 @@ describe("board", () => {
     rawClick(gunSlot.querySelector(".soul-count"));
     expect(host.querySelector(".modal")!.textContent).toContain("Rear-guard soul");
     expect([...host.querySelectorAll(".modal .card")].map((c) => c.getAttribute("title"))).toEqual([db[BONE].name, db[TOMMY].name]);
+  });
+
+  it("the panel buttons are icons named on hover; Board only folds both side panels away and the corner button brings them back", () => {
+    const s = createGame(db, { seed: 5, firstPlayer: "me", decks: { me: deck, bot: deck } });
+    render(s);
+    const names = [...host.querySelectorAll(".panel-foot button")].map((b) => b.getAttribute("title"));
+    expect(names).toEqual(["Reset", "Decks", "Replays", "Settings", "Board only"]);
+    expect([...host.querySelectorAll(".panel-foot button")].every((b) => b.querySelector("svg") && !b.textContent)).toBe(true);
+    rawClick(button("Board only"));
+    expect(host.querySelector(".app")!.classList.contains("wide")).toBe(true);
+    rawClick(button("Show the side panels"));
+    expect(host.querySelector(".app")!.classList.contains("wide")).toBe(false);
   });
 
   it("one ability triggered by two events: each button names the card it is about, with unique keys", () => {

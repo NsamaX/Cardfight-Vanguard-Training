@@ -156,6 +156,8 @@ export const en = {
   "btn.replays": "Replays",
   "btn.online": "Online",
   "btn.leave": "Leave",
+  "btn.wide": "Board only",
+  "btn.unwide": "Show the side panels",
   "btn.reload": "Reload",
   "online.title": "Play online",
   "online.signIn": "Sign in to play against other players",

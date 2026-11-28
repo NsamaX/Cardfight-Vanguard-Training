@@ -22,6 +22,7 @@ import { OnlineDialog } from "../OnlineDialog";
 import { BattleNum, BattleSide } from "./BattleBar";
 import { CursorTip } from "./CursorTip";
 import { ChoiceModal, PileModal } from "./CardModals";
+import { ICONS } from "./Icons";
 import { DamageZone } from "./DamageZone";
 import { FieldSide } from "./FieldSide";
 import { Hand } from "./Hand";
@@ -37,6 +38,11 @@ function ArrowIcon({ flip }: { flip?: boolean }) {
       <path d="M5.5 3 2.5 6l3 3M2.5 6h7a4 4 0 0 1 0 8H7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+
+// A panel button drawn as an icon; the name shows on hover and is its accessible label
+function PanelIcon({ icon, label, onClick, primary }: { icon: keyof typeof ICONS; label: string; onClick: () => void; primary?: boolean }) {
+  return <button className={`btn icon-btn ${primary ? "primary" : ""}`} onClick={onClick} title={label} aria-label={label}>{ICONS[icon]}</button>;
 }
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -80,6 +86,8 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
   const board = useBoard(started ? initial : undealt(initial, false), bot, view && { log: view.log }, online && { seat: online.seat, actions: online.actions, send: online.send, outOfSync: online.outOfSync });
   const t = useT();
   const [showSettings, setShowSettings] = useState(!!openSettings);
+  const [wide, setWide] = useState(false);   // only the board: the left and right panels folded away
+  const iconBtn = (icon: keyof typeof ICONS, label: MsgKey, onClick: () => void, primary = false) => <PanelIcon icon={icon} label={t(label)} onClick={onClick} primary={primary} />;
   const [showOnline, setShowOnline] = useState(false);
   // Our side is always at the bottom: the CSS classes "me"/"bot" name the bottom/top position, so online the guest's sides swap places
   const bottom: PlayerId = online?.seat ?? "me";
@@ -171,30 +179,33 @@ export function Board({ initial, started, onStart, settings, decks, deckOpen, on
 
   const defender: PlayerId = s.turnPlayer === "me" ? "bot" : "me";
   return (
-    <div className="app">
+    <div className={`app ${wide ? "wide" : ""}`}>
       {/* Left: history, the phase track, and the game's buttons under it */}
       <LogPanel log={board.log} onInspect={board.setInspect}>
         <PhaseTrack s={s} />
         {view && <div className="panel-foot replay-foot">{view.foot}</div>}
         {online && (
-          <div className="panel-foot">
-            {!started && <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>}
-            {(board.desync || (online.problem && online.problem !== "online.otherOutOfSync")) && <button className="btn primary" onClick={() => location.reload()}>{t("btn.reload")}</button>}
-            <button className="btn" onClick={() => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); }}>{t("btn.leave")}</button>
+          <div className="panel-foot icons">
+            {!started && iconBtn(deckOpen ? "close" : "decks", deckOpen ? "btn.close" : "btn.decks", () => onDeckOpen(!deckOpen))}
+            {(board.desync || (online.problem && online.problem !== "online.otherOutOfSync")) && iconBtn("reload", "btn.reload", () => location.reload(), true)}
+            {iconBtn("leave", "btn.leave", () => { if (online.abandoned || winner || confirm(t("online.leaveConfirm"))) online.onLeave(); })}
+            {iconBtn("expand", "btn.wide", () => setWide(true))}
           </div>
         )}
         {!view && !online && (
-          <div className="panel-foot">
-            <button className="btn" onClick={onNewGame}>{t("btn.reset")}</button>
-            <button className="btn" onClick={() => onDeckOpen(!deckOpen)}>{t(deckOpen ? "btn.close" : "btn.decks")}</button>
-            <button className="btn" onClick={() => setShowReplays(true)}>{t("btn.replays")}</button>
-            {onOnline && <button className="btn" onClick={() => setShowOnline(true)}>{t("btn.online")}</button>}
-            <button className="btn" onClick={() => setShowSettings(true)}>{t("btn.settings")}</button>
+          <div className="panel-foot icons">
+            {iconBtn("reset", "btn.reset", onNewGame)}
+            {iconBtn(deckOpen ? "close" : "decks", deckOpen ? "btn.close" : "btn.decks", () => onDeckOpen(!deckOpen))}
+            {iconBtn("replays", "btn.replays", () => setShowReplays(true))}
+            {onOnline && iconBtn("online", "btn.online", () => setShowOnline(true))}
+            {iconBtn("settings", "btn.settings", () => setShowSettings(true))}
+            {iconBtn("expand", "btn.wide", () => setWide(true))}
           </div>
         )}
       </LogPanel>
       <CardHover.Provider value={board.setHover}>
       <main ref={mainRef} style={sleeveVars} className={started ? `turn-${pos(s.turnPlayer)}` : undefined}>
+        {wide && <button className="btn icon-btn wide-toggle" onClick={() => setWide(false)} title={t("btn.unwide")} aria-label={t("btn.unwide")}>{ICONS.shrink}</button>}
         {hand(other(bottom))}
         {side(other(bottom))}
         {tray(other(bottom))}
