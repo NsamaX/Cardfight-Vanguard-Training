@@ -110,6 +110,13 @@ export const UNIT_OPS: Record<string, OpSpec> = {
     causes: callCauses,
     forms: ["call(drop→RC, n≤#, filter={filter})", "call(hand+drop→RC, n≤#, filter={filter}, to=empty)", "call(drop→RC, n=#, filter=that-card)", "call(drop→GC, n≤#, filter=different-grades)", "call(self→RC)", "call(G→GC, self)"],
     text: "Call cards to rear-guard circles (to= empty / different / not-self / same-column) or to the guardian circle",
+    // Something to call: a card in the named zones that passes the filter (e.g. "that card" is still in the drop zone)
+    canDo: (ctx) => {
+      const [src] = ctx.c.pos[0].split("→");
+      if (src === "self" || src === "G") return true;
+      const ps = me(ctx);
+      return matching(ctx, [...(src.includes("hand") ? ps.hand : []), ...(src.includes("drop") ? ps.drop : [])]).some((i) => !isG(ctx.db[i.key]));
+    },
     run: runCall,
   },
   // retire(opp-RC, n≤1) / retire(own, target=boosted) / retire(own, target=called): the target= selector wins over the first argument

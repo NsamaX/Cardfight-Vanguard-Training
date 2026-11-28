@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cardByKey as db, cards } from "../data/cards";
 import { presetDecks } from "../data/decks";
 import { apply, createGame, refreshAwaiting, usableActs } from "./game";
+import { blocked } from "./abilities";
 import type { Action, CardInstance, GameState, PlayerId } from "./types";
 
 const regalia = presetDecks.find((d) => d.id === "regalia-minerva")!;
@@ -148,5 +149,21 @@ describe("a boost lasts only while the booster stays on its circle", () => {
     for (let i = 0; i < 5 && s.awaiting?.player === "me" && s.awaiting.choice?.kind === "yesno"; i++) act("me", { type: "choose", option: "yes" });
     expect(s.players.me.soul.map((c) => c.uid)).toContain(rampage.uid);
     expect(power()).toBe(5000);   // the boost is gone, Rampage Shade's +5000 stays
+  });
+});
+
+describe("an optional ability whose every step would do nothing isn't offered", () => {
+  it("Night Fog Nightrose [AUTO 1] about a card that has left the drop zone: skipped; with the card still there: offered", () => {
+    game("main");
+    const vc = inst(NIGHT_FOG), tommy = inst(HEMERA);
+    s.players.me.circles = { vc };
+    s.players.me.gZone = [inst(MINERVA, true), inst(MINERVA, true)];
+    const entry = { owner: "me" as const, uid: vc.uid, key: "0", ability: db[NIGHT_FOG].abilities[0], label: "Night Fog [AUTO 1]", optional: true,
+      event: { kind: "move" as const, player: "me" as const, uid: tommy.uid, key: tommy.key, from: "RC" as const, to: "drop" as const } };
+    s.players.me.drop = [tommy];
+    expect(blocked(db, s, entry)).toBeUndefined();
+    s.players.me.drop = [];
+    s.players.me.deck.unshift(tommy);   // e.g. returned to the deck by its own ability first
+    expect(blocked(db, s, entry)?.key).toBe("reason.nothingToDo");
   });
 });

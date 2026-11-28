@@ -82,21 +82,25 @@ describe("no wasted plays (from a real game, seed 621023972)", () => {
   const bot = new VanguardBot(db, "normal", decks, 1);
 
   it("Nightstorm at battle end: no card in the drop zone to call, doesn't pay CB", async () => {
-    let s = createGame(db, { seed: 3, decks, firstPlayer: "bot" });
-    s.players.bot.circles = { vc: inst(s, MIST), front_left: inst(s, STORM) };
-    s.players.bot.circles.front_left!.hollowed = true;
-    s.players.bot.gZone = [inst(s, GUNIT)];
-    s.players.bot.damage = [inst(s, BONE)];
-    s.players.bot.drop = [];
-    s.players.me.circles = { vc: inst(s, MIST) };
-    s.players.me.deck.unshift(inst(s, BONE, false));
-    Object.assign(s, { turn: 4, turnPlayer: "bot", phase: "battle", step: "attack", mulliganDone: ["me", "bot"] });
-    refreshAwaiting(s);
-    s = apply(db, s, "bot", { type: "attack", attacker: "front_left", target: "vc" }).state;
-    s = apply(db, s, "me", { type: "end-guard" }).state;
+    const battleEnd = (drop: string[]) => {
+      let s = createGame(db, { seed: 3, decks, firstPlayer: "bot" });
+      s.players.bot.circles = { vc: inst(s, MIST), front_left: inst(s, STORM) };
+      s.players.bot.circles.front_left!.hollowed = true;
+      s.players.bot.gZone = [inst(s, GUNIT)];
+      s.players.bot.damage = [inst(s, BONE)];
+      s.players.bot.drop = drop.map((k) => inst(s, k));
+      s.players.me.circles = { vc: inst(s, MIST) };
+      s.players.me.deck.unshift(inst(s, BONE, false));
+      Object.assign(s, { turn: 4, turnPlayer: "bot", phase: "battle", step: "attack", mulliganDone: ["me", "bot"] });
+      refreshAwaiting(s);
+      s = apply(db, s, "bot", { type: "attack", attacker: "front_left", target: "vc" }).state;
+      return apply(db, s, "me", { type: "end-guard" }).state;
+    };
+    const empty = battleEnd([]);                                            // nothing to call: the engine doesn't even offer it
+    expect(empty.awaiting?.kind).not.toBe("order-queue");
+    expect(empty.players.bot.damage.every((d) => d.faceUp)).toBe(true);
+    const s = battleEnd([BONE]);                                            // Negrobone available to call: use it
     expect(s.awaiting?.kind).toBe("order-queue");
-    expect((await bot.decide(s, s.awaiting!)).type).toBe("decline-queue");
-    s.players.bot.drop = [inst(s, BONE)];                                   // Negrobone available to call: use it
     expect((await bot.decide(s, s.awaiting!)).type).toBe("order-queue");
   });
 

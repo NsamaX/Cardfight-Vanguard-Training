@@ -119,6 +119,13 @@ async function main() {
     return out.join("\n");
   }
 
+  // Which card a pending ability is about, when it isn't the ability's own card (e.g. Nightrose [AUTO 1] for each retired rear-guard)
+  const about = (s: GameState, e: GameState["queue"][number]) => {
+    const u = e.event && "uid" in e.event ? e.event.uid : undefined;
+    const card = u && u !== e.uid ? Object.values(s.players).flatMap((p) => [...Object.values(p.circles), ...p.hand, ...p.drop, ...p.soul, ...p.deck, ...p.damage, ...p.bind]).find((i) => i?.uid === u) : undefined;
+    return card ? ` (about ${name(card.key)} [${u}])` : "";
+  };
+
   function decision(s: GameState, seat: PlayerId): string {
     const a = s.awaiting;
     if (!a || a.player !== seat) return "Not my decision.";
@@ -127,7 +134,7 @@ async function main() {
     if (c?.kind === "cards") out.push(`  pick ${c.min}-${c.max} of: ${c.options.map((u) => { const l = Object.values(s.players).flatMap((p) => [...Object.values(p.circles), ...p.hand, ...p.drop, ...p.soul, ...p.deck, ...p.damage, ...p.gZone, ...p.guardian]).find((i) => i?.uid === u); return `${l ? name(l.key) : "?"} [${u}]`; }).join("; ")}  → {"type":"select-target","uids":[...]}`);
     if (c?.kind === "circle") out.push(`  circle of: ${c.options.join(", ")}  → {"type":"select-target","uids":[],"to":"..."}`);
     if (c?.kind === "yesno" || c?.kind === "option") out.push(`  options: ${(c.kind === "yesno" ? ["yes", "no"] : c.options).join(", ")}  → {"type":"choose","option":"..."}`);
-    if (a.kind === "order-queue") out.push(`  queue: ${s.queue.filter((e) => e.owner === seat).map((e, i) => `${i}: ${e.label}${e.optional ? " (optional)" : ""}`).join("; ")}  → {"type":"order-queue","index":n} / {"type":"decline-queue","index":n}`);
+    if (a.kind === "order-queue") out.push(`  queue: ${s.queue.filter((e) => e.owner === seat).map((e, i) => `${i}: ${e.label}${about(s, e)}${e.optional ? " (optional)" : ""}`).join("; ")}  → {"type":"order-queue","index":n} / {"type":"decline-queue","index":n}`);
     if (a.kind === "next-phase" && s.phase === "main") {
       const acts = usableActs(db, s);
       if (acts.length) out.push(`  ACT: ${acts.map((x) => `${x.label} {"type":"activate","cardUid":"${x.uid}","abilityIndex":${x.index}}`).join("; ")}`);

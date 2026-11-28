@@ -181,6 +181,8 @@ export function blocked(db: CardDB, s: GameState, entry: QueueEntry): Msg | unde
   // A "you may" with no cost whose first step has nothing to work on (e.g. no card to choose): nothing to decide
   const first = entry.ability.effect[0];
   if (entry.optional && !entry.ability.cost?.length && first && !canDoCode(ctx, first)) return msg("reason.nothingToDo");
+  // A "you may pay" whose every step would do nothing (e.g. call "that card", which has left the drop zone): don't ask for the cost
+  if (entry.optional && entry.ability.cost?.length && entry.ability.effect.every((code) => !canDoCode(ctx, code))) return msg("reason.nothingToDo");
 }
 
 export function startResolving(db: CardDB, s: GameState, entry: QueueEntry, out: Out, activated = false) {
