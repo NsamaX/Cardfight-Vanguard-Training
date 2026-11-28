@@ -5,7 +5,7 @@
 import { cardByKey } from "../data/cards";
 import { apply, createGame } from "../engine/game";
 import type { Action, Card, Deck, GameState, PlayerId } from "../engine/types";
-import type { MsgKey } from "../i18n/msg";
+import { msg, type Msg, type MsgKey } from "../i18n/msg";
 import type { RecordedAction } from "../replay/types";
 import { supabase } from "./supabase";
 
@@ -69,6 +69,18 @@ function must<T>({ data, error }: { data: T | null; error: { message: string; co
   return data as T;
 }
 
+// Postgres/PostgREST codes for a column, table or function the client asks for but the database doesn't have
+const NOT_MIGRATED = new Set(["42703", "42P01", "42883", "PGRST202", "PGRST204", "PGRST205"]);
+
+// What to tell the player about a failed request (the error itself goes to the console)
+export function problemOf(e: unknown): Msg {
+  if (e instanceof OnlineError) return msg(e.key);
+  console.error("[online]", e);
+  const err = e as { code?: string; message?: string } | undefined;
+  if (err?.code && NOT_MIGRATED.has(err.code)) return msg("online.notMigrated");
+  return err?.message ? msg("online.failedBecause", { reason: err.message }) : msg("online.failed");
+}
+
 const JOIN_ERRORS: Record<string, MsgKey> = {
   "match not found": "online.notFound",
   "cannot join your own match": "online.ownRoom",
@@ -116,7 +128,7 @@ export async function pollRoom(room: WaitingRoom, userId: string): Promise<Onlin
 
 export async function joinRoom(userId: string, code: string, deck: Deck, cards: Card[]): Promise<OnlineMatch> {
   const { data, error } = await db().rpc("join_match", { p_code: code, p_engine_version: ENGINE_VERSION, p_deck: deck, p_cards: snapshot(deck, cards) });
-  if (error) throw new OnlineError(JOIN_ERRORS[error.message] ?? "online.failed");
+  if (error) throw JOIN_ERRORS[error.message] ? new OnlineError(JOIN_ERRORS[error.message]) : error;
   return toMatch(await readRow((data as MatchRow).id), userId);
 }
 

@@ -170,6 +170,8 @@ export const en = {
   "online.version": "Your app version differs from the host's. Both players should reload the page",
   "online.roomClosed": "The room was closed",
   "online.failed": "Couldn't reach the server. Check your connection and try again",
+  "online.failedBecause": "The request failed: {reason}",
+  "online.notMigrated": "The database is missing a migration. Run supabase/migrations in order",
   "online.waiting": "{name}'s move…",
   "online.left": "{name} left the match",
   "online.leaveConfirm": "Leave this match? It ends for both players",

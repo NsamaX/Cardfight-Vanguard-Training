@@ -2,13 +2,13 @@
 // Two boards playing one online match, with the server replaced by a shared action list
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cardByKey as db } from "../../data/cards";
 import { presetDecks } from "../../data/decks";
 import { createGame } from "../../engine/game";
 import type { Card, Deck, GameState, PlayerId } from "../../engine/types";
 import { FixedText } from "../../i18n/react";
-import { matchCards } from "../../lib/online";
+import { OnlineError, matchCards, problemOf } from "../../lib/online";
 import type { RecordedAction } from "../../replay/types";
 import { Board } from "./Board";
 
@@ -118,5 +118,16 @@ describe("matchCards", () => {
     expect(d.main).toEqual({ A: 1, "B~2": 49 });
     expect(d.cover).toBe("B~2");
     expect(d.starter).toBe("A");
+  });
+});
+
+describe("problemOf", () => {
+  it("names a missing migration, and shows the server's own message for other errors", () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(problemOf({ code: "42703", message: "column matches.host_ready does not exist" })).toEqual({ key: "online.notMigrated" });
+    expect(problemOf({ code: "PGRST202", message: "Could not find the function public.join_match" })).toEqual({ key: "online.notMigrated" });
+    expect(problemOf({ message: "Failed to fetch" })).toEqual({ key: "online.failedBecause", params: { reason: "Failed to fetch" } });
+    expect(problemOf(new OnlineError("online.notFound"))).toEqual({ key: "online.notFound" });
+    quiet.mockRestore();
   });
 });

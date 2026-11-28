@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { validateDeck } from "../data/decks";
 import type { Deck } from "../engine/types";
 import { useAuth } from "../hooks/useAuth";
 import type { LibraryHandle } from "../hooks/useLibrary";
-import type { MsgKey } from "../i18n/msg";
+import type { Msg } from "../i18n/msg";
 import { useT } from "../i18n/react";
-import { CODE_LENGTH, OnlineError, closeRoom, createRoom, findActiveMatch, joinRoom, pollRoom, type OnlineStart, type WaitingRoom } from "../lib/online";
+import { CODE_LENGTH, closeRoom, createRoom, findActiveMatch, joinRoom, pollRoom, problemOf, type OnlineStart, type WaitingRoom } from "../lib/online";
 
 const POLL_MS = 1500;
-
-const problemOf = (e: unknown): MsgKey => (e instanceof OnlineError ? e.key : "online.failed");
 
 // Online lobby: create a room and wait with its code, join a friend's room by code, or go back to a match still running
 export function OnlineDialog({ library, deck, onReady, onClose }: {
@@ -26,14 +24,15 @@ export function OnlineDialog({ library, deck, onReady, onClose }: {
   const [room, setRoom] = useState<WaitingRoom>();
   const [active, setActive] = useState<OnlineStart>();
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<MsgKey>();
+  const [problem, setProblem] = useState<Msg>();
+  const running = useRef(false);   // busy only takes effect on the next render: a second submit in the same moment would join twice
   const picked = library.decks.find((d) => d.id === deckId);
   const deckError = picked && validateDeck(picked)[0];
 
   useEffect(() => {
     if (!userId) return;
     let live = true;
-    findActiveMatch(userId).then((m) => { if (live) setActive(m); }, () => {});
+    findActiveMatch(userId).then((m) => { if (live) setActive(m); }, (e) => { if (live) setProblem(problemOf(e)); });   // also shows a database not migrated yet
     return () => { live = false; };
   }, [userId]);
 
@@ -48,9 +47,12 @@ export function OnlineDialog({ library, deck, onReady, onClose }: {
   }, [room, userId]);
 
   async function run(f: () => Promise<void>) {
+    if (running.current) return;
+    running.current = true;
     setBusy(true);
     setProblem(undefined);
     try { await f(); } catch (e) { setProblem(problemOf(e)); }
+    running.current = false;
     setBusy(false);
   }
 

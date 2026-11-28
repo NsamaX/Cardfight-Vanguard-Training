@@ -167,6 +167,8 @@ export const ja: Dict = {
   "online.version": "ホストとアプリのバージョンが違います。両方のプレイヤーがページを再読み込みしてください",
   "online.roomClosed": "ルームが閉じられました",
   "online.failed": "サーバーに接続できません。接続を確認して再試行してください",
+  "online.failedBecause": "リクエストに失敗しました: {reason}",
+  "online.notMigrated": "データベースのマイグレーションが不足しています。supabase/migrations を順番に実行してください",
   "online.waiting": "{name}の操作待ち…",
   "online.left": "{name}が対戦から退出しました",
   "online.leaveConfirm": "この対戦から退出しますか？両プレイヤーの対戦が終了します",
