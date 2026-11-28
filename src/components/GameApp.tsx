@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cardByKey as db, setCards } from "../data/cards";
 import { startingDecks } from "../data/decks";
 import { createGame } from "../engine/game";
@@ -16,6 +16,7 @@ import type { RecordedAction, ReplaySource } from "../replay/types";
 import { Board } from "./board/Board";
 import { OnlineRoom } from "./OnlineRoom";
 import { ReplayViewer } from "./ReplayViewer";
+import { SandboxView } from "./SandboxView";
 
 interface Running {
   state: GameState;
@@ -40,6 +41,9 @@ export function GameApp() {
   const [deckOpen, setDeckOpen] = useState(false);
   const [viewing, setViewing] = useState<{ src: ReplaySource; tl: Timeline; n: number } | null>(null);   // n: a new replay opened while viewing one starts over at step 0
   const [online, setOnline] = useState<OnlineStart | null>(null);
+  // /?sandbox on the dev server: watch Claude's sandbox game (scripts/sandbox.ts)
+  const [sandbox, setSandbox] = useState(false);
+  useEffect(() => { setSandbox(process.env.NODE_ENV === "development" && new URLSearchParams(location.search).has("sandbox")); }, []);
   const t = useT();
   const { library, failed, retry } = useLibrary(auth.ready, auth.user?.id, (lib) => {
     setViewing(null);
@@ -99,6 +103,13 @@ export function GameApp() {
     start(settings, decks);
   }
 
+  if (sandbox) {
+    return <SandboxView settings={settings} library={library} onClose={() => {
+      setCards(library.cards);
+      history.replaceState(null, "", location.pathname);
+      setSandbox(false);
+    }} />;
+  }
   if (online) {
     const you = t("player.me"), them = online.match.opponent;
     const names: Partial<Record<MsgKey, string>> = online.match.seat === "me" ? { "player.bot": them } : { "player.me": them, "player.bot": you };

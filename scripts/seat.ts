@@ -31,9 +31,9 @@ async function main() {
   const online = await import("../src/lib/online");
   const { loadLibrary } = await import("../src/lib/library");
   const { cardByKey: db, setCards } = await import("../src/data/cards");
-  const { apply, createGame, usableActs, gGuardianBlocked } = await import("../src/engine/game");
-  const { powerOf, criticalOf, shieldOf, other, RC, FRONT } = await import("../src/engine/rules");
-  const { translate } = await import("../src/i18n");
+  const { apply, createGame } = await import("../src/engine/game");
+  const { other } = await import("../src/engine/rules");
+  const { table } = await import("./table");
   type GameState = import("../src/engine/types").GameState;
   type PlayerId = import("../src/engine/types").PlayerId;
   type Action = import("../src/engine/types").Action;
@@ -82,88 +82,19 @@ async function main() {
     return { m, s, events };
   }
 
-  const name = (k: string) => db[k]?.name ?? k;
-  const names = (seat: PlayerId) => ({ "player.me": seat === "me" ? "Claude" : "Opponent", "player.bot": seat === "bot" ? "Claude" : "Opponent",
-    "winner.me": seat === "me" ? "Claude wins" : "Opponent wins", "winner.bot": seat === "bot" ? "Claude wins" : "Opponent wins" });
-  const tr = (seat: PlayerId, m: Parameters<typeof translate>[1]) => translate("en", m, undefined, names(seat));
-
-  function board(m: OnlineMatch, s: GameState, seat: PlayerId): string {
-    const out: string[] = [];
-    const side = (p: PlayerId, mine: boolean) => {
-      const ps = s.players[p];
-      out.push(`== ${mine ? "CLAUDE (me)" : "OPPONENT"} ==`);
-      for (const c of ["vc", ...RC] as const) {
-        const u = ps.circles[c];
-        if (!u) continue;
-        if (!u.faceUp && !mine) { out.push(`  ${c.padEnd(12)} face down [${u.uid}]`); continue; }   // the opponent's starter before the game starts
-        const mods = u.mods.filter((x) => x.stat === "power").reduce((n, x) => n + x.value, 0);
-        out.push(`  ${c.padEnd(12)} ${name(u.key)} | P${powerOf(db, ps, c)}${mods ? ` (${mods > 0 ? "+" : ""}${mods})` : ""} C${criticalOf(db, u)}${u.rested ? " REST" : ""}${u.hollowed ? " HOLLOW" : ""}${u.grants?.length ? ` +${u.grants.length} granted` : ""} [${u.uid}]`);
-      }
-      if (ps.heart) out.push(`  heart        ${name(ps.heart.key)}`);
-      const faceUpDmg = ps.damage.filter((d) => d.faceUp).length;
-      out.push(`  damage ${ps.damage.length} (face up ${faceUpDmg}): ${ps.damage.map((d) => `${name(d.key)}${d.faceUp ? "" : " (down)"} [${d.uid}]`).join(", ")}`);
-      out.push(`  soul ${ps.soul.length}: ${ps.soul.map((x) => name(x.key)).join(", ")}`);
-      out.push(`  drop ${ps.drop.length}: ${ps.drop.map((x) => name(x.key)).join(", ")}`);
-      out.push(`  G zone: ${ps.gZone.filter((g) => !g.faceUp).length} face down${mine ? ` (${ps.gZone.filter((g) => !g.faceUp).map((g) => `${name(g.key)} [${g.uid}]`).join(", ")})` : ""}; face up: ${ps.gZone.filter((g) => g.faceUp).map((g) => name(g.key)).join(", ") || "-"}`);
-      if (ps.guardian.length) out.push(`  guardians: ${ps.guardian.map((g) => `${name(g.key)} S${shieldOf(db, g)}`).join(", ")} (total ${ps.guardian.reduce((n, g) => n + shieldOf(db, g), 0)})`);
-      if (ps.bind.length) out.push(`  bind: ${ps.bind.map((x) => name(x.key)).join(", ")}`);
-      out.push(`  deck ${ps.deck.length}`);
-      if (mine) out.push(`  hand ${ps.hand.length}: ${ps.hand.map((h) => `${name(h.key)} (G${db[h.key].grade}${db[h.key].trigger ? " " + db[h.key].trigger : ""}, S${shieldOf(db, h)}) [${h.uid}]`).join("; ")}`);
-      else out.push(`  hand ${ps.hand.length}`);
-    };
-    out.push(`Turn ${s.turn} (${s.turnPlayer === seat ? "my" : "opponent's"} turn) phase=${s.phase}${s.step ? `/${s.step}` : ""}${s.battle ? ` battle: ${s.battle.attacker} → ${s.battle.target}` : ""}`);
-    side(other(seat), false);
-    side(seat, true);
-    if (s.winner) out.push(`GAME OVER: ${s.winner === seat ? "Claude wins" : "opponent wins"}`);
-    out.push(`match ${m.id} status=${m.status}`);
-    return out.join("\n");
-  }
-
-  // Which card a pending ability is about, when it isn't the ability's own card (e.g. Nightrose [AUTO 1] for each retired rear-guard)
-  const about = (s: GameState, e: GameState["queue"][number]) => {
-    const u = e.event && "uid" in e.event ? e.event.uid : undefined;
-    const card = u && u !== e.uid ? Object.values(s.players).flatMap((p) => [...Object.values(p.circles), ...p.hand, ...p.drop, ...p.soul, ...p.deck, ...p.damage, ...p.bind]).find((i) => i?.uid === u) : undefined;
-    return card ? ` (about ${name(card.key)} [${u}])` : "";
-  };
-
-  function decision(s: GameState, seat: PlayerId): string {
-    const a = s.awaiting;
-    if (!a || a.player !== seat) return "Not my decision.";
-    const out = [`DECIDE: ${a.kind}${a.prompt ? ` — ${tr(seat, a.prompt)}` : ""}`];
-    const c = a.choice;
-    if (c?.kind === "cards") out.push(`  pick ${c.min}-${c.max} of: ${c.options.map((u) => { const l = Object.values(s.players).flatMap((p) => [...Object.values(p.circles), ...p.hand, ...p.drop, ...p.soul, ...p.deck, ...p.damage, ...p.gZone, ...p.guardian]).find((i) => i?.uid === u); return `${l ? name(l.key) : "?"} [${u}]`; }).join("; ")}  → {"type":"select-target","uids":[...]}`);
-    if (c?.kind === "circle") out.push(`  circle of: ${c.options.join(", ")}  → {"type":"select-target","uids":[],"to":"..."}`);
-    if (c?.kind === "yesno" || c?.kind === "option") out.push(`  options: ${(c.kind === "yesno" ? ["yes", "no"] : c.options).join(", ")}  → {"type":"choose","option":"..."}`);
-    if (a.kind === "order-queue") out.push(`  queue: ${s.queue.filter((e) => e.owner === seat).map((e, i) => `${i}: ${e.label}${about(s, e)}${e.optional ? " (optional)" : ""}`).join("; ")}  → {"type":"order-queue","index":n} / {"type":"decline-queue","index":n}`);
-    if (a.kind === "next-phase" && s.phase === "main") {
-      const acts = usableActs(db, s);
-      if (acts.length) out.push(`  ACT: ${acts.map((x) => `${x.label} {"type":"activate","cardUid":"${x.uid}","abilityIndex":${x.index}}`).join("; ")}`);
-      out.push(`  call: {"type":"call","uid":"...","to":"front_left|front_right|back_left|back_center|back_right"}; move: {"type":"move","from":"..","to":".."}; next: {"type":"next-phase"}`);
-    }
-    if (a.kind === "next-phase" && s.phase === "battle") out.push(`  attack: {"type":"attack","attacker":"vc|front_left|front_right","target":"vc|front_left|front_right","booster":"back_center|back_left|back_right"}; end battle: {"type":"next-phase"}`);
-    if (a.kind === "next-phase" && s.phase === "ride") out.push(`  ${s.step === "stride" ? `stride: {"type":"stride","gUid":"...","discardUids":[...]}` : `ride: {"type":"ride","uid":"..."}`}; skip: {"type":"next-phase"}`);
-    if (a.kind === "guard") out.push(`  guard: {"type":"guard","uids":[...],"intercept":["front_left"]}; G guardian${gGuardianBlocked(db, s, seat) ? " (not now)" : ""}: {"type":"call-g-guardian","gUid":"...","discardUid":"..."}; done: {"type":"end-guard"}`);
-    if (a.kind === "trigger-target") {
-      const kind = s.battle?.pendingTrigger?.kind, ps = s.players[seat];
-      const units = (["vc", ...RC] as const).filter((c) => ps.circles[c]);
-      const extra = kind === "critical" ? `, "extraTo": one of ${units.join("|")}`
-        : kind === "stand" ? `, "extraTo": a rested rear-guard (${RC.filter((c) => ps.circles[c]?.rested).join("|") || "none: leave it out"})`
-        : kind === "heal" ? `, optional "healUid": a damage card [uid] (default: the last one)` : "";
-      out.push(`  {"type":"trigger-target","powerTo":${units.join("|")}${extra}} (${kind})`);
-    }
-    if (a.kind === "mulligan") out.push(`  {"type":"mulligan","returnUids":[...]}`);
-    return out.join("\n");
-  }
+  const view = (seat: PlayerId) => table(db, { me: seat === "me" ? "Claude" : "Opponent", bot: seat === "bot" ? "Claude" : "Opponent" },
+    { label: { [seat]: "CLAUDE (me)", [other(seat)]: "OPPONENT" } as Record<PlayerId, string>, open: [seat] });
 
   function report(saved: Saved, cur: NonNullable<Awaited<ReturnType<typeof current>>>) {
     const { m, s, events } = cur;
     if (!s) { console.log(`Room status: ${m.status}${m.status === "setup" ? " (both press start)" : ""}; opponent: ${m.opponent}`); return; }
     const seat = m.seat;
     const from = Math.min(saved.seen ?? 0, events.length);
-    const log = events.slice(from).flat().map((e) => `  · ${tr(seat, e.text)}`);
-    if (log.length) console.log(`--- since last look ---\n${log.join("\n")}`);
-    console.log(board(m, s, seat));
-    console.log(decision(s, seat));
+    const v = view(seat), log = v.log(events.slice(from).flat());
+    if (log) console.log(`--- since last look ---\n${log}`);
+    console.log(v.board(s, seat));
+    console.log(`match ${m.id} status=${m.status}`);
+    console.log(v.decision(s, seat));
     save({ ...saved, match: m.id, seen: events.length });
   }
 
@@ -200,7 +131,7 @@ async function main() {
     const res = apply(db, cur.s, cur.m.seat, action);   // throws a RuleError if the action isn't allowed
     const seq = (await online.fetchActions(cur.m.id, cur.m.host, 0)).length;
     await online.sendAction(cur.m.id, seq, action);
-    console.log(res.events.map((e) => `  · ${tr(cur.m.seat, e.text)}`).join("\n"));
+    console.log(view(cur.m.seat).log(res.events));
     const after = await current(load());
     if (after) report({ ...load(), seen: (load().seen ?? 0) + 1 }, after);
   } else if (cmd === "ready") {

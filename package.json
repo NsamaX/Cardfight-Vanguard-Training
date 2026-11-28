@@ -24,7 +24,9 @@
     "chains": "vite-node scripts/chains.ts --",
     "preseat": "npm run content",
     "seat": "node scripts/vite-node.mjs scripts/seat.ts",
-    "sync-defaults": "node --env-file=.env scripts/sync-defaults.mjs"
+    "sync-defaults": "node --env-file=.env scripts/sync-defaults.mjs",
+    "presandbox": "npm run content",
+    "sandbox": "node scripts/vite-node.mjs scripts/sandbox.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.119.0",

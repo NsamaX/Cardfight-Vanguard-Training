@@ -217,6 +217,7 @@ export const ja: Dict = {
   "replay.continue": "再開",
   "replay.saved": "リプレイに保存しました",
   "replay.close": "リプレイを閉じる",
+  "sandbox.waiting": "サンドボックスを待っています（npm run sandbox -- new <scenario>）",
   "tip.power": "{v}",
   "tip.critical": "クリティカル {v}",
   "tip.shield": "シールド {v}",

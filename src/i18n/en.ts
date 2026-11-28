@@ -220,6 +220,7 @@ export const en = {
   "replay.continue": "Resume",
   "replay.saved": "Saved to Replays",
   "replay.close": "Close replay",
+  "sandbox.waiting": "Waiting for the sandbox (npm run sandbox -- new <scenario>)",
   "tip.power": "{v}",
   "tip.critical": "Critical {v}",
   "tip.shield": "Shield {v}",

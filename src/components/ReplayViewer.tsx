@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Deck, PlayerId } from "../engine/types";
 import { useT } from "../i18n/react";
 import type { Timeline } from "../replay/play";
@@ -11,22 +11,30 @@ const PLAY_MS = 700;
 const SPEEDS = [0.5, 1, 2, 4];
 const noop = () => {};
 
-// Step through a past game, see both hands, and continue playing from the step being viewed; another replay can be opened from the menu
-export function ReplayViewer({ tl, decks, settings, library, onContinue, onOpen, onClose }: {
+// Step through a past game, see both hands, and continue playing from the step being viewed; another replay can be opened from the menu.
+// follow: a game still being played (the sandbox): starts at the last step, and new steps are shown as they arrive while viewing the last one
+export function ReplayViewer({ tl, decks, settings, library, onContinue, onOpen, onClose, follow }: {
   tl: Timeline;
   decks: Record<PlayerId, Deck>;
   settings: GameSettings;
   library?: LibraryHandle;
-  onContinue: (step: number) => void;
+  onContinue?: (step: number) => void;
   onOpen?: (src: ReplaySource) => void;
   onClose: () => void;
+  follow?: boolean;
 }) {
   const t = useT();
   const last = tl.states.length - 1;
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(follow ? last : 0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const s = tl.states[step];
+  const lastSeen = useRef(last);
+
+  useEffect(() => {
+    if (follow && step === lastSeen.current) setStep(last);
+    lastSeen.current = last;
+  }, [last]);
 
   useEffect(() => {
     if (!playing) return;
@@ -54,7 +62,7 @@ export function ReplayViewer({ tl, decks, settings, library, onContinue, onOpen,
       <button className="btn" onClick={() => setSpeed(speed + 1)} disabled={speed === SPEEDS.length - 1} title={t("replay.faster")} aria-label={t("replay.faster")}>+</button>
     </div>
   </>;
-  const action = <button className="btn primary" disabled={!!s.winner} onClick={() => onContinue(step)}>{t("replay.continue")}</button>;
+  const action = onContinue && <button className="btn primary" disabled={!!s.winner} onClick={() => onContinue(step)}>{t("replay.continue")}</button>;
 
   return (
     <Board
